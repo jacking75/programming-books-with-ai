@@ -50,11 +50,12 @@ SuperSocketLite는 핵심 코드는 SuperSocket과 동일하지만 기능을 축
   
 이는 네트워크 애플리케이션에서 흔히 사용되는 서버 아키텍처로, 효율적인 클라이언트-서버 통신을 가능하게 한다.  
   
-
-클라이언트 연결부터 요청 처리까지의 흐름:
+<br>  
+  
+**클라이언트 연결부터 요청 처리까지의 흐름**:
 1. 클라이언트 연결 단계:  
 - 여러 클라이언트가 서버에 Connection 요청  
-- Stream Data를 통해 데이터 전송
+- (연결된 이후)Stream Data를 통해 데이터 전송
 
 2. Socket Listener 처리:  
 - 서버의 첫 번째 계층인 Socket Listener가 클라이언트의 연결 요청을 수신  
@@ -80,14 +81,23 @@ SuperSocketLite는 핵심 코드는 SuperSocket과 동일하지만 기능을 축
   
 
 ## 설명 동영상
-YouTube에 내가 만든 설명 영상을 참고하면 학습에 도움이 될 것이다.  
-[.NET Conf 2023 x Seoul Hands-on-Lab: Echo Server](https://www.youtube.com/watch?v=TwMNbxUgMUI&list=PLW_xyUw4fSdZOtyDX5Wf5sKbFMYSH-K3o&index=7&pp=gAQBiAQB)   
-[SuperSocketLite Tutorial - Echo Server 만들기](https://youtu.be/ZgzMuHE43hU?si=G7MEbY-rlRthQLUe)  
-[SuperSocketLite Tutorial - Chat Server 만들기](https://youtu.be/eiwvQ8NV2h8?si=JGel57hb6HbNEuhY)
+YouTube에 내가 만든 설명 영상을 참고하면 학습에 도움이 될 것이다.    
+- [YouTube 재생목록: SuperSocketLite](https://www.youtube.com/watch?v=uGjrPjqGR24&list=PLW_xyUw4fSdb9Em4r0QhgJmH1oN2ZNC90)  
+- [.NET Conf 2023 x Seoul Hands-on-Lab: Echo Server](https://www.youtube.com/watch?v=TwMNbxUgMUI&list=PLW_xyUw4fSdZOtyDX5Wf5sKbFMYSH-K3o&index=7&pp=gAQBiAQB)   
+- [SuperSocketLite Tutorial - Echo Server 만들기](https://youtu.be/ZgzMuHE43hU?si=G7MEbY-rlRthQLUe)  
+- [SuperSocketLite Tutorial - Chat Server 만들기](https://youtu.be/eiwvQ8NV2h8?si=JGel57hb6HbNEuhY)
  
-
-## 사용 방법
+<br>   
   
+## 사용 방법
+1. 라이브러리 참조하기
+    - 프로젝트 참조, DLL 참조, NuGet 중 하나를 선택한다.
+2. SuperSocketLite의 핵식 클래스 상속 받아서 구현하기
+    - AppServer를 상속 받는 클래스를 구현한다.
+    - AppSession를 상속 받는 클래스를 구현한다.
+    - BinaryRequestInfo, FixedHeaderReceiveFilter를 상속 받는 클래스를 구현한다.
+    
+      
 ### 라이브러리 참조하기
 아래 3가지 방법 중에서 선택하면 된다.  
   
@@ -99,7 +109,7 @@ EchoServer.csproj
 ![EchoServer.csproj](./images/004.png)   
     
   
-2. 빌드된 lib 파일 참조하기
+2. 빌드된 lib 파일(DLL) 참조하기
 아래 프로젝트를 참고한다.    
 [EchoServerEx](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/EchoServerEx)   
   
@@ -113,7 +123,7 @@ EchoServerEx.csproj
   
   
   
-### Server 만들기
+### SuperSocketLite의 핵식 클래스 상속 받아서 구현하기
 SuperSocketLite의 AppServer와 AppSession 클래스를 상속한 클래스를 만들어야 한다.    
 - AppSession
     - 서버에 연결된 클라이언트의 네트워크 객체를 가리키는 클래스.   
@@ -123,6 +133,7 @@ SuperSocketLite의 AppServer와 AppSession 클래스를 상속한 클래스를 �
     - 네트워크 서버 클래스. 모든 AppSession 객체를 관리한다.   
     - SuperSocket의 몸통이다.
   
+#### AppServer    
 아래는 AppServer를 상속하여 만든 BoardServerNet 클래스의 예이다.
 **NetworkSession** 은 AppSession 클래스를 상속한 클래스이다.  
 **EFBinaryRequestInfo** 은 클라이언트에서 보낸 데이터를 가지고 있는 클래스이다. 자세한 설명은 뒤에 하겠다.
@@ -137,7 +148,7 @@ public class NetworkSession : AppSession<NetworkSession, EFBinaryRequestInfo>
 {
 }
 ```  
-      
+       
     
 BoardServerNet 클래스에 네트워크 이벤트(연결, 끊어짐, 데이터 수신)가 발생했을 때 호출될 함수를 등록한다.  
 ```
@@ -165,8 +176,9 @@ private void RequestReceived(NetworkSession session, EFBinaryRequestInfo reqInfo
 }
 ```  
   
-  
-위에서 정의한 BoardServerNet을 사용하기 위해서 설정 값을 입력으로 하여 Setup 함수를 호출한다.  
+ <br>       
+
+위에서 정의한 BoardServerNet 클래스를 사용하기 위해 네트워크 옵션을 정의하고, Setup 함수에서 사용한다.  
 ```
 void InitConfig()
 {
@@ -184,9 +196,9 @@ void CreateServer()
 {
       m_Server = new BoardServerNet();
       bool bResult = m_Server.Setup(new RootConfig(), 
-                                                         m_Config, 
-                                logFactory: new Log4NetLogFactory()
-                                );
+                                    m_Config, 
+                                    logFactory: new Log4NetLogFactory()
+                                    );
 
       if (bResult == false)
       {
@@ -209,35 +221,6 @@ if (! m_Server.Start())
 // 네트워크 중지
 m_Server.Stop();
 ```  
-
-
-**AppSession 기능 확장**  
-```
-public class TelnetSession : AppSession<TelnetSession>
-{
-    protected override void OnSessionStarted()
-    {
-        this.Send("Welcome to SuperSocket Telnet Server");
-    }
-
-    protected override void HandleUnknownRequest(StringRequestInfo requestInfo)
-    {
-        this.Send("Unknow request");
-    }
-
-    protected override void HandleException(Exception e)
-    {
-        this.Send("Application error: {0}", e.Message);
-    }
-
-    protected override void OnSessionClosed(CloseReason reason)
-    {
-        //add you logics which will be executed after the session is closed
-        base.OnSessionClosed(reason);
-    }
-}
-```  
-   
   
 **네트워크 옵션 파라미터**    
 루트 설정(모든 서버 네트워크에 적용)에 사용하는 파리미터 **IRootConfig**  
@@ -284,10 +267,41 @@ IServerconfig
 * disableSessionSnapshot: Indicate whether disable session snapshot, default value is false. 세션 수 기록  
 * sessionSnapshotInterval: The interval of taking session snapshot, default value is 5, in seconds;  
 * keepAliveTime: The interval of keeping alive, default value is 600, in seconds;  
-* keepAliveInterval: The interval of retry after keep alive fail, default value is 60, in seconds;
+* keepAliveInterval: The interval of retry after keep alive fail, default value is 60, in seconds;  
   
 
-**AppSession 다루기**  
+#### AppSession 
+  
+##### AppSession 기능 확장
+  
+```
+public class TelnetSession : AppSession<TelnetSession>
+{
+    protected override void OnSessionStarted()
+    {
+        this.Send("Welcome to SuperSocket Telnet Server");
+    }
+
+    protected override void HandleUnknownRequest(StringRequestInfo requestInfo)
+    {
+        this.Send("Unknow request");
+    }
+
+    protected override void HandleException(Exception e)
+    {
+        this.Send("Application error: {0}", e.Message);
+    }
+
+    protected override void OnSessionClosed(CloseReason reason)
+    {
+        //add you logics which will be executed after the session is closed
+        base.OnSessionClosed(reason);
+    }
+}
+```  
+
+
+##### AppSession 다루기
 데이터 보내기  
 ```
 session.Send(data, 0, data.Length);
@@ -305,7 +319,8 @@ if(session != null)
   
 sessionID는 AppSession 객체를 생성할 때 GUID를 string으로 할당한다.     
 UDP의 경우 UdpRequestInfo를 사용하면 GUID로 만들고, 아니면 리모트의 IP와 Port로 만든다.  
-  
+    
+
 연결된 모든 세션에 메시지 보내기  
 ```
 foreach(var session in appServer.GetAllSessions())
@@ -326,8 +341,11 @@ foreach(var s in sessions)
 ```  
     
     
-**Custome 프로토콜 정의(binary 기반)**    
-SuperSocketLite 에서는 binary 기반의 프로토콜을 정의해서 사용하는 것만을 주로 고려하고 있다.   
+#### Custome 프로토콜 정의(binary 기반)
+SuperSocketLite 에서는 binary 기반의 프로토콜을 정의해서 사용하는 것만을 주로 고려하고 있다.    
+  
+`EFBinaryRequestInfo` 클래스는 접속된 클라이언트 보낸 데이터(패킷)을 가지고 있는 클래스라고 생각하면 된다.
+`ReceiveFilter` 클래스는 SuperSocketLite에게 클라이언트 보낸 데이터를 어떻게 패킷으로 만들어주는 클래스라고 생각하면 된다. 클라이언트가 보낸 패킷은 **헤더 + 보디**로 이루어졌다고 가정하고 헤더가 어느 부분이고, 보디가 어디인지를 정의해서 `EFBinaryRequestInfo` 객체를 만든다.     
   
 ```
 /// <summary>
