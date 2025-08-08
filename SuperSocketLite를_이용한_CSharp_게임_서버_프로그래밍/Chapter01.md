@@ -1,4 +1,4 @@
-# SuperSocketLite를 이용한 C# 네트워크 프로그래밍
+# SuperSocketLite를 이용한 C# 게임 서버 프로그래밍
     
 저자: 최흥배, Claude AI  
   
