@@ -372,6 +372,7 @@ private void RequestReceived(NetworkSession session, EFBinaryRequestInfo reqInfo
 4.  `session.Send(...)`: 생성된 응답 패킷을 데이터를 보냈던 바로 그 클라이언트(`session`)에게 다시 전송합니다. 이것이 "Echo(메아리)" 기능이다.
       
   
+
 ## NetworkSession 클래스 정의   
 파일: MainServer.cs      
 ```
@@ -502,26 +503,45 @@ class Program
 {
     static void Main(string[] args)
     {
-         var server = new EchoServer();
-         server.Setup(2000);  // 포트 2000으로 설정
+        Console.WriteLine("Hello SuperSocketLite");
 
-         if (!server.Start())
-         {
-             Console.WriteLine("Failed to start server");
-             return;
-         }
+        var serverOption = new ServerOption
+        {
+            Port = 32452,
+            MaxConnectionNumber = 32,
+            Name = "EchoServer"
+        };
 
-         Console.WriteLine("Server started. Press any key to stop.");
-         Console.ReadKey();
+        // 서버를 생성하고 초기화한다.
+        var server = new MainServer();
+        server.InitConfig(serverOption);
+        server.CreateServer();
 
-         server.Stop();
+        // 서버를 시작한다.
+        var IsResult = server.Start();
+
+        if (IsResult)
+        {
+            MainServer.s_MainLogger.Info("서버 네트워크 시작");
+        }
+        else
+        {
+            Console.WriteLine("서버 네트워크 시작 실패");
+            return;
+        }
+                    
+
+        Console.WriteLine("key를 누르면 종료한다....");
+        Console.ReadKey();
+
+        server.Destory();
      }
 }
 ```   
       
     
 ## 주요 포인트
-* SuperSocketLite의 AppServer를 상속받아 EchoServer 클래스를 구현한다.  
+* SuperSocketLite의 AppServer를 상속받아 MainServer 클래스를 구현한다.  
 * NetworkSession은 클라이언트 연결을 나타낸다.  
 * ReceiveFilter는 네트워크로 받은 데이터를 우리가 정의한 패킷 구조 맞게 파싱하는 역할을 한다.  
 * EFBinaryRequestInfo는 파싱된 데이터를 담는다.  
@@ -534,7 +554,8 @@ EchoServer를 테스트 할 때는 아래 클라이언트를 사용한다
 [SuperSocketLite Tutorials - EchoClient](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/EchoClient)    
 WinForm으로 만든 클라이언트로 Windows 에서만 사용할 수 있다.  
   
-
+  
+  
 ## 참고 
   
 ### SuperSocketLite를 사용한 서버 프로그램의 흐름 

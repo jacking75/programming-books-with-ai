@@ -222,52 +222,53 @@ if (! m_Server.Start())
 m_Server.Stop();
 ```  
   
-**네트워크 옵션 파라미터**    
-루트 설정(모든 서버 네트워크에 적용)에 사용하는 파리미터 **IRootConfig**  
-* maxWorkingThreads: maximum working threads count of .NET thread pool;  
-* minWorkingThreads: minimum working threads count of .NET thread pool;  
-* maxCompletionPortThreads: maximum completion threads count of .NET thread pool;  
-* minCompletionPortThreads: minimum completion threads count of .NET thread pool;  
-* disablePerformanceDataCollector: whether disable performance data collector;  
-* performanceDataCollectInterval: performance data collecting interval (in seconds, default value: 60);  
-* isolation: SuperSocket instances isolation level  
-      None - no isolation  
-     AppDomain - server instances will be isolated by AppDomains  
-     Process - server instances will be isolated by processes  
-* logFactory: the name of default logFactory, all log factories are defined in the child node "logFactories" which will be introduced in following documentation;  
-* defaultCulture: default thread culture for the global application, only available in .Net 4.5;
   
-
-**서버 인스턴스 옵션 파라미터**           
-IServerconfig
-* name: the name of the server instance;  
-* serverType: the full name the AppServer's type which you want to run;  
-* serverTypeName: the name of the selected server types, all server types should be defined in serverTypes node which will be introduced in following documentation;  
-* ip: the ip of the server instance listens. You can set an exact ip, you also can set the below values Any - all IPv4 address IPv6Any - all IPv6 address  
-* port: the port of the server instance listens;  
-* listenBacklog: the listen back log size;  
-* mode: the socket server's running mode, Tcp (default) or Udp;  
-* disabled: whether the server instance is disabled;  
-* startupOrder: the server instance start order, the bootstrap will start all server instances order by this value;  
-* sendTimeOut: sending data timeout;  
-* sendingQueueSize: the sending queue's maximum size;  
-* maxConnectionNumber: maximum connection number the server instance allow to connect at the same time;  
-* receiveBufferSize: receiving buffer size; 세션당  
-* sendBufferSize: sending buffer size;  세션당  
-* syncSend: sending data in sync mode, default value: false;  
-* logCommand: whether log command execution record;  
-* logBasicSessionActivity: whether log the session's basic activities like connected and closed;  
-* clearIdleSession: true or false, whether clear idle sessions, default value is false;  
-* clearIdleSessionInterval: the clearing timeout idle session interval, default value is 120, in seconds;  
-* idleSessionTimeOut: The session timeout period. Default value is 300, in seconds;  
-* security: Empty, Tls, Ssl3. The security option of the socket server, default value is empty;  
-* maxRequestLength: The maximum allowed request length, default value is 1024;  
-* textEncoding: The default text encoding in the server instance, default value is ASCII;  
-* defaultCulture: default thread culture for this appserver instance, only available in .Net 4.5 and cannot be set if the isolation model is 'None';  
-* disableSessionSnapshot: Indicate whether disable session snapshot, default value is false. 세션 수 기록  
-* sessionSnapshotInterval: The interval of taking session snapshot, default value is 5, in seconds;  
-* keepAliveTime: The interval of keeping alive, default value is 600, in seconds;  
-* keepAliveInterval: The interval of retry after keep alive fail, default value is 60, in seconds;  
+##### 네트워크 옵션 파라미터    
+루트 설정(모든 서버 네트워크에 적용)에 사용하는 파리미터 **IRootConfig**    
+* maxWorkingThreads: .NET 스레드 풀의 최대 작업 스레드 수
+* minWorkingThreads: .NET 스레드 풀의 최소 작업 스레드 수
+* maxCompletionPortThreads: .NET 스레드 풀의 최대 완료 스레드 수
+* minCompletionPortThreads: .NET 스레드 풀의 최소 완료 스레드 수
+* disablePerformanceDataCollector: 성능 데이터 수집기 비활성화 여부
+* performanceDataCollectInterval: 성능 데이터 수집 간격 (초 단위, 기본값: 60)
+* isolation: SuperSocket 인스턴스 격리 수준
+    - None - 격리 없음
+    - AppDomain - 서버 인스턴스가 AppDomain으로 격리됨
+    - Process - 서버 인스턴스가 프로세스로 격리됨
+* logFactory: 기본 logFactory의 이름, 모든 로그 팩토리는 하위 노드인 "logFactories"에서 정의되며 이는 후속 문서에서 소개될 예정
+* defaultCulture: 전역 애플리케이션의 기본 스레드 문화권, .NET 4.5에서만 사용 가능
+    
+  
+##### 서버 인스턴스 옵션 파라미터           
+IServerconfig    
+* name: 서버 인스턴스의 이름
+* serverType: 실행하려는 AppServer 타입의 전체 이름
+* serverTypeName: 선택된 서버 타입의 이름, 모든 서버 타입은 후속 문서에서 소개될 serverTypes 노드에서 정의되어야 함
+* ip: 서버 인스턴스가 수신하는 IP. 정확한 IP를 설정하거나 다음 값들을 설정할 수 있음: Any - 모든 IPv4 주소, IPv6Any - 모든 IPv6 주소
+* port: 서버 인스턴스가 수신하는 포트
+* listenBacklog: 수신 백로그 크기
+* mode: 소켓 서버의 실행 모드, Tcp (기본값) 또는 Udp
+* disabled: 서버 인스턴스 비활성화 여부
+* startupOrder: 서버 인스턴스 시작 순서, 부트스트랩은 이 값에 따라 모든 서버 인스턴스를 순서대로 시작함
+* sendTimeOut: 데이터 전송 시간 초과
+* sendingQueueSize: 전송 큐의 최대 크기
+* maxConnectionNumber: 서버 인스턴스가 동시에 허용하는 최대 연결 수
+* receiveBufferSize: 수신 버퍼 크기 (세션당)
+* sendBufferSize: 전송 버퍼 크기 (세션당)
+* syncSend: 동기 모드로 데이터 전송, 기본값: false
+* logCommand: 명령 실행 기록 로그 여부
+* logBasicSessionActivity: 연결 및 종료와 같은 세션의 기본 활동 로그 여부
+* clearIdleSession: 유휴 세션 정리 여부 (true 또는 false), 기본값은 false
+* clearIdleSessionInterval: 유휴 세션 정리 간격 (기본값: 120초)
+* idleSessionTimeOut: 세션 시간 초과 기간 (기본값: 300초)
+* security: Empty, Tls, Ssl3. 소켓 서버의 보안 옵션, 기본값은 empty
+* maxRequestLength: 허용되는 최대 요청 길이, 기본값은 1024
+* textEncoding: 서버 인스턴스의 기본 텍스트 인코딩, 기본값은 ASCII
+* defaultCulture: 이 앱서버 인스턴스의 기본 스레드 문화권, .NET 4.5에서만 사용 가능하며 격리 모델이 'None'인 경우 설정할 수 없음
+* disableSessionSnapshot: 세션 스냅샷 비활성화 여부 표시, 기본값은 false (세션 수 기록)
+* sessionSnapshotInterval: 세션 스냅샷 생성 간격, 기본값은 5초
+* keepAliveTime: 연결 유지 간격, 기본값은 600초
+* keepAliveInterval: 연결 유지 실패 후 재시도 간격, 기본값은 60초
   
 
 #### AppSession 
