@@ -67,9 +67,9 @@ graph TD
     D --"방 입장/퇴장 내부 처리 요청"--> E
     E --"방 관련 처리 결과 반환"--> D
     
-    style D fill:#f9f,stroke:#333,stroke-width:2px
-    style E fill:#9cf,stroke:#333,stroke-width:2px
-    style F fill:#9f9,stroke:#333,stroke-width:2px
+    style D fill:#2c3e50,stroke:#34495e,stroke-width:2px,color:#fff
+    style E fill:#8e44ad,stroke:#9b59b6,stroke-width:2px,color:#fff
+    style F fill:#27ae60,stroke:#2ecc71,stroke-width:2px,color:#fff
 
 ```
 
@@ -85,7 +85,90 @@ graph TD
       * **DB Processors (DB 전용 처리)**: `Common Processor`가 로그인 요청을 처리하다가 사용자 인증 정보가 필요해지면, 직접 DB에 접근하지 않고 `DB Processor`에게 "이 사용자 정보 좀 조회해줘" 와 같은 DB 작업을 요청한다. `DB Processor`는 이 작업만 처리하고 결과를 다시 `Common Processor`에게 돌려준다.
 
 이처럼 각기 다른 역할을 하는 스레드들이 작업을 나눠서 병렬로 처리하기 때문에, `ChatServerEx`는 단일 스레드 구조인 `ChatServer`에 비해 훨씬 높은 성능과 안정성을 가질 수 있다. 
- 
+  
+
+#### 스레드 별로 관리하는 Room 객체를 할당
+PacketDistributor 클래스의 Create 함수   
+```
+public ErrorCode Create(MainServer mainServer)
+{
+    var roomThreadCount = MainServer.s_ServerOption.RoomThreadCount;
+    
+    Room.NetSendFunc = mainServer.SendData;
+
+    SessionManager.CreateSession(ClientSession.s_MaxSessionCount);
+
+    RoomMgr.CreateRooms();
+
+    CommonPacketProcessor = new PacketProcessor();
+    CommonPacketProcessor.CreateAndStart(true, null, mainServer, SessionManager);
+                
+    for (int i = 0; i < roomThreadCount; ++i)
+    {
+        var packetProcess = new PacketProcessor();
+        packetProcess.CreateAndStart(false, RoomMgr.GetRoomList(i), mainServer, SessionManager);
+        PacketProcessorList.Add(packetProcess);
+    }
+
+    DBWorker.MainLogger = MainServer.s_MainLogger;
+    var error = DBWorker.CreateAndStart(MainServer.s_ServerOption.DBWorkerThreadCount, DistributeDBJobResult, MainServer.s_ServerOption.RedisAddres);
+    if (error != ErrorCode.None)
+    {
+        return error;
+    }
+
+    return ErrorCode.None;
+}
+```  
+   
+다음은 `PacketDistributor` 클래스의 `Create` 함수에서 각 스레드가 관리하는 `Room` 객체를 할당하는 과정을 나타낸 mermaid 다이어그램입니다.
+
+```mermaid
+graph TD
+    A[PacketDistributor.Create 시작] --> B[RoomMgr.CreateRooms 호출]
+    
+    subgraph Room_Creation["Room 생성 및 할당"]
+        B --> C[RoomThreadCount만큼 List Room을 요소로 가지는 roomsList 생성]
+        C --> D[설정된 전체 Room 개수만큼 Room 객체 생성]
+        D --> E[각 Room 객체를 인덱스에 따라 roomsList의 알맞은 List Room에 추가]
+    end
+    
+    B --> F[루프 시작 - 0부터 RoomThreadCount-1 까지]
+    
+    subgraph PacketProcessor_Creation["PacketProcessor 생성 및 Room 할당"]
+        F --> G[새로운 PacketProcessor 인스턴스 생성]
+        G --> H[RoomMgr.GetRoomList i 를 호출하여 i번째 List Room을 가져옴]
+        H --> I[가져온 Room 리스트를 인자로 하여 PacketProcessor.CreateAndStart 호출]
+        I --> J[생성된 PacketProcessor를 PacketProcessorList에 추가]
+    end
+    
+    J --> F
+    F --> K[루프 종료]
+    K --> L[DBProcessor 생성 및 시작]
+    
+    style A fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    style B fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    style F fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+    style K fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
+    style L fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
+```
+
+##### 다이어그램 설명
+1.  **Room 생성 및 할당 (RoomManager.CreateRooms)**
+
+      * `PacketDistributor`의 `Create` 함수가 호출되면 먼저 `RoomManager`의 `CreateRooms` 함수를 실행합니다.
+      * 서버 옵션에 설정된 `RoomThreadCount` 개수만큼의 `List<Room>`을 생성하여 `_roomsList`에 추가합니다.
+      * 마찬가지로 옵션에 따라 필요한 전체 `Room` 객체들을 생성합니다.
+      * 생성된 각 `Room` 객체들은 순서에 따라 `_roomsList`에 있는 각각의 `List<Room>`에 분배되어 할당됩니다.
+
+2.  **PacketProcessor 생성 및 Room 할당**
+
+      * `RoomThreadCount` 만큼 반복하는 루프를 실행합니다.
+      * 루프의 각 단계에서 새로운 `PacketProcessor` 객체를 생성합니다.
+      * `RoomManager`에서 현재 루프 인덱스(i)에 해당하는 `List<Room>`을 가져옵니다.
+      * 이 `List<Room>`을 인자로 하여 `PacketProcessor`의 `CreateAndStart` 함수를 호출함으로써, 해당 `PacketProcessor`가 특정 `Room`들의 처리를 담당하도록 합니다.
+      * 마지막으로, 생성 및 설정이 완료된 `PacketProcessor`를 `PacketProcessorList`에 추가하여 관리합니다.   
+
 
 ### 2. 데이터베이스 연동: 없음 vs Redis 연동
 * **ChatServer (DB 없음)**:
@@ -228,7 +311,7 @@ public void Distribute(ServerPacketData requestPacket)
 
 ### 코드 흐름 Mermaid 다이어그램
 `Distribute` 함수의 내부 로직 흐름을 나타내는 다이어그램은 다음과 같다.  
-  
+   
 ```mermaid
 flowchart TD
     A[Start: Distribute packet] --> B{클라이언트 요청인가?<br/>IsClientRequestPacket?}
@@ -240,17 +323,17 @@ flowchart TD
     G --> H[DistributeRoomProcessor 호출]
     H --> I[담당 Room Processor<br/>큐에 추가]
     
-    classDef startEnd fill:#e1f5fe
-    classDef decision fill:#fff3e0
-    classDef process fill:#f3e5f5
-    classDef queue fill:#e8f5e8
+    classDef startEnd fill:#2c3e50,stroke:#34495e,stroke-width:2px,color:#fff
+    classDef decision fill:#e67e22,stroke:#d35400,stroke-width:2px,color:#fff
+    classDef process fill:#8e44ad,stroke:#9b59b6,stroke-width:2px,color:#fff
+    classDef queue fill:#27ae60,stroke:#2ecc71,stroke-width:2px,color:#fff
     
     class A,C startEnd
     class B,D decision
     class E,G,H process
     class F,I queue
-```  
-    
+```
+      
 ### 주요 처리 단계
 1. OnPacketReceived
 * 세션과 요청 정보를 받아서 ServerPacketData 생성
@@ -313,61 +396,65 @@ graph LR
         A[클라이언트]
     end
 
-    subgraph Network & Distribution
+    subgraph Network_Distribution["Network & Distribution"]
         direction TB
-        B[MainServer] --> C(PacketDistributor);
+        B[MainServer] --> C(PacketDistributor)
     end
     
-    subgraph "Logic & Coordination Thread"
+    subgraph Logic_Coordination["Logic & Coordination Thread"]
         direction TB
         D("
-            <b>Common Processor (1개)</b><br/>
+            Common Processor 1개<br/>
             - 로그인, 방 입장 요청 처리<br/>
             - 스레드 간 작업 조율
         ")
     end
 
-    subgraph "Dedicated Room-Logic Threads"
+    subgraph Dedicated_Room["Dedicated Room-Logic Threads"]
         direction TB
         E("
-            <b>Room Processors (N개)</b><br/>
+            Room Processors N개<br/>
             - 각 스레드가 방 그룹 전담<br/>
             - 채팅, 방 퇴장 등 처리
         ")
     end
 
-    subgraph "Dedicated DB I/O Threads"
+    subgraph Dedicated_DB["Dedicated DB I/O Threads"]
         direction TB
         F("
-            <b>DB Processors (N개)</b><br/>
+            DB Processors N개<br/>
             - Redis 조회/저장 등<br/>
             - 블로킹 I/O 작업 전담
         ")
     end
 
-    A -- "패킷 전송 (TCP/IP)" --> B;
+    A -- "패킷 전송 (TCP/IP)" --> B
     
-    C -- "로그인/방생성 요청<br/>(Distribute)" --> D;
-    C -- "방 내부 패킷<br/>(채팅/퇴장 등)" --> E;
+    C -- "로그인/방생성 요청<br/>(Distribute)" --> D
+    C -- "방 내부 패킷<br/>(채팅/퇴장 등)" --> E
     
-    D -- "DB 작업 요청<br/>(인증 토큰 조회 등)" --> F;
-    F -- "DB 처리 결과 반환" --> D;
+    D -- "DB 작업 요청<br/>(인증 토큰 조회 등)" --> F
+    F -- "DB 처리 결과 반환" --> D
     
-    D -- "방 입장 처리 요청<br/>(내부 패킷)" --> E;
-    E -- "방 입장 결과 반환<br/>(내부 패킷)" --> D;
+    D -- "방 입장 처리 요청<br/>(내부 패킷)" --> E
+    E -- "방 입장 결과 반환<br/>(내부 패킷)" --> D
 
-    linkStyle 0 stroke-width:2px,fill:none,stroke:black;
-    linkStyle 1 stroke-width:1.5px,fill:none,stroke:blue;
-    linkStyle 2 stroke-width:1.5px,fill:none,stroke:blue;
-    linkStyle 3 stroke-width:1.5px,fill:none,stroke:green;
-    linkStyle 4 stroke-width:1.5px,fill:none,stroke:green;
-    linkStyle 5 stroke-width:1.5px,fill:none,stroke:orange;
-    linkStyle 6 stroke-width:1.5px,fill:none,stroke:orange;
+    linkStyle 0 stroke-width:2px,fill:none,stroke:black
+    linkStyle 1 stroke-width:1.5px,fill:none,stroke:blue
+    linkStyle 2 stroke-width:1.5px,fill:none,stroke:blue
+    linkStyle 3 stroke-width:1.5px,fill:none,stroke:green
+    linkStyle 4 stroke-width:1.5px,fill:none,stroke:green
+    linkStyle 5 stroke-width:1.5px,fill:none,stroke:orange
+    linkStyle 6 stroke-width:1.5px,fill:none,stroke:orange
 
-    style D fill:#f9f,stroke:#333
-    style E fill:#9cf,stroke:#333
-    style F fill:#9f9,stroke:#333
+    style A fill:#34495e,stroke:#2c3e50,stroke-width:2px,color:#fff
+    style B fill:#34495e,stroke:#2c3e50,stroke-width:2px,color:#fff
+    style C fill:#34495e,stroke:#2c3e50,stroke-width:2px,color:#fff
+    style D fill:#8e44ad,stroke:#9b59b6,stroke-width:2px,color:#fff
+    style E fill:#e67e22,stroke:#d35400,stroke-width:2px,color:#fff
+    style F fill:#27ae60,stroke:#2ecc71,stroke-width:2px,color:#fff
 ```
+  
 
 ## PacketDistributor, PacketProcessor
 
@@ -458,11 +545,9 @@ sequenceDiagram
   
     
 ### PacketDistributor 클래스 개요
-
 `PacketDistributor` 클래스는 `ChatServerEx` 아키텍처의 가장 핵심적인 **중앙 관제 센터(Control Tower)이자 총괄 지휘관**이다. `MainServer`가 클라이언트로부터 패킷을 수신하면, 이 클래스는 해당 패킷의 종류를 분석하여 **Common Processor, Room Processor, DB Processor** 등 어떤 전문 처리 스레드 그룹에게 작업을 분배할지 결정하고 전달하는 역할을 전담한다. 이를 통해 복잡한 멀티스레드 환경의 작업 흐름을 일관되게 관리하고 제어한다.
 
 ### 멤버 변수
-
   * `ConnectSessionManager SessionManager`: 클라이언트 세션의 상태(로그인 여부, 속한 방 번호 등)를 관리하는 객체다.
   * `PacketProcessor CommonPacketProcessor`: 공통 기능(로그인, 방 입장 요청 등)을 처리하는 단일 스레드 프로세서 객체다.
   * `List<PacketProcessor> PacketProcessorList`: 방 관련 기능(채팅 등)을 처리하는 다중 스레드 프로세서 객체들의 리스트다.
@@ -510,7 +595,6 @@ public ErrorCode Create(MainServer mainServer)
 5.  Redis와 통신하며 DB 작업을 처리할 `DBWorker`를 생성하고 관련 스레드들을 시작시킨다.
 
 #### `Destory()`
-
 서버를 종료할 때 모든 스레드를 안전하게 중지시키는 함수다.
 
 ```csharp
@@ -524,9 +608,9 @@ public void Destory()
 ```
 
   * `DBWorker`, `CommonPacketProcessor`, 그리고 `PacketProcessorList`에 있는 모든 Room Processor들의 `Destory()` 메서드를 순차적으로 호출하여, 각 스레드가 정상적으로 종료되도록 한다.
+  
 
 #### `Distribute(ServerPacketData requestPacket)`
-
 `MainServer`로부터 패킷을 받아 어떤 프로세서에게 전달할지 결정하는 가장 핵심적인 라우팅 함수다.
 
 ```csharp
@@ -555,7 +639,6 @@ public void Distribute(ServerPacketData requestPacket)
 4.  공용 패킷이 아니라면 방 내부 패킷(채팅 등)으로 간주하고, `SessionManager`에서 유저의 방 번호를 조회한 뒤 `DistributeRoomProcessor`를 호출하여 해당 방을 담당하는 `Room Processor`에게 작업을 넘긴다.
 
 #### `DistributeCommon(bool isClientPacket, ServerPacketData requestPacket)`
-
 패킷을 `CommonPacketProcessor`의 처리 큐에 넣는 함수다.
 
 ```csharp
@@ -568,7 +651,6 @@ public void DistributeCommon(bool isClientPacket, ServerPacketData requestPacket
   * `CommonPacketProcessor`의 `InsertMsg` 메서드를 호출하여, 해당 프로세서의 `BufferBlock` 큐에 패킷을 추가한다.
 
 #### `DistributeRoomProcessor(bool isClientPacket, bool isPreRoomEnter, int roomNumber, ServerPacketData requestPacket)`
-
 패킷을 담당 `Room Processor`의 처리 큐에 넣는 함수다.
 
 ```csharp

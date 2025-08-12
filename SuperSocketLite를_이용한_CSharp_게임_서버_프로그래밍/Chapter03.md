@@ -131,6 +131,7 @@ ChatServer/
 
 - 서버 설정을 위한 명령줄 옵션을 정의한다.  
 - CommandLine 라이브러리를 사용하여 옵션을 파싱한다.  
+    - [NuGet](https://www.nuget.org/packages/nuget.commandline )
 
 ```
 using CommandLine;
@@ -173,6 +174,69 @@ public class ChatServerOption
 }
 ```    
    
+
+## ChatServer의 스레드 사용 구조
+
+```mermaid
+graph TD
+    subgraph Main_Thread["Main Thread"]
+        A[Program.cs Main] --> B[Create and Start MainServer]
+        B --> C[Wait for q to quit]
+    end
+    
+    subgraph SuperSocket_IO["SuperSocket IO Threads"]
+        D[Client Connection] --> E[OnConnected]
+        F[Client Disconnection] --> G[OnClosed]
+        H[Client Packet] --> I[OnPacketReceived]
+        E --> J[Create Internal Packet]
+        G --> J
+        I --> J
+        J --> K[Distribute Packet]
+        L[Send Data to Client]
+    end
+    
+    subgraph Packet_Processing["Packet Processing Thread"]
+        M(BufferBlock ServerPacketData) --> N[PacketProcessor Process]
+        N --> O[Packet Handler]
+        O --> P[Process Logic - Login, Room Enter/Leave, Chat]
+        P --> L
+    end
+    
+    K --> M
+    
+    style A fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    style C fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    style D fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    style F fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    style H fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    style M fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
+    style N fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
+```
+
+### 다이어그램 설명
+이 다이어그램은 `ChatServer`의 세 가지 주요 스레드 그룹과 그 상호 작용을 보여준다.
+
+1.  **Main Thread (보라색)**
+
+      * 애플리케이션의 시작점입니다 (`Program.cs`의 `Main` 함수).
+      * `MainServer` 객체를 생성하고 시작하는 역할을 한다.
+      * 서버가 실행되는 동안 'q' 키 입력을 기다리며 대기한다.
+
+2.  **SuperSocket IO Threads (파란색)**
+
+      * 네트워킹 라이브러리인 `SuperSocketLite`에 의해 관리되는 스레드 풀이다.
+      * 클라이언트의 연결, 연결 해제, 데이터 수신과 같은 I/O 작업을 비동기적으로 처리한다.
+      * 클라이언트로부터 패킷이 수신되면(`OnPacketReceived`), 이 스레드는 해당 패킷을 `PacketProcessor`에 전달(`Distribute`)한다.
+      * 클라이언트에게 데이터를 보낼 때도 이 스레드가 사용된다.
+
+3.  **Packet Processing Thread (연보라색)**
+
+      * `PacketProcessor` 클래스 내에서 생성되는 별도의 **단일 스레드**이다.
+      * `BufferBlock`이라는 큐에 쌓인 패킷들을 순차적으로 가져와 처리한다.
+      * 로그인, 채팅, 채팅방 입장/퇴장과 같은 **핵심적인 게임 로직**이 모두 이 스레드에서 순서대로 안전하게 처리된다. 이를 통해 여러 스레드가 동시에 데이터에 접근할 때 발생할 수 있는 복잡한 동시성 문제를 방지한다.
+      * 로직 처리 후 클라이언트에게 응답을 보내야 할 경우, `SuperSocket IO Thread`에 데이터 전송을 요청한다.
+
+  
 
 ## MainServer 클래스
 파일: MainServer.cs  
@@ -590,6 +654,70 @@ sequenceDiagram
 `PacketProcessor` 클래스는 클라이언트로부터 받은 패킷을 실질적으로 처리하는 핵심 클래스다. SuperSocketLite 라이브러리가 클라이언트로부터 패킷을 수신하면, `MainServer`는 이 패킷을 `PacketProcessor`의 처리 큐(`_packetBuffer`)에 추가한다. `PacketProcessor`는 별도의 스레드를 사용하여 이 큐에서 패킷을 하나씩 꺼내어 미리 등록된 핸들러 함수에 전달하고 실행하는 역할을 한다.
 
 이러한 구조는 네트워크 패킷 수신부와 실제 로직 처리부를 분리하여, 특정 패킷 처리가 지연되더라도 전체 네트워크 성능에 미치는 영향을 최소화하는 장점이 있다.
+
+<pre>
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           PacketProcessor 아키텍처                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+   클라이언트                SuperSocketLite               MainServer
+        │                         │                          │
+        │      패킷 전송           │                          │
+        ├───────────────────────► │                          │
+        │                         │        패킷 수신          │
+        │                         ├─────────────────────────►│
+        │                         │                          │
+        │                         │                          ▼  큐에 추가
+        │                         │                 ┌──────────────────┐
+        │                         │                 │   _packetBuffer  │
+        │                         │                 │    (처리 큐)      │
+        │                         │                 ┤   ┌────────────┐ │
+        │                         │                 │   │  Packet 1  │ │
+        │                         │                 │   ├────────────┤ │
+        │                         │                 │   │  Packet 2  │ │
+        │                         │                 │   ├────────────┤ │
+        │                         │                 │   │  Packet 3  │ │
+        │                         │                 │   └────────────┘ │
+        │                         │                 └──────────────────┘
+        │                         │                          │
+        │                         │                          │ 패킷을 하나씩 
+        │                         │                          │ 꺼내어 처리
+        │                         │                          ▼
+        │                         │                 ┌──────────────────┐
+        │                         │                 │ PacketProcessor  │
+        │                         │                 │   별도 스레드      │
+        │                         │                 │                  │
+        │                         │                 │ ┌──────────────┐ │
+        │                         │                 │ │ 핸들러 함수들  │ │
+        │                         │                 │ │              │ │
+        │                         │                 │ │ LoginHandler │ │
+        │                         │                 │ │ ChatHandler  │ │
+        │                         │                 │ │ RoomHandler  │ │
+        │                         │                 │ │     ...      │ │
+        │                         │                 │ └──────────────┘ │
+        │                         │                 └──────────────────┘
+        │                         │                          │
+        │      응답 전송           │◄─────────────────────────┤
+        │◄────────────────────────┤                          │
+        │                         │                          │
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                장점                                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  🔹 네트워크 수신부 ↔ 로직 처리부 분리                                           │
+│  🔹 패킷 처리 지연이 전체 네트워크 성능에 미치는 영향 최소화                        │
+│  🔹 비동기 처리로 인한 높은 처리량 달성                                          │
+│  🔹 큐 기반 버퍼링으로 트래픽 급증 시에도 안정적 처리                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+        Network Thread                    Processing Thread
+             │                                   │
+    ┌─────────────────┐                 ┌─────────────────┐
+    │  Fast Response  │                 │ Heavy Logic     │
+    │  Low Latency    │                 │ Can Take Time   │
+    └─────────────────┘                 └─────────────────┘
+</pre>
+  
 
 ### 멤버 변수
 
@@ -1060,7 +1188,7 @@ public void CreateRooms()
 {
     // 1. 서버 옵션에서 방 생성에 필요한 정보를 가져온다.
     var maxRoomCount = MainServer.s_ServerOption.RoomMaxCount;
-    var startNumber = MainServer.s_ServerOption.RoomStartNumber;
+    var startNumber = MainServer.s_ServerOption.RoomStartNumber; // 게임 서버가 N개일 때 각 방에 고유 번호를 할당하기 위한 것이다
     var maxUserCount = MainServer.s_ServerOption.RoomMaxUserCount;
 
     // 2. 설정된 방의 개수만큼 반복하여 방을 생성한다.
