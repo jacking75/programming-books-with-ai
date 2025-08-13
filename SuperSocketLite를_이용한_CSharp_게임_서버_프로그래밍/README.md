@@ -1,6 +1,6 @@
 # SuperSocketLite를 이용한 C# 게임 서버 프로그래밍
     
-저자: 최흥배, Claude AI  
+저자: 최흥배, Claude, Gemini    
   
 - .NET 8 이상, 
 - C#
