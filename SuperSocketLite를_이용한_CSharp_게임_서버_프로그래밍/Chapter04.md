@@ -709,7 +709,6 @@ public void DistributeDBJobResult(DBResultQueue resultData)
 ### 멤버 함수 및 코드 설명
 
 #### `CreateAndStart(bool IsCommon, List<Room> roomList, MainServer mainServer, ConnectSessionManager sessionMgr)`
-
 `PacketProcessor` 인스턴스를 생성하고, 전용 스레드를 시작하여 패킷을 처리할 준비를 마치는 초기화 함수다.
 
 ```csharp
@@ -741,7 +740,6 @@ public void CreateAndStart(bool IsCommon, List<Room> roomList, MainServer mainSe
 4.  패킷 처리 루프인 `Process` 함수를 실행할 새로운 스레드를 생성하고 시작시킨다.
 
 #### `Destory()`
-
 서버 종료 시, 실행 중인 스레드를 안전하게 중지시키는 함수다.
 
 ```csharp
@@ -756,8 +754,7 @@ public void Destory()
   * `_packetBuffer.Complete()`를 호출하여 더 이상 큐에 데이터가 들어오지 않을 것임을 알리고, 큐가 비어있다면 `Receive()`에서 즉시 예외를 발생시켜 스레드가 깔끔하게 종료되도록 유도한다.
 
 #### `관리중인_Room(int roomNumber)`
-
-`PacketDistributor`가 특정 방을 담당하는 `Room Processor`를 찾기 위해 호출하는 함수다.
+`PacketDistributor`가 특정 방을 담당하는 `PacketProcessor`를 찾기 위해 호출하는 함수다.
 
 ```csharp
 public bool 관리중인_Room(int roomNumber)
@@ -769,7 +766,6 @@ public bool 관리중인_Room(int roomNumber)
   * 인자로 받은 `roomNumber`가 자신이 관리하는 방 번호 범위(`_roomNumberRange`) 내에 있는지 확인하여 `true` 또는 `false`를 반환한다.
 
 #### `InsertMsg(bool isClientRequest, ServerPacketData data)`
-
 외부(주로 `PacketDistributor`)에서 처리할 패킷을 이 프로세서의 큐에 넣기 위해 호출하는 함수다.
 
 ```csharp
@@ -783,7 +779,6 @@ public void InsertMsg(bool isClientRequest, ServerPacketData data)
   * 전달받은 `ServerPacketData`를 `_packetBuffer.Post(data)`를 통해 자신의 처리 큐에 추가한다. 이 작업은 매우 빠르기 때문에, 호출한 쪽(Distributor)은 지연 없이 다음 작업을 수행할 수 있다.
 
 #### `RegistPacketHandler(MainServer serverNetwork, ConnectSessionManager sessionManager)`
-
 프로세서의 역할에 맞는 패킷 처리 함수들을 `_packetHandlerMap`에 등록하는 함수다.
 
 ```csharp
@@ -808,7 +803,6 @@ void RegistPacketHandler(MainServer serverNetwork, ConnectSessionManager session
 2.  플래그가 `false`이면, `PKHRoom` 핸들러를 초기화하고, `PKHRoom`이 처리하는 채팅, 방 퇴장 관련 함수들을 `_packetHandlerMap`에 등록한다.
 
 #### `Process()`
-
 별도의 스레드에서 무한 루프를 돌며 실제 패킷 처리를 수행하는 가장 핵심적인 함수다.
 
 ```csharp
@@ -840,6 +834,7 @@ void Process()
 4.  등록된 함수가 있다면, 해당 함수를 호출하여 실제 패킷 처리 로직을 실행한다.
 5.  패킷 처리 중 어떤 예외가 발생하더라도 `try-catch`로 잡아내어 로그를 남기고 루프를 계속 실행함으로써, 스레드가 갑자기 죽는 것을 방지하고 서버의 안정성을 유지한다.
   
+  
 
 ## 모든 클라이언트 세션의 상태 관리
 
@@ -861,7 +856,6 @@ void Process()
 ### 멤버 함수 및 코드 설명
 
 #### `CreateSession(int maxCount)`
-
 서버가 허용하는 최대 클라이언트 수만큼 미리 `ConnectSession` 객체를 생성하여 리스트에 담아두는 초기화 함수다.
 
 ```csharp
@@ -878,7 +872,6 @@ public void CreateSession(int maxCount)
   * `for` 루프를 돌면서 서버의 최대 연결 수(`maxCount`)만큼 `new ConnectSession()`을 호출하여, 비어있는 `ConnectSession` 객체들을 `_sessionList`에 미리 만들어 채워 넣는다. 이는 서버 실행 중에 새로운 객체를 할당하는 부담을 줄이기 위한 최적화 기법이다.
 
 #### `SetClear(int index)`
-
 접속이 끊긴 세션의 상태 정보를 초기화하여, 해당 세션 인덱스를 새로운 클라이언트가 재사용할 수 있도록 깨끗하게 만드는 함수다.
 
 ```csharp
@@ -892,7 +885,6 @@ public void SetClear(int index)
   * `GetSession(index)`를 통해 해당 인덱스의 `ConnectSession` 객체를 찾은 뒤, 그 객체의 `Clear()` 메서드를 호출한다. `Clear()` 메서드는 상태를 `None`으로, 방 번호를 `-1`로 되돌린다.
 
 #### `SetDisable(int index)`
-
 특정 세션을 비활성화 상태로 만드는 함수다. 예를 들어 서버가 꽉 찼을 때 더 이상 요청을 받지 않도록 할 때 사용된다.
 
 ```csharp
@@ -906,7 +898,6 @@ public void SetDisable(int index)
   * 대상 세션 객체의 `SetDisable()`을 호출하여 `IsEnable` 플래그를 `false`로 설정한다.
 
 #### `GetRoomNumber(int index)`
-
 특정 세션이 현재 어느 방에 들어가 있는지 방 번호를 조회하는 함수다.
 
 ```csharp
@@ -920,7 +911,6 @@ public int GetRoomNumber(int index)
   * 세션 객체의 `GetRoomNumber()`를 호출하여 현재 방 번호를 반환받는다.
 
 #### `EnableReuqestLogin(int index)` 및 `EnableReuqestEnterRoom(int index)`
-
 각각 로그인과 방 입장을 요청할 수 있는 '올바른 상태'인지 확인하는 함수다.
 
 ```csharp
@@ -941,7 +931,6 @@ public bool EnableReuqestEnterRoom(int index)
   * `EnableReuqestEnterRoom`은 세션의 상태가 `Login`(로그인 완료 상태)일 때만 `true`를 반환한다.
 
 #### `SetPreLogin(int index)` 및 `SetPreRoomEnter(int index, int roomNumber)`
-
 각각 로그인과 방 입장을 '시도하는 중'이라는 중간 상태로 변경하는 함수다. 이는 작업이 완료되기 전에 다른 요청이 끼어드는 것을 막는다.
 
 ```csharp
@@ -962,7 +951,6 @@ public bool SetPreRoomEnter(int index, int roomNumber)
   * `SetPreRoomEnter`는 `Login` 상태에서 `RoomEntering` 상태로 안전하게 변경하고, 입장하려는 방 번호를 임시로 저장한다.
 
 #### `SetLogin(int index, string userID)` 및 `SetRoomEntered(int index, int roomNumber)`
-
 로그인과 방 입장이 '완전히 성공'했을 때, 최종 상태로 확정하는 함수다.
 
 ```csharp
@@ -1003,7 +991,6 @@ public bool SetRoomEntered(int index, int roomNumber)
 ### `RemoteConnectCheck` 클래스의 멤버 함수 설명
 
 #### `Init(MainServer appServer, List<Tuple<string, string, int>> remoteInfoList)`
-
 `RemoteConnectCheck`를 초기화하고 재연결 감시 스레드를 시작하는 함수다.
 
 ```csharp
@@ -1032,7 +1019,6 @@ public void Init(MainServer appServer, List<Tuple<string, string, int>> remoteIn
 5.  `CheckAndConnect` 함수를 실행할 새로운 스레드를 생성하고 시작하여, 주기적인 연결 상태 감시를 개시한다.
 
 #### `Stop()`
-
 감시 스레드를 안전하게 종료하는 함수다.
 
 ```csharp
@@ -1046,7 +1032,6 @@ public void Stop()
   * `_isCheckRunning` 플래그를 `false`로 만들어 `CheckAndConnect`의 `while` 루프가 멈추도록 하고, `_checkThread.Join()`을 호출하여 스레드가 완전히 종료될 때까지 기다린다.
 
 #### `CheckAndConnect()`
-
 별도의 스레드에서 주기적으로 실행되며 실제 연결 상태를 확인하고 재접속을 시도하는 핵심 함수다.
 
 ```csharp
@@ -1082,7 +1067,6 @@ void CheckAndConnect()
 ### `RemoteCheckState` 클래스의 멤버 함수 설명
 
 #### `Init(string serverType, System.Net.IPEndPoint endPoint)`
-
 `RemoteCheckState` 객체를 특정 서버의 정보로 초기화하는 함수다.
 
 ```csharp
@@ -1096,7 +1080,6 @@ public void Init(string serverType, System.Net.IPEndPoint endPoint)
   * 인자로 받은 서버의 종류(`serverType`)와 접속 주소(`endPoint`)를 내부 변수에 저장한다.
 
 #### `IsPass()`
-
 현재 이 서버에 대한 재연결 시도를 건너뛰어도 되는지('통과'해도 되는지)를 판단하는 함수다.
 
 ```csharp
@@ -1128,7 +1111,6 @@ public bool IsPass()
 3.  위 조건에 모두 해당하지 않으면, 재시도가 필요하므로 `false`를 반환한다.
 
 #### `TryConnect(MainServer appServer)`
-
 실제로 SuperSocketLite의 기능을 사용하여 원격 서버에 비동기적으로 접속을 시도하는 함수다.
 
 ```csharp
