@@ -8,19 +8,17 @@
 - Visual Studio Code, Visual Studio 2022 이상  
 --------
 
-
 # Chapter.06 MemoryPack을 이용한 패킷 데이터 직렬화 
-
-MemoryPack에 대한 설명은 아래 영상을 참고하기 바란다.
-[.NET Conf 2023 x Seoul Hands-on-Lab: 데이터 직렬화](https://youtu.be/uGjrPjqGR24?si=D_zy1hauPWPIkMTR )  
-  
+MemoryPack에 대한 설명은 아래 영상을 참고하기 바란다.  
+[.NET Conf 2023 x Seoul Hands-on-Lab: 데이터 직렬화](https://youtube/uGjrPjqGR24?si=D_zy1hauPWPIkMTR )    
+    
 MemoryPack을 서버에 사용한 예는 아래 코드에 있다.  
 [PvPGameServer](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/PvPGameServer)  
 [PvPGameServer_Client](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/PvPGameServer_Client)    
   
 
 ## PacketProcessor의 Process() 메서드 상세 설명
-`PvPGameServer`에 있는 코드이다.  
+`PvPGameServer`에 있는 코드이다.  MemoryPack 으로 패킷을 디코딩 하는 코드를 여기에서 볼 수 있다.  
   
 `PacketProcessor` 클래스의 `Process()` 메서드는 클라이언트로부터 받은 패킷을 처리하는 핵심 로직을 담당한다. 이 메서드는 별도의 스레드에서 실행되며, 수신된 패킷을 순차적으로 처리하는 역할을 한다.
 
@@ -213,22 +211,20 @@ sequenceDiagram
 ### 각 부분 설명
 
 1.  **MP Code (MemoryPack Code, 1바이트)**
-
       * `PacketHeaderMemoryPackStartPos`가 1로 설정되어 있는 것으로 보아, 패킷의 가장 앞 1바이트는 `MemoryPack` 라이브러리가 사용하는 자체적인 코드나 마커가 위치하는 공간이다.
 
 2.  **Header (헤더, 5바이트)**
-
       * `MemoryPackPacketHeader` 구조체에 해당하며, 패킷의 종류와 크기를 식별하는 중요한 정보를 담고 있다.
       * **TotalSize (2바이트)**: 헤더와 바디를 포함한 패킷의 전체 길이를 나타낸다. `ReceiveFilter`는 이 값을 보고 어디까지가 하나의 완전한 패킷인지 판단한다.
       * **PacketId (2바이트)**: 패킷의 종류를 구분하는 고유 ID이다. 예를 들어 `ReqLogin`은 1002, `ReqRoomEnter`는 1015와 같이 `PacketDefine.cs`에 정의되어 있다. `PacketProcessor`는 이 ID를 보고 어떤 처리 함수(Handler)를 호출할지 결정한다.
       * **Type (1바이트)**: 패킷의 추가적인 속성을 정의하기 위한 필드이다.
 
 3.  **Body (바디, N 바이트)**
-
       * 실제 전송하고자 하는 데이터가 `MemoryPack` 라이브러리에 의해 직렬화되어 바이트 배열 형태로 변환된 부분이다.
       * 위 예시에서는 `PKTReqLogin` 클래스의 인스턴스가 직렬화되었다. 이 클래스는 `UserID`와 `AuthToken`이라는 두 개의 문자열 속성을 가지고 있으며, `MemoryPack`은 이 속성들을 매우 효율적이고 압축된 형태의 바이트 데이터로 변환한다. 서버는 이 바디 부분을 다시 `PKTReqLogin` 객체로 역직렬화하여 사용한다.   
+  
 
-
+<br>   
 
 ## `MemoryPackPacketHeader` 클래스 상세 분석
 `MemoryPackPacketHeader` 구조체는 이 서버의 네트워크 통신에서 가장 핵심적인 역할을 수행하는 부분이다. 클라이언트와 서버가 서로 데이터를 주고받을 때, "이 데이터 덩어리는 무엇이며, 길이는 얼마인가?"라는 약속(프로토콜)을 정의한다.
@@ -376,8 +372,9 @@ public struct MemoryPackPacketHeader
       * `PKTResRoomEnter` 객체를 `MemoryPack`으로 직렬화하여 바디(`sendPacket`)를 만든다.
       * `MemoryPackPacketHeader.Write()`를 호출하여 이 바디 데이터의 앞부분에 `TotalSize`와 `PacketId.ResRoomEnter`를 기록한다.
       * 이제 헤더와 바디가 합쳐진 완전한 패킷이 `NetSendFunc`를 통해 클라이언트로 전송됩니다. 이 과정은 `PKHCommon`이나 `InnerPakcetMaker` 등 다른 클래스에서도 동일한 패턴으로 사용된다.  
-  
+    
 
+<br>  
 
 ## `MemoryPackBinaryRequestInfo`와 `ReceiveFilter` 클래스 상세 설명
 두 클래스는 서버가 클라이언트로부터 들어오는 연속적인 바이트 데이터를 의미 있는 패킷 단위로 잘라내고(Framing), 처리할 수 있는 형태로 가공하는 핵심적인 역할을 담당한다.
@@ -399,7 +396,7 @@ public class MemoryPackBinaryRequestInfo : BinaryRequestInfo
     public string SessionID;
 
     /// <summary>
-    /// 패킷의 헤더와 바디 전체를 나타내는 바이트 배열입니다.
+    /// 패킷의 헤더와 바디가 포함된 바이트 배열입니다.(실제 클라이언트 보낸 패킷)
     /// </summary>
     public byte[] Data;
 

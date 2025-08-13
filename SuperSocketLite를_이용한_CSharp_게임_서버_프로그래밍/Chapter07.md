@@ -9,15 +9,16 @@
 --------
   
 # Chapter.07 온라인 오목 게임
-
-온라인 오목 게임 코드는 https://github.com/yujinS0/GameServer 에 있는 코드를 가져와서 단독으로 사용되도록 코드를 조금 수정하였다.  
-[코드](./codes/OnlineOmok/) 
+온라인 오목 게임 코드는 https://github.com/yujinS0/GameServer 에 있는 코드를 가져와서 쉽게 사용되도록 코드를 조금 수정하였다.    
+  
+[수정된 코드](./codes/OnlineOmok/) 
  - OmokClient  winform으로 만든 클라이언트
  - OmokServer  서버 
  - ServerClientCommon   서버와 클라이언트가 공통으로 사용하는 코드  
  - SuperSocketLite   SuperSocketLite를 빌드한 DLL
-  
-
+   
+    
+<br>  
 
 # Server 
   

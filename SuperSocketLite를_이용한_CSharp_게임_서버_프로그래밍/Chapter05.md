@@ -202,7 +202,7 @@ TCP 통신은 데이터가 정해진 크기로 나뉘어 오는 것이 아니라
   
 
 ### 서버에서 패킷을 받아서 처리하는 과정
-서버로부터 데이터를 수신하고 이를 처리하는 과정은 여러 단계에 걸쳐 비동기적으로 이루어진다. 핵심은 별도의 스레드에서 네트워크 데이터를 지속적으로 수신하여 버퍼에 쌓고, UI 스레드에서는 이 버퍼에서 완성된 패킷을 가져와 안전하게 처리하는 것이다.
+서버로부터 데이터를 수신하고 이를 처리하는 과정은 여러 단계에 걸쳐 비동기적으로 이루어진다. 핵심은 **별도의 스레드에서 네트워크 데이터를 지속적으로 수신하여 버퍼에 쌓고, UI 스레드에서는 이 버퍼에서 완성된 패킷을 가져와 안전하게 처리**하는 것이다.
 
 1.  **데이터 수신 (NetworkReadProcess 스레드)**
     * `mainForm.cs`의 `NetworkReadProcess` 메서드는 프로그램 시작 시 생성된 별도의 스레드에서 무한 루프를 돌며 실행된다.
@@ -343,6 +343,7 @@ sequenceDiagram
 <br>  
     
 ## ChatClient
+ChatServer에서 사용하는 클라이언트 프로그램이다. WPF를 사용하였다.     
 [코드](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/ChatClient )  
 
 <pre>
@@ -392,7 +393,6 @@ C# WPF를 사용하여 만든 간단한 채팅 클라이언트 프로젝트다. 
       * `App.config`: .NET 애플리케이션의 설정을 담는 XML 파일이다.
 
 ### 네트워크 관련 상세 설명
-
 이 클라이언트의 네트워크 동작은 `MainWindow.xaml.cs`의 두 개의 스레드(`NetworkReadThread`, `NetworkSendProcess`)와 `PacketBufferManager`, `ClientSimpleTcp` 클래스를 중심으로 이루어진다.
 
 1.  **연결 (Connection)**
@@ -427,7 +427,6 @@ C# WPF를 사용하여 만든 간단한 채팅 클라이언트 프로젝트다. 
       * 마지막으로, 역직렬화된 객체의 데이터(유저 ID, 채팅 메시지)를 UI의 `listBoxChat`에 추가하여 사용자에게 보여준다.
 
 ### 동작 다이어그램 (Mermaid)
-
 다음은 사용자가 채팅 메시지를 보내고 받는 과정을 나타낸 Mermaid 시퀀스 다이어그램이다.
 
 ```mermaid
