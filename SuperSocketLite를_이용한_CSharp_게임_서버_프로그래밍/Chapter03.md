@@ -12,7 +12,15 @@
 채팅 서버는 복수개의 방이 있고, 방 안에서 채팅을 한다.
 
 코드는 아래에 있다.  
-[SuperSocketLite Tutorials - ChatServer](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/ChatServer)  
+[SuperSocketLite Tutorials - ChatServer](https://github.com/jacking75/SuperSocketLite/tree/master/Tutorials/ChatServer)   
+이것을 빌드하면 빌드된 결과물은 Tutorial 디렉토리에 있는 `00_server_bins` 디렉토리에 생성된다.  
+실행은 `00_server_bins` 에 있는 `run_ChatServer.bat`(Windows 기준)으로 실행한다.   
+
+`run_ChatServer.bat` 의 내용  
+<pre>
+dotnet net9.0\ChatServer.dll --uniqueID 1 --name ChatServer --port 32452 --maxConnectionNumber 256  --maxRequestLength 1024 --receiveBufferSize 16384 --sendBufferSize 16384 --roomMaxCount 100 --roomMaxUserCount 4 --roomStartNumber 0
+</pre>  
+채팅 서버는 실행 시에 옵션 값을 전달해야 한다.  
 
 <pre> 
 ChatServer/
