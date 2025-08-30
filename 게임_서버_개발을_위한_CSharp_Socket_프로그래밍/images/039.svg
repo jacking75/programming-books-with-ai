@@ -1,0 +1,167 @@
+<svg width="900" height="700" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 화살표 마커 -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2c3e50" />
+    </marker>
+    
+    <!-- 그라데이션 정의 -->
+    <linearGradient id="startGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2980b9;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="processGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#27ae60;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#229954;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="errorGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e74c3c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c0392b;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="decisionGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f39c12;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e67e22;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 배경 -->
+  <rect width="900" height="700" fill="#f8f9fa" stroke="none"/>
+  
+  <!-- 제목 -->
+  <text x="450" y="30" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#2c3e50" text-anchor="middle">
+    ParsePacket 메서드 플로우차트
+  </text>
+  
+  <!-- 시작 -->
+  <ellipse cx="450" cy="80" rx="80" ry="25" fill="url(#startGradient)" stroke="#2980b9" stroke-width="2"/>
+  <text x="450" y="85" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">
+    ParsePacket 시작
+  </text>
+  
+  <!-- 화살표: 시작 → 길이 체크 -->
+  <line x1="450" y1="105" x2="450" y2="140" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- 길이 체크 (다이아몬드 모양) -->
+  <path d="M 450 140 L 550 180 L 450 220 L 350 180 Z" fill="url(#decisionGradient)" stroke="#e67e22" stroke-width="2"/>
+  <text x="450" y="175" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    data.Length
+  </text>
+  <text x="450" y="190" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    &lt; 8?
+  </text>
+  
+  <!-- YES 경로: 예외 발생 -->
+  <line x1="550" y1="180" x2="650" y2="180" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="600" y="175" font-family="Arial, sans-serif" font-size="12" fill="#2c3e50" text-anchor="middle">YES</text>
+  
+  <rect x="630" y="160" width="160" height="40" rx="5" fill="url(#errorGradient)" stroke="#c0392b" stroke-width="2"/>
+  <text x="710" y="185" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    throw ArgumentException
+  </text>
+  
+  <!-- NO 경로: 패킷 구조 설명 -->
+  <line x1="450" y1="220" x2="450" y2="280" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="400" y="250" font-family="Arial, sans-serif" font-size="12" fill="#2c3e50" text-anchor="middle">NO</text>
+  
+  <!-- 패킷 구조 시각화 -->
+  <rect x="200" y="280" width="500" height="80" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2" rx="5"/>
+  <text x="450" y="300" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c3e50" text-anchor="middle">
+    패킷 구조 (data 배열)
+  </text>
+  
+  <!-- 헤더 (0-3바이트) -->
+  <rect x="220" y="315" width="120" height="35" fill="#3498db" stroke="#2980b9" stroke-width="1"/>
+  <text x="280" y="335" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">
+    Header (4 bytes)
+  </text>
+  <text x="220" y="310" font-family="Arial, sans-serif" font-size="10" fill="#7f8c8d" text-anchor="start">0</text>
+  
+  <!-- 패킷 타입 (4-7바이트) -->
+  <rect x="340" y="315" width="120" height="35" fill="#27ae60" stroke="#229954" stroke-width="1"/>
+  <text x="400" y="335" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">
+    Type (4 bytes)
+  </text>
+  <text x="340" y="310" font-family="Arial, sans-serif" font-size="10" fill="#7f8c8d" text-anchor="start">4</text>
+  
+  <!-- 페이로드 (8바이트부터) -->
+  <rect x="460" y="315" width="220" height="35" fill="#f39c12" stroke="#e67e22" stroke-width="1"/>
+  <text x="570" y="335" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">
+    Payload (나머지 바이트)
+  </text>
+  <text x="460" y="310" font-family="Arial, sans-serif" font-size="10" fill="#7f8c8d" text-anchor="start">8</text>
+  
+  <!-- 화살표: 패킷 구조 → 파싱 과정 -->
+  <line x1="450" y1="360" x2="450" y2="400" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- 파싱 과정 -->
+  <rect x="320" y="400" width="260" height="60" rx="5" fill="url(#processGradient)" stroke="#229954" stroke-width="2"/>
+  <text x="450" y="420" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    1. headerSpan = data.Slice(0, 4)
+  </text>
+  <text x="450" y="435" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    2. typeSpan = data.Slice(4, 4)
+  </text>
+  <text x="450" y="450" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    3. payloadSpan = data.Slice(8)
+  </text>
+  
+  <!-- 화살표: 파싱 → switch문 -->
+  <line x1="450" y1="460" x2="450" y2="500" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Switch 문 (다이아몬드) -->
+  <path d="M 450 500 L 550 540 L 450 580 L 350 540 Z" fill="url(#decisionGradient)" stroke="#e67e22" stroke-width="2"/>
+  <text x="450" y="535" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    switch
+  </text>
+  <text x="450" y="550" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    (packetType)
+  </text>
+  
+  <!-- Case 1: 채팅 메시지 -->
+  <line x1="350" y1="540" x2="200" y2="540" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="275" y="535" font-family="Arial, sans-serif" font-size="11" fill="#2c3e50" text-anchor="middle">case 1</text>
+  
+  <rect x="50" y="520" width="200" height="40" rx="5" fill="#9b59b6" stroke="#8e44ad" stroke-width="2"/>
+  <text x="150" y="545" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    ProcessChatMessage(payloadSpan)
+  </text>
+  
+  <!-- Case 2: 게임 이벤트 -->
+  <line x1="550" y1="540" x2="700" y2="540" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="625" y="535" font-family="Arial, sans-serif" font-size="11" fill="#2c3e50" text-anchor="middle">case 2</text>
+  
+  <rect x="650" y="520" width="200" height="40" rx="5" fill="#e67e22" stroke="#d35400" stroke-width="2"/>
+  <text x="750" y="545" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    ProcessGameEvent(payloadSpan)
+  </text>
+  
+  <!-- 기타 케이스 표시 -->
+  <line x1="450" y1="580" x2="450" y2="620" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="480" y="600" font-family="Arial, sans-serif" font-size="11" fill="#2c3e50" text-anchor="start">기타 케이스...</text>
+  
+  <rect x="350" y="620" width="200" height="40" rx="5" fill="#95a5a6" stroke="#7f8c8d" stroke-width="2"/>
+  <text x="450" y="645" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">
+    기타 패킷 타입 처리
+  </text>
+  
+  <!-- 코드 설명 박스 -->
+  <rect x="20" y="20" width="300" height="120" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1" rx="5"/>
+  <text x="30" y="40" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#2c3e50">
+    코드 주요 특징:
+  </text>
+  <text x="30" y="60" font-family="Arial, sans-serif" font-size="12" fill="#2c3e50">
+    • ReadOnlySpan&lt;byte&gt; 사용
+  </text>
+  <text x="30" y="80" font-family="Arial, sans-serif" font-size="12" fill="#2c3e50">
+    • 메모리 복사 없는 슬라이싱
+  </text>
+  <text x="30" y="100" font-family="Arial, sans-serif" font-size="12" fill="#2c3e50">
+    • BitConverter로 바이트→정수 변환
+  </text>
+  <text x="30" y="120" font-family="Arial, sans-serif" font-size="12" fill="#2c3e50">
+    • 패킷 타입별 분기 처리
+  </text>
+</svg>

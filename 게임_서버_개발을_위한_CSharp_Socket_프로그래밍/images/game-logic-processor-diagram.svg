@@ -1,0 +1,188 @@
+<svg viewBox="0 0 900 700" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .main-box { fill: #e8eaf6; stroke: #3f51b5; stroke-width: 2; }
+      .game-object { fill: #e3f2fd; stroke: #2196f3; stroke-width: 1.5; }
+      .task-box { fill: #fff3e0; stroke: #ff9800; stroke-width: 1.5; }
+      .sector-box { fill: #e8f5e9; stroke: #4caf50; stroke-width: 1.5; }
+      .physics-box { fill: #fce4ec; stroke: #e91e63; stroke-width: 1.5; }
+      .arrow { stroke: #424242; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .parallel-arrow { stroke: #ff5722; stroke-width: 2; fill: none; marker-end: url(#arrowhead-orange); }
+      .async-arrow { stroke: #2196f3; stroke-width: 2; fill: none; marker-end: url(#arrowhead-blue); }
+      .text-title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; }
+      .text-label { font-family: Arial, sans-serif; font-size: 14px; }
+      .text-small { font-family: Arial, sans-serif; font-size: 12px; }
+      .text-code { font-family: 'Courier New', monospace; font-size: 11px; }
+    </style>
+    
+    <!-- Arrow markers -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#424242"/>
+    </marker>
+    <marker id="arrowhead-orange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#ff5722"/>
+    </marker>
+    <marker id="arrowhead-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#2196f3"/>
+    </marker>
+    
+    <!-- Gradient for parallel processing -->
+    <linearGradient id="parallelGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffecb3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffe082;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" class="text-title">GameLogicProcessor - 병렬 처리 아키텍처</text>
+  
+  <!-- Main Processor -->
+  <rect x="300" y="60" width="300" height="80" rx="10" class="main-box"/>
+  <text x="450" y="85" text-anchor="middle" class="text-label" font-weight="bold">GameLogicProcessor</text>
+  <text x="450" y="105" text-anchor="middle" class="text-code">UpdateGameObjectsAsync()</text>
+  <text x="450" y="125" text-anchor="middle" class="text-code">ProcessPhysics()</text>
+  
+  <!-- Section 1: UpdateGameObjectsAsync -->
+  <g id="update-section">
+    <text x="200" y="180" text-anchor="middle" class="text-label" font-weight="bold">비동기 게임 객체 업데이트</text>
+    
+    <!-- Game Objects List -->
+    <rect x="50" y="200" width="140" height="60" rx="5" class="game-object"/>
+    <text x="120" y="220" text-anchor="middle" class="text-small" font-weight="bold">List&lt;GameObject&gt;</text>
+    <text x="120" y="240" text-anchor="middle" class="text-code">gameObjects</text>
+    <text x="120" y="255" text-anchor="middle" class="text-small">deltaTime</text>
+    
+    <!-- Arrow to Tasks -->
+    <path d="M 190 230 L 250 230" class="async-arrow"/>
+    
+    <!-- Tasks Generation -->
+    <rect x="250" y="200" width="180" height="60" rx="5" style="fill: url(#parallelGradient); stroke: #ff9800; stroke-width: 1.5;"/>
+    <text x="340" y="220" text-anchor="middle" class="text-small" font-weight="bold">Task.Run()</text>
+    <text x="340" y="240" text-anchor="middle" class="text-code">Select &amp; Transform</text>
+    <text x="340" y="255" text-anchor="middle" class="text-small">각 객체별 Task 생성</text>
+    
+    <!-- Individual Tasks -->
+    <g id="tasks">
+      <!-- Task 1 -->
+      <rect x="480" y="190" width="100" height="40" rx="5" class="task-box"/>
+      <text x="530" y="205" text-anchor="middle" class="text-small">Task #1</text>
+      <text x="530" y="220" text-anchor="middle" class="text-code">obj1.Update()</text>
+      
+      <!-- Task 2 -->
+      <rect x="480" y="240" width="100" height="40" rx="5" class="task-box"/>
+      <text x="530" y="255" text-anchor="middle" class="text-small">Task #2</text>
+      <text x="530" y="270" text-anchor="middle" class="text-code">obj2.Update()</text>
+      
+      <!-- Task 3 -->
+      <rect x="480" y="290" width="100" height="40" rx="5" class="task-box"/>
+      <text x="530" y="305" text-anchor="middle" class="text-small">Task #3</text>
+      <text x="530" y="320" text-anchor="middle" class="text-code">obj3.Update()</text>
+      
+      <!-- More tasks indicator -->
+      <text x="530" y="350" text-anchor="middle" class="text-small">...</text>
+    </g>
+    
+    <!-- Arrows from generator to tasks -->
+    <path d="M 430 210 L 480 210" class="parallel-arrow"/>
+    <path d="M 430 230 L 480 260" class="parallel-arrow"/>
+    <path d="M 430 250 L 480 310" class="parallel-arrow"/>
+    
+    <!-- Task.WhenAll -->
+    <rect x="650" y="240" width="120" height="40" rx="5" style="fill: #e1f5fe; stroke: #0288d1; stroke-width: 1.5;"/>
+    <text x="710" y="255" text-anchor="middle" class="text-small" font-weight="bold">Task.WhenAll</text>
+    <text x="710" y="270" text-anchor="middle" class="text-code">await 완료</text>
+    
+    <!-- Arrows to WhenAll -->
+    <path d="M 580 210 L 650 250" class="async-arrow"/>
+    <path d="M 580 260 L 650 260" class="async-arrow"/>
+    <path d="M 580 310 L 650 270" class="async-arrow"/>
+  </g>
+  
+  <!-- Divider -->
+  <line x1="50" y1="380" x2="850" y2="380" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="5,5"/>
+  
+  <!-- Section 2: ProcessPhysics -->
+  <g id="physics-section">
+    <text x="200" y="420" text-anchor="middle" class="text-label" font-weight="bold">병렬 물리 처리</text>
+    
+    <!-- GameMap -->
+    <rect x="50" y="440" width="140" height="60" rx="5" class="sector-box"/>
+    <text x="120" y="460" text-anchor="middle" class="text-small" font-weight="bold">GameMap</text>
+    <text x="120" y="480" text-anchor="middle" class="text-code">map.Sectors</text>
+    <text x="120" y="495" text-anchor="middle" class="text-small">구역 리스트</text>
+    
+    <!-- Arrow to Parallel.ForEach -->
+    <path d="M 190 470 L 250 470" class="parallel-arrow"/>
+    
+    <!-- Parallel.ForEach -->
+    <rect x="250" y="440" width="180" height="60" rx="5" style="fill: url(#parallelGradient); stroke: #ff5722; stroke-width: 2;"/>
+    <text x="340" y="460" text-anchor="middle" class="text-small" font-weight="bold">Parallel.ForEach</text>
+    <text x="340" y="480" text-anchor="middle" class="text-code">Thread Pool</text>
+    <text x="340" y="495" text-anchor="middle" class="text-small">병렬 실행</text>
+    
+    <!-- Individual Sectors -->
+    <g id="sectors">
+      <!-- Sector 1 -->
+      <rect x="480" y="430" width="140" height="40" rx="5" class="physics-box"/>
+      <text x="550" y="445" text-anchor="middle" class="text-small">Sector #1</text>
+      <text x="550" y="460" text-anchor="middle" class="text-code">ProcessCollisions()</text>
+      
+      <!-- Sector 2 -->
+      <rect x="480" y="480" width="140" height="40" rx="5" class="physics-box"/>
+      <text x="550" y="495" text-anchor="middle" class="text-small">Sector #2</text>
+      <text x="550" y="510" text-anchor="middle" class="text-code">ProcessCollisions()</text>
+      
+      <!-- Sector 3 -->
+      <rect x="480" y="530" width="140" height="40" rx="5" class="physics-box"/>
+      <text x="550" y="545" text-anchor="middle" class="text-small">Sector #3</text>
+      <text x="550" y="560" text-anchor="middle" class="text-code">ProcessCollisions()</text>
+      
+      <!-- More sectors indicator -->
+      <text x="550" y="590" text-anchor="middle" class="text-small">...</text>
+    </g>
+    
+    <!-- Arrows from Parallel.ForEach to sectors -->
+    <path d="M 430 450 L 480 450" class="parallel-arrow"/>
+    <path d="M 430 470 L 480 500" class="parallel-arrow"/>
+    <path d="M 430 490 L 480 550" class="parallel-arrow"/>
+    
+    <!-- Completion -->
+    <rect x="680" y="480" width="120" height="40" rx="5" style="fill: #f3e5f5; stroke: #7b1fa2; stroke-width: 1.5;"/>
+    <text x="740" y="495" text-anchor="middle" class="text-small" font-weight="bold">동기 완료</text>
+    <text x="740" y="510" text-anchor="middle" class="text-code">모든 처리 완료</text>
+    
+    <!-- Arrows to completion -->
+    <path d="M 620 450 L 680 490" class="arrow"/>
+    <path d="M 620 500 L 680 500" class="arrow"/>
+    <path d="M 620 550 L 680 510" class="arrow"/>
+  </g>
+  
+  <!-- Performance Benefits -->
+  <g id="benefits">
+    <rect x="50" y="620" width="800" height="60" rx="5" style="fill: #f5f5f5; stroke: #757575; stroke-width: 1;"/>
+    <text x="450" y="640" text-anchor="middle" class="text-label" font-weight="bold">병렬 처리 장점</text>
+    
+    <text x="70" y="660" class="text-small">• CPU 멀티코어 활용: 동시에 여러 작업 처리</text>
+    <text x="320" y="660" class="text-small">• 처리 시간 단축: 순차 처리 대비 성능 향상</text>
+    <text x="580" y="660" class="text-small">• 확장성: 객체/구역 수에 따라 자동 스케일</text>
+  </g>
+  
+  <!-- Legend -->
+  <g id="legend">
+    <rect x="720" y="90" width="160" height="120" rx="5" style="fill: white; stroke: #9e9e9e; stroke-width: 1;"/>
+    <text x="800" y="110" text-anchor="middle" class="text-small" font-weight="bold">범례</text>
+    
+    <line x1="730" y1="125" x2="760" y2="125" class="async-arrow"/>
+    <text x="765" y="130" class="text-small">비동기 흐름</text>
+    
+    <line x1="730" y1="145" x2="760" y2="145" class="parallel-arrow"/>
+    <text x="765" y="150" class="text-small">병렬 처리</text>
+    
+    <line x1="730" y1="165" x2="760" y2="165" class="arrow"/>
+    <text x="765" y="170" class="text-small">일반 흐름</text>
+    
+    <line x1="730" y1="185" x2="760" y2="185" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="5,5"/>
+    <text x="765" y="190" class="text-small">구분선</text>
+  </g>
+</svg>

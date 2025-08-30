@@ -1,0 +1,110 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .actor-box { fill: #e3f2fd; stroke: #1976d2; stroke-width: 2; }
+      .mailbox { fill: #fff3e0; stroke: #f57c00; stroke-width: 2; }
+      .message { fill: #f3e5f5; stroke: #7b1fa2; stroke-width: 1.5; }
+      .state { fill: #e8f5e9; stroke: #388e3c; stroke-width: 1.5; }
+      .arrow { stroke: #424242; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .dashed { stroke-dasharray: 5,5; }
+      .text-title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; }
+      .text-label { font-family: Arial, sans-serif; font-size: 14px; }
+      .text-small { font-family: Arial, sans-serif; font-size: 12px; }
+      .text-code { font-family: 'Courier New', monospace; font-size: 11px; }
+    </style>
+    
+    <!-- Arrow marker -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#424242"/>
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" class="text-title">Actor Model Pattern</text>
+  
+  <!-- PlayerActor 1 -->
+  <g id="actor1">
+    <rect x="50" y="80" width="200" height="220" rx="10" class="actor-box"/>
+    <text x="150" y="105" text-anchor="middle" class="text-label" font-weight="bold">PlayerActor #1</text>
+    
+    <!-- State -->
+    <rect x="70" y="120" width="160" height="60" rx="5" class="state"/>
+    <text x="150" y="140" text-anchor="middle" class="text-small">Private State</text>
+    <text x="80" y="160" class="text-code">Id: Guid</text>
+    <text x="80" y="175" class="text-code">Username: string</text>
+    
+    <!-- Mailbox -->
+    <rect x="70" y="195" width="160" height="40" rx="5" class="mailbox"/>
+    <text x="150" y="210" text-anchor="middle" class="text-small">AsyncMessageQueue</text>
+    <text x="150" y="225" text-anchor="middle" class="text-code">_mailbox</text>
+    
+    <!-- Processing -->
+    <rect x="70" y="245" width="160" height="40" rx="5" style="fill: #fce4ec; stroke: #c2185b; stroke-width: 1.5;"/>
+    <text x="150" y="265" text-anchor="middle" class="text-small">ProcessMessagesAsync()</text>
+  </g>
+  
+  <!-- PlayerActor 2 -->
+  <g id="actor2">
+    <rect x="550" y="80" width="200" height="220" rx="10" class="actor-box"/>
+    <text x="650" y="105" text-anchor="middle" class="text-label" font-weight="bold">PlayerActor #2</text>
+    
+    <!-- State -->
+    <rect x="570" y="120" width="160" height="60" rx="5" class="state"/>
+    <text x="650" y="140" text-anchor="middle" class="text-small">Private State</text>
+    <text x="580" y="160" class="text-code">Id: Guid</text>
+    <text x="580" y="175" class="text-code">Username: string</text>
+    
+    <!-- Mailbox -->
+    <rect x="570" y="195" width="160" height="40" rx="5" class="mailbox"/>
+    <text x="650" y="210" text-anchor="middle" class="text-small">AsyncMessageQueue</text>
+    <text x="650" y="225" text-anchor="middle" class="text-code">_mailbox</text>
+    
+    <!-- Processing -->
+    <rect x="570" y="245" width="160" height="40" rx="5" style="fill: #fce4ec; stroke: #c2185b; stroke-width: 1.5;"/>
+    <text x="650" y="265" text-anchor="middle" class="text-small">ProcessMessagesAsync()</text>
+  </g>
+  
+  <!-- Messages in the middle -->
+  <g id="messages">
+    <text x="400" y="340" text-anchor="middle" class="text-label" font-weight="bold">Messages (IPlayerMessage)</text>
+    
+    <!-- MoveMessage -->
+    <rect x="300" y="360" width="200" height="50" rx="5" class="message"/>
+    <text x="400" y="380" text-anchor="middle" class="text-small" font-weight="bold">MoveMessage</text>
+    <text x="320" y="395" class="text-code">X: float</text>
+    <text x="320" y="405" class="text-code">Y: float</text>
+    
+    <!-- ChatMessage -->
+    <rect x="300" y="425" width="200" height="50" rx="5" class="message"/>
+    <text x="400" y="445" text-anchor="middle" class="text-small" font-weight="bold">ChatMessage</text>
+    <text x="320" y="460" class="text-code">Text: string</text>
+  </g>
+  
+  <!-- Message flow arrows -->
+  <!-- Actor 1 to Actor 2 -->
+  <path d="M 250 190 Q 400 150 550 190" class="arrow"/>
+  <text x="400" y="160" text-anchor="middle" class="text-small">SendMessageAsync()</text>
+  
+  <!-- Actor 2 to Actor 1 -->
+  <path d="M 550 240 Q 400 280 250 240" class="arrow"/>
+  <text x="400" y="270" text-anchor="middle" class="text-small">SendMessageAsync()</text>
+  
+  <!-- Messages to Actors -->
+  <path d="M 350 360 L 230 235" class="arrow dashed"/>
+  <path d="M 450 360 L 570 235" class="arrow dashed"/>
+  
+  <!-- Key Principles -->
+  <g id="principles">
+    <rect x="50" y="500" width="700" height="80" rx="5" style="fill: #f5f5f5; stroke: #757575; stroke-width: 1;"/>
+    <text x="400" y="520" text-anchor="middle" class="text-label" font-weight="bold">Actor Model 핵심 원칙</text>
+    
+    <text x="70" y="540" class="text-small">1. 캡슐화: 각 액터는 자신의 상태를 독립적으로 관리</text>
+    <text x="70" y="555" class="text-small">2. 메시지 전달: 액터 간 통신은 오직 비동기 메시지로만</text>
+    <text x="70" y="570" class="text-small">3. 동시성: 각 액터는 독립적으로 메시지를 처리</text>
+    
+    <text x="420" y="540" class="text-small">4. 격리: 액터 간 상태 공유 없음</text>
+    <text x="420" y="555" class="text-small">5. 장애 격리: 한 액터의 장애가 다른 액터에 영향 없음</text>
+    <text x="420" y="570" class="text-small">6. 위치 투명성: 액터는 로컬/원격 구분 없이 통신</text>
+  </g>
+</svg>
