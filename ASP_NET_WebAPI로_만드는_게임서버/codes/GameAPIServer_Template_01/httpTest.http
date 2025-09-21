@@ -1,0 +1,23 @@
+﻿POST http://localhost:11500/CreateAccount
+Content-Type: application/json
+
+{
+  "UserID":"jacking751@naver.com",
+  "Password":"123qwe"
+}
+
+
+
+###
+POST http://localhost:11500/Login
+Content-Type: application/json
+
+{
+  "UserID":"jacking751@naver.com",
+  "Password":"123qwe"
+}
+
+###
+
+
+
