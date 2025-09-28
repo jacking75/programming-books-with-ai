@@ -1,0 +1,4867 @@
+Directory structure:
+└── edu_LiteNetwork/
+    ├── README.md
+    ├── LiteNetwork.sln
+    ├── samples/
+    │   ├── custom-packet-reader-writer/
+    │   │   ├── LiteNetwork.Sample.CustomPacketReaderWriter.sln
+    │   │   ├── Sample.CustomPacketReaderWriter.Client/
+    │   │   │   ├── CustomClient.cs
+    │   │   │   ├── Program.cs
+    │   │   │   └── Sample.CustomPacketReaderWriter.Client.csproj
+    │   │   ├── Sample.CustomPacketReaderWriter.Protocol/
+    │   │   │   ├── CustomPacketReader.cs
+    │   │   │   ├── CustomPacketWriter.cs
+    │   │   │   └── Sample.CustomPacketReaderWriter.Protocol.csproj
+    │   │   └── Sample.CustomPacketReaderWriter.Server/
+    │   │       ├── CustomServer.cs
+    │   │       ├── CustomServerUser.cs
+    │   │       ├── Program.cs
+    │   │       └── Sample.CustomPacketReaderWriter.Server.csproj
+    │   ├── echo/
+    │   │   ├── LiteNetwork.Sample.Echo.sln
+    │   │   ├── Sample.Echo.Client/
+    │   │   │   ├── EchoClient.cs
+    │   │   │   ├── Program.cs
+    │   │   │   └── Sample.Echo.Client.csproj
+    │   │   └── Sample.Echo.Server/
+    │   │       ├── EchoServer.cs
+    │   │       ├── EchoUser.cs
+    │   │       ├── Program.cs
+    │   │       └── Sample.Echo.Server.csproj
+    │   └── hosting/
+    │       ├── LiteNetwork.Sample.Hosting.sln
+    │       ├── Sample.Hosting.Client/
+    │       │   ├── Client.cs
+    │       │   ├── ClientInputService.cs
+    │       │   ├── Program.cs
+    │       │   └── Sample.Hosting.Client.csproj
+    │       └── Sample.Hosting.Server/
+    │           ├── Program.cs
+    │           ├── Sample.Hosting.Server.csproj
+    │           ├── Server.cs
+    │           └── ServerUser.cs
+    └── src/
+        └── LiteNetwork/
+            ├── LiteConnection.cs
+            ├── LiteNetwork.csproj
+            ├── ReceiveStrategyType.cs
+            ├── Client/
+            │   ├── LiteClient.cs
+            │   ├── LiteClientOptions.cs
+            │   ├── LiteClientStateType.cs
+            │   ├── Hosting/
+            │   │   ├── LiteClientBuilderExtensions.cs
+            │   │   └── LiteClientHostedService.cs
+            │   └── Internal/
+            │       ├── LiteClientConnector.cs
+            │       └── LiteClientReceiver.cs
+            ├── Exceptions/
+            │   ├── LiteClientConnectionException.cs
+            │   ├── LiteClientException.cs
+            │   ├── LiteNetworkException.cs
+            │   └── LiteReceiverException.cs
+            ├── Hosting/
+            │   ├── HostBuilderExtensions.cs
+            │   ├── ILiteBuilder.cs
+            │   ├── LiteBuilder.cs
+            │   └── LiteNetworkCollectionExtensions.cs
+            ├── Internal/
+            │   ├── ILiteConnectionToken.cs
+            │   ├── LiteNetworkHelpers.cs
+            │   ├── LiteReceiver.cs
+            │   ├── LiteSender.cs
+            │   ├── ObjectPool.cs
+            │   └── Tokens/
+            │       ├── LiteDefaultConnectionToken.cs
+            │       └── LiteQueuedConnectionToken.cs
+            ├── Properties/
+            │   └── AssemblyInfo.cs
+            ├── Protocol/
+            │   ├── LiteDataToken.cs
+            │   ├── LitePacketProcessor.cs
+            │   ├── Abstractions/
+            │   │   └── ILitePacketProcessor.cs
+            │   └── Internal/
+            │       └── LitePacketParser.cs
+            └── Server/
+                ├── LiteServer.cs
+                ├── LiteServerContext.cs
+                ├── LiteServerOptions.cs
+                ├── LiteServerUser.cs
+                ├── Abstractions/
+                │   └── ILiteServer.cs
+                ├── Hosting/
+                │   ├── LiteServerBuilderExtensions.cs
+                │   └── LiteServerHostedService.cs
+                └── Internal/
+                    ├── LiteServerAcceptor.cs
+                    └── LiteServerReceiver.cs
+
+================================================
+FILE: README.md
+================================================
+# LiteNetwork  
+  
+라이트 네트워크는 C#으로 제작되어 .NET Standard 2, .NET 5, .NET 6과 호환되는 간단하고 빠른 네트워킹 라이브러리이다. 주요 목표는 TCP/IP 프로토콜을 통해 기본 소켓 서버를 간단하게 생성하는 것이다.  
+  
+처음에는 게임 개발 네트워킹을 위해 개발되었지만 다른 용도로도 사용할 수 있다.  
+    
+[코드 분석 문서](https://docs.google.com/spreadsheets/d/e/2PACX-1vSv7-WSVUu7AJ0ZOgBVGLW1rZXRN4n4SFcUHLpsNfd331ZFRm5VrO1FEERG7Vg8Flw0WfdVcg8rhAX7/pubhtml) 흐름 위주로 정리  
+    
+## 시작하기
+   
+### 서버 만들기
+LiteNetwork로 TCP 서버를 구축하는 방법에는 두 가지가 있습니다:
+- 인스턴스 방식, LiteServer 인스턴스를 생성한 다음 수동으로 실행하는 방법
+- 서비스 방식
+    - 실제로 라이트네트워크는 서비스 컬렉션 객체에 대한 확장을 제공하며, .NET 제네릭 호스트 (ASP.NET Core, MAUI에서 사용)에 통합할 수 있다.
+
+#### 공통 코드
+먼저 서버에 연결된 사용자를 나타낼 사용자 클래스를 만들어야 한다. LiteServerUser 클래스를 구현하는 새 클래스를 생성하기만 하면 된다.    
+```
+using LiteNetwork.Server;
+
+public class ClientUser : LiteServerUser
+{
+}
+```  
+  
+이 클래스 내에서 클라이언트 프로그램이 보낸 수신 메시지를 처리할 수 있는 메서드는 HandleMessageAsync( ) 메서드이다. 또한 클라이언트가 서버에 연결하거나 연결이 끊어질 때 알림을 받을 수도 있다.  
+```
+using LiteNetwork.Protocol.Abstractions;
+using LiteNetwork.Server;
+
+public class TcpUser : LiteServerUser
+{
+    public override Task HandleMessageAsync(byte[] packetBuffer)
+    {
+        // Handle incoming messages using a BinaryReader or any other solution for reading a byte[].
+    }
+
+    protected override void OnConnected()
+    {
+        // When the client connects.
+    }
+
+    protected override void OnDisconnected()
+    {
+        // When the client disconnects.
+    }
+}
+```  
+   
+   
+서버 사용자가 준비되면, 이 타입의 사용자를 처리할 서버 자체를 생성할 수 있다. 다른 새 클래스를 생성하고, 여기서 T가 이전에 생성한 TcpUser인 LiteServer<T> 클래스를 구현한다.  
+```
+public class MyTcpServer : LiteServer<TcpUser>
+{
+    public MyTcpServer(LiteServerOptions options, IServiceProvider serviceProvider = null)
+        : base(options, serviceProvider)
+    {
+    }
+}
+```  
+  
+서버에는 아래와 같이 서버의 수명을 제어할 수 있는 몇 가지 후크가 있다:  
+방법	             설명
+OnBeforeStart()	서버가 시작되기 전에 호출된다.
+OnAfterStart()	서버가 시작된 후 호출된다.
+OnBeforeStop()	서버가 중지되기 전에 호출된다.
+OnAfterStop()	서버가 중지된 후 호출된다.
+OnError(ILiteConnection, Exception)	지정된 ILiteConnection에 처리되지 않은 오류가 있을 때 호출된다.  
+  
+  
+#### 인스턴스를 통해 서버 생성
+이제 서버와 사용자 클래스가 빌드 되었으므로 이제 서버를 인스턴스화하고 Start( ) 메서드를 호출하여 서버를 시작할 수 있다.  
+```
+// Using top-level statement
+using LiteNetwork.Server;
+using System;
+
+// Create the server configuration, to listen on "127.0.0.1" and port "4444"
+var configuration = new LiteServerOptions()
+{
+    Host = "127.0.0.1",
+    Port = 4444
+};
+
+// Create the server instance by givin the server options and start it.
+using var server = new MyTcpServer(configuration);
+server.Start();
+
+// Just for the example, otherwise the console will just shutdown.
+// Do not use in production environment.
+Console.ReadKey(); 
+```  
+  
+  
+#### 서비스를 통해 서버 만들기
+For this example, you will need to install the [Microsoft.Extensions.Hosting](https://www.nuget.org/packages/Microsoft.Extensions.Hosting/ ) package from nuget in order to build a [.NET Generic Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host ).  
+```
+// Using top-level statement
+using Microsoft.Extensions.Hosting;
+using System;
+
+var host = new HostBuilder()
+    .UseConsoleLifetime()
+    .Build();
+
+await host.RunAsync();
+```  
+ 
+그런 다음 호스트가 설정되어 실행 중이면 LiteNetwork.Hosting 네임스페이스에 있는 `ConfigureLiteNetwork()` 메서드를 사용하여 LiteServer 서비스를 구성할 수 있다:
+```
+// Using top-level statement
+using LiteNetwork.Hosting;
+using LiteNetwork.Server.Hosting;
+using Microsoft.Extensions.Hosting;
+using System;
+using System.Threading.Tasks;
+
+var host = new HostBuilder()
+    // Configures the LiteNetwork context.
+    .ConfigureLiteNetwork((context, builder) =>
+    {
+        // Adds a LiteServer instance for the MyTcpServer class.
+        builder.AddLiteServer<MyTcpServer>(options =>
+        {
+            // This configures the server's LiteServerOptions instance.
+            options.Host = "127.0.0.1";
+            options.Port = 4444;
+        });
+    })
+    .UseConsoleLifetime()
+    .Build();
+
+await host.RunAsync();
+```  
+   
+이제 서버가 "127.0.0.1" 및 포트 "4444"에서 수신 대기 중이다. 또한 .NET 제너릭 호스트를 사용하고 있으므로 서버 및 클라이언트 클래스에 종속성 주입 기능도 제공한다. 따라서 services, configuration( 구성된 경우 IOptions<T> 등)을 주입할 수 있다.  
+  
+>>> 참고: 다른 매개 변수를 사용하여 `builder.AddLiteServer<>()` 메서드를 호출하여 단일 .NET 제너릭 호스트에 원하는 만큼의 서버를 추가할 수도 있다.  
+  
+  
+### 클라이언트 만들기  
+LiteNetwork로 TCP 클라이언트를 구축하는 방법은 두 가지가 있다:  
+- 인스턴스 방식: LiteClient 인스턴스를 생성한 다음 원격 서버에 수동으로 연결한다.
+- 서비스 방식
+    - 실제로 라이트네트워크는 서비스 컬렉션 객체에 대한 확장을 제공하며, .NET 제네릭 호스트 (ASP.NET Core, MAUI에서 사용)에 통합할 수 있다.  
+
+#### 공통 코드
+우선, LiteClient 클래스를 상속하는 새 클래스를 만들어야 한다.  
+```
+using LiteNetwork.Client;
+
+public class MyTcpClient : LiteClient
+{
+    public EchoClient(LiteClientOptions options, IServiceProvider serviceProvider = null) 
+        : base(options, serviceProvider)
+    {
+    }
+}
+```  
+
+라이트 네트워크 서버와 마찬가지로 클라이언트에는 아래와 같이 클라이언트 수명을 제어할 수 있는 몇 가지 후크가 있다:  
+  
+방법							설명
+HandleMessageAsync()	클라이언트가 서버로부터 메시지를 수신할 때 호출된다.
+OnConnected()				클라이언트가 원격 서버에 연결되면 호출된다.
+OnDisconnected()			클라이언트가 원격 서버에서 연결이 끊어졌을 때 호출된다.
+OnError(예외)				클라이언트 프로세스 내에 처리되지 않은 오류가 있을 때 호출된다.
+  
+  
+#### 인스턴스를 통해 클라이언트 만들기
+이제 이전에 생성한 클라이언트를 사용하여 MyTcpClient 클래스의 새 인스턴스를 생성하고 원격 서버에 연결하기 위한 올바른 옵션을 설정한 다음 ConnectAsync( ) 메서드를 호출할 수 있다.  
+```
+// Using top-level statement
+using LiteNetwork.Client;
+using System;
+
+var options = new LiteClientOptions()
+{
+    Host = "127.0.0.1",
+    Port = 4444
+};
+var client = new CustomClient(options);
+Console.WriteLine("Press any key to connect to server.");
+Console.ReadKey();
+
+await client.ConnectAsync();
+
+// Do something while client is connected.
+```  
+  
+  
+#### 서비스를 통해 클라이언트 만들기
+이 예제에서는 .NET 일반 호스트를 빌드하기 위해 nuget에서 Microsoft.Extensions.Hosting 패키지를 설치해야 한다.  
+```
+// Using top-level statement
+using LiteNetwork.Client.Hosting;
+using LiteNetwork.Hosting;
+using Microsoft.Extensions.Hosting;
+
+var host = new HostBuilder()
+    .ConfigureLiteNetwork((context, builder) =>
+    {
+        builder.AddLiteClient<MyTcpClient>(options =>
+        {
+            options.Host = "127.0.0.1";
+            options.Port = 4444;
+        });
+    })
+    .UseConsoleLifetime()
+    .Build();
+
+// At this point, the client will connect automatically once the host starts running.
+await host.RunAsync(); 
+```  
+  
+프로그램이 시작되면 MyTcpClient는 원격 서버("127.0.0.1" 및 포트 4444)에 연결을 시도한다. 또한 .NET 제너릭 호스트를 사용하기 때문에 클라이언트에 종속성 주입 메커니즘도 제공한다. 따라서 services, configuration(구성된 경우 IOptions<T> ), 로거 등을 주입할 수 있다.  
+  
+>>> 참고: 다른 매개 변수를 사용하여 `builder.AddLiteClient<>()` 메서드를 호출하여 단일 .NET 일반 호스트에 원하는 만큼의 클라이언트를 추가할 수도 있다. 
+  
+<br>  
+
+## LiteServerOptions  
+```
+public class LiteServerOptions
+{
+    /// <summary>
+    /// Gets the default maximum of connections in accept queue.
+    /// </summary>
+    public const int DefaultBacklog = 50;
+
+    /// <summary>
+    /// Gets the default client buffer allocated size.
+    /// </summary>
+    public const int DefaultClientBufferSize = 128;
+
+    /// <summary>
+    /// Gets or sets the server's listening host.
+    /// </summary>
+    public string Host { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the server's listening port.
+    /// </summary>
+    public int Port { get; set; }
+
+    /// <summary>
+    /// 대기 중인 연결 대기열의 최대값을 가져오거나 설정한다.
+    /// </summary>
+    public int Backlog { get; set; } = DefaultBacklog;
+
+    /// <summary>
+    /// 처리된 클라이언트 버퍼 크기를 가져오거나 설정한다.
+    /// </summary>
+    public int ClientBufferSize { get; set; } = DefaultClientBufferSize;
+
+    /// <summary>
+    /// 수신 전략 유형을 가져오거나 설정한다.
+    /// </summary>
+    public ReceiveStrategyType ReceiveStrategy { get; set; }
+
+    /// <summary>
+    /// 기본 서버 패킷 프로세서를 가져온다.
+    /// </summary>
+    public ILitePacketProcessor PacketProcessor { get; set; }
+
+    /// <summary>
+    /// Creates and initializes a new <see cref="LiteServerOptions"/> instance
+    /// with a default <see cref="LitePacketProcessor"/>.
+    /// </summary>
+    public LiteServerOptions()
+    {
+        PacketProcessor = new LitePacketProcessor();
+    }
+}
+``` 
+    
+
+## 수신 전략 유형:    
+```
+public enum ReceiveStrategyType
+{
+    /// <summary>
+    /// 기본 전략이다. 수신 패킷이 수신된 후 바로 처리한다.
+    /// </summary>
+    Default,
+
+    /// <summary>
+    /// 수신된 패킷을 수신 대기열에 넣는다. 패킷은 수신된 순서와 동일한 순서로 처리된다.
+    /// </summary>
+    Queued
+}
+```
+  
+`Default`은 패킷이 오면 바로 Task.Run으로 비동기로 `HandleMessageAsync`가 호출하도록 하고, `Queued`는 일단 Queue에 넣고 동기로 `HandleMessageAsync` 호출해서 처리하도록 한다.   
+`Default` 전략을 사용하면 동일 세션이 빠르게 패킷을 보내면 동시에 패킷이 처리될 수 있다(만약 패킷 처리하는 로직이 멀티스레드 이고, 각 세션이 특정 스레드에 묶이지 않는다면).   
+  
+### Default
+`internal class LiteDefaultConnectionToken : ILiteConnectionToken`    
+```
+public void ProcessReceivedMessages(IEnumerable<byte[]> messages)
+{
+    Task.Run(async () =>
+    {
+        foreach (var messageBuffer in messages)
+        {
+            await _handlerAction(Connection, messageBuffer).ConfigureAwait(false);
+        }
+    });
+}
+```
+   
+### Queued
+`internal class LiteQueuedConnectionToken : ILiteConnectionToken`  
+```
+public LiteQueuedConnectionToken(LiteConnection connection, Func<LiteConnection, byte[], Task> handlerAction)
+{
+    Connection = connection;
+    _handlerAction = handlerAction;
+    DataToken = new LiteDataToken(Connection);
+    _receiveMessageQueue = new BlockingCollection<byte[]>();
+    _receiveCancellationTokenSource = new CancellationTokenSource();
+    _receiveCancellationToken = _receiveCancellationTokenSource.Token;
+    Task.Factory.StartNew(OnProcessMessageQueue,
+        _receiveCancellationToken,
+        TaskCreationOptions.LongRunning,
+        TaskScheduler.Default);
+}
+
+private async Task OnProcessMessageQueue()
+{
+    while (!_receiveCancellationToken.IsCancellationRequested)
+    {
+        try
+        {
+            byte[] message = _receiveMessageQueue.Take(_receiveCancellationToken);
+            await _handlerAction(Connection, message).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The operation has been cancelled: nothing to do
+        }
+    }
+}
+
+public void ProcessReceivedMessages(IEnumerable<byte[]> messages)
+{
+    foreach (byte[] message in messages)
+    {
+        _receiveMessageQueue.Add(message);
+    }
+}
+```  
+   
+<br>  
+  
+
+## TODO
+- [ ] LitePacketParser 에서 ParseIncomingData() 에서 패킷을 처리하는 부분을 수정해야 한다. 패킷 헤더 정보가 잘보되면 무한으로 패킷 데이터 파싱을 할 수도 있다.
+- [ ] LiteDataToken 에서 헤더와 보디 데이터 담는 부분은 패킷 Receive할 때마다 할당과 해제를 할 필요는 없다고 본다. Reset()에서 이 두개의 버퍼를 null로 해서 매번 할당하게 만듬
+- [ ] LiteSender 에서 패킷을 보내는 스레드를 만듬. LiteConnection 마다 LiteSender을 가지고 있으므로 결과적으로 1세션당 1개의 Sender용 스레가 만들어진다.  
+
+
+
+<br>  
+<br>  
+
+아래는 원본에 있는 글이다.  
+--  
+  
+# LiteNetwork
+
+[![Build](https://github.com/Eastrall/LiteNetwork/actions/workflows/build.yml/badge.svg)](https://github.com/Eastrall/LiteNetwork/actions/workflows/build.yml)
+[![NuGet](https://img.shields.io/nuget/v/LiteNetwork.svg)](https://www.nuget.org/packages/LiteNetwork/)
+[![Nuget Downloads](https://img.shields.io/nuget/dt/LiteNetwork)](https://www.nuget.org/packages/LiteNetwork/)
+
+`LiteNetwork` is a simple and fast networking library built with C# and compatible with .NET Standard 2, .NET 5 and .NET 6. Its main goal is to simply the creation of basic socket servers over the TCP/IP protocol.
+
+Initially, LiteNetwork has been initialy developed for game development networking, but can also be used for other purposes.
+
+## How to install
+
+`LiteNetwork` is shiped as a single package, you can install it through the Visual Studio project package manager or using the following command in the Package Manager Console:
+
+```sh
+$> Install-Package LiteNetwork
+```
+
+Or you can use the dotnet command:
+
+```sh
+$> dotnet add package LiteNetwork
+```
+
+## Getting started
+
+### Create a server
+
+There is two ways of building a TCP server with `LiteNetwork`:
+* The instance way, by creating a `LiteServer` instance and then run it manually
+* The service way
+    * In fact, `LiteNetwork` provides an extension to the `ServiceCollection` object, and can be integrated in a [.NET Generic Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host) (used by ASP.NET Core, MAUI).
+
+#### Common code
+
+First of all, you will need to create the user class that will represent a connected user on your server. Simple create a new `class` that implements the `LiteServerUser` class.
+
+```csharp
+using LiteNetwork.Server;
+
+public class ClientUser : LiteServerUser
+{
+}
+```
+
+Within this class, you will be able to handle this client's incoming message sent by a client program thanks to the `HandleMessageAsync()` method.
+You can also be notified when the client connects to the server or disconnects.
+
+```csharp
+using LiteNetwork.Protocol.Abstractions;
+using LiteNetwork.Server;
+
+public class TcpUser : LiteServerUser
+{
+    public override Task HandleMessageAsync(byte[] packetBuffer)
+    {
+        // Handle incoming messages using a BinaryReader or any other solution for reading a byte[].
+    }
+
+    protected override void OnConnected()
+    {
+        // When the client connects.
+    }
+
+    protected override void OnDisconnected()
+    {
+        // When the client disconnects.
+    }
+}
+```
+
+Once the server user is ready, you can create the server itself that will handle this `TcpUser` type of users.
+Create another new `class`, and implement the `LiteServer<T>` class where `T` is the previously created `TcpUser`.
+
+```csharp
+public class MyTcpServer : LiteServer<TcpUser>
+{
+    public MyTcpServer(LiteServerOptions options, IServiceProvider serviceProvider = null)
+        : base(options, serviceProvider)
+    {
+    }
+}
+```
+The server has some hooks that allows you to control its life time, such as:
+
+| Method | Description |
+|--------|-------------|
+| `OnBeforeStart()` | Called before the server starts. |
+| `OnAfterStart()` | Called after the server starts.  |
+| `OnBeforeStop()` | Called before the server stops. |
+| `OnAfterStop()` | Called after the server stops. |
+| `OnError(ILiteConnection, Exception)` | Called when there is an unhandled error witht the given `ILiteConnection`. |
+
+
+#### Create the server via instance
+
+Now that the server and user classes are built, you can now instanciate your server and call the `Start()` method to start the server.
+
+```csharp
+// Using top-level statement
+using LiteNetwork.Server;
+using System;
+
+// Create the server configuration, to listen on "127.0.0.1" and port "4444"
+var configuration = new LiteServerOptions()
+{
+    Host = "127.0.0.1",
+    Port = 4444
+};
+
+// Create the server instance by givin the server options and start it.
+using var server = new MyTcpServer(configuration);
+server.Start();
+
+// Just for the example, otherwise the console will just shutdown.
+// Do not use in production environment.
+Console.ReadKey(); 
+```
+
+#### Create the server via service
+
+For this example, you will need to install the [`Microsoft.Extensions.Hosting`](https://www.nuget.org/packages/Microsoft.Extensions.Hosting/) package from nuget in order to build a [.NET Generic Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host).
+
+```csharp
+// Using top-level statement
+using Microsoft.Extensions.Hosting;
+using System;
+
+var host = new HostBuilder()
+    .UseConsoleLifetime()
+    .Build();
+
+await host.RunAsync();
+```
+
+Then, once your host is setup and running, you can configure the `LiteServer` service using the `ConfigureLiteNetwork()` method located in the `LiteNetwork.Hosting` namespace:
+
+```csharp
+// Using top-level statement
+using LiteNetwork.Hosting;
+using LiteNetwork.Server.Hosting;
+using Microsoft.Extensions.Hosting;
+using System;
+using System.Threading.Tasks;
+
+var host = new HostBuilder()
+    // Configures the LiteNetwork context.
+    .ConfigureLiteNetwork((context, builder) =>
+    {
+        // Adds a LiteServer instance for the MyTcpServer class.
+        builder.AddLiteServer<MyTcpServer>(options =>
+        {
+            // This configures the server's LiteServerOptions instance.
+            options.Host = "127.0.0.1";
+            options.Port = 4444;
+        });
+    })
+    .UseConsoleLifetime()
+    .Build();
+
+await host.RunAsync();
+```
+
+Your server is now listening on "127.0.0.1" and port "4444".
+Also, since you are using a .NET generic host, it also provides dependency injection into the server and client classes. Hence, you can inject services, configuration (`IOptions<T>` if configured, etc..).
+
+> Note: You can also add as many servers you want into a single .NET generic host by calling the `builder.AddLiteServer<>()` method with different parameters.
+
+### Create a client
+
+There is two ways of building a TCP client with `LiteNetwork`:
+* The instance way: by creating a `LiteClient` instance and then connect to the remote server manually.
+* The service way
+    * In fact, `LiteNetwork` provides an extension to the `ServiceCollection` object, and can be integrated in a [.NET Generic Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host) (used by ASP.NET Core, MAUI).
+
+#### Common code
+
+First of all, you will ned to create a new `class` that inherit from the `LiteClient` class.
+
+```csharp
+using LiteNetwork.Client;
+
+public class MyTcpClient : LiteClient
+{
+    public EchoClient(LiteClientOptions options, IServiceProvider serviceProvider = null) 
+        : base(options, serviceProvider)
+    {
+    }
+}
+```
+Just like a LiteNetwork server, the client has some hooks that allows you to control the client lifetime, such as:
+
+| Method | Description |
+|--------|-------------|
+| `HandleMessageAsync()` | Called when the client receives a message from the server. |
+| `OnConnected()` | Called when the client is connected to the remote server. |
+| `OnDisconnected()` | Called when the client is disconnected from the remote server. |
+| `OnError(Exception)` | Called when there is an unhandled error within the client process. |
+
+#### Create the client via instance
+
+Using the previously created client, you can now create a new instance of the `MyTcpClient` class, set the correct options to connect to the remote server and then, call the `ConnectAsync()` method.
+
+```csharp
+// Using top-level statement
+using LiteNetwork.Client;
+using System;
+
+var options = new LiteClientOptions()
+{
+    Host = "127.0.0.1",
+    Port = 4444
+};
+var client = new CustomClient(options);
+Console.WriteLine("Press any key to connect to server.");
+Console.ReadKey();
+
+await client.ConnectAsync();
+
+// Do something while client is connected.
+```
+
+#### Create the client via service
+
+For this example, you will need to install the [`Microsoft.Extensions.Hosting`](https://www.nuget.org/packages/Microsoft.Extensions.Hosting/) package from nuget in order to build a [.NET Generic Host](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/generic-host).
+
+```csharp
+// Using top-level statement
+using LiteNetwork.Client.Hosting;
+using LiteNetwork.Hosting;
+using Microsoft.Extensions.Hosting;
+
+var host = new HostBuilder()
+    .ConfigureLiteNetwork((context, builder) =>
+    {
+        builder.AddLiteClient<MyTcpClient>(options =>
+        {
+            options.Host = "127.0.0.1";
+            options.Port = 4444;
+        });
+    })
+    .UseConsoleLifetime()
+    .Build();
+
+// At this point, the client will connect automatically once the host starts running.
+await host.RunAsync(); 
+```
+
+Once your program starts, your `MyTcpClient` will try to connect to the remote server ("127.0.0.1" and port 4444). Also, since you are using the .NET generic host, it also provides the dependency injection mechanism into the client. Hence, you can inject services, configuration (`IOptions<T>` if configured), logger, etc...
+
+> Note: You can also add as many clients you want into a single .NET generic host by calling the `builder.AddLiteClient<>() method with different parameters.
+
+## Protocol
+
+### Packet Processor
+
+TBA.
+
+## Thanks
+
+I would like to thank everyone that contributed to this library directly by fixing bugs or add new features, but also the people with who I had the chance to discuss about networking problematics which helped me to improve this library.
+
+## Credits
+
+Package Icon : from [Icons8](https://icons8.com/)
+
+
+
+================================================
+FILE: LiteNetwork.sln
+================================================
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31815.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "global", "global", "{2D17E3E2-DE2D-4525-9937-773908E15299}"
+	ProjectSection(SolutionItems) = preProject
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4A8D35B5-7954-4921-8DDF-B63AC30FC56E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{08407BA9-FFBA-4A7E-8B6B-D0F0F74537FF}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork.Protocol.Tests", "tests\LiteNetwork.Protocol.Tests\LiteNetwork.Protocol.Tests.csproj", "{A937757A-7F08-4965-B371-630396A36A9E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork.Common.Tests", "tests\LiteNetwork.Common.Tests\LiteNetwork.Common.Tests.csproj", "{67D8DC91-886A-48D4-8011-9E18827B1ADF}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork.Server.Tests", "tests\LiteNetwork.Server.Tests\LiteNetwork.Server.Tests.csproj", "{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork", "src\LiteNetwork\LiteNetwork.csproj", "{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{7BA5B264-5610-4FBF-B3EC-3C7C74BB3EC3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "echo", "echo", "{FE07646A-4A52-4DC7-B135-AAD4A68D3292}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample.Echo.Client", "samples\echo\Sample.Echo.Client\Sample.Echo.Client.csproj", "{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample.Echo.Server", "samples\echo\Sample.Echo.Server\Sample.Echo.Server.csproj", "{62B9676C-F51D-4300-B034-083574149411}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "github", "github", "{B6B55AF0-8427-4BA0-9C22-3A7E849BD03E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{8F72405B-AB0A-4439-BD1B-3A086E1DE70A}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\build.yml = .github\workflows\build.yml
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Package|Any CPU = Package|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A937757A-7F08-4965-B371-630396A36A9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A937757A-7F08-4965-B371-630396A36A9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A937757A-7F08-4965-B371-630396A36A9E}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{A937757A-7F08-4965-B371-630396A36A9E}.Package|Any CPU.Build.0 = Package|Any CPU
+		{A937757A-7F08-4965-B371-630396A36A9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A937757A-7F08-4965-B371-630396A36A9E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF}.Package|Any CPU.Build.0 = Package|Any CPU
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}.Package|Any CPU.Build.0 = Package|Any CPU
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}.Package|Any CPU.Build.0 = Package|Any CPU
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62B9676C-F51D-4300-B034-083574149411}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62B9676C-F51D-4300-B034-083574149411}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62B9676C-F51D-4300-B034-083574149411}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{62B9676C-F51D-4300-B034-083574149411}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{62B9676C-F51D-4300-B034-083574149411}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62B9676C-F51D-4300-B034-083574149411}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A937757A-7F08-4965-B371-630396A36A9E} = {08407BA9-FFBA-4A7E-8B6B-D0F0F74537FF}
+		{67D8DC91-886A-48D4-8011-9E18827B1ADF} = {08407BA9-FFBA-4A7E-8B6B-D0F0F74537FF}
+		{3BC3FC47-46FD-49A7-A37F-E83ACABA41AF} = {08407BA9-FFBA-4A7E-8B6B-D0F0F74537FF}
+		{A9976D1A-65E9-4BF5-AF3D-8278E7F77CD6} = {4A8D35B5-7954-4921-8DDF-B63AC30FC56E}
+		{FE07646A-4A52-4DC7-B135-AAD4A68D3292} = {7BA5B264-5610-4FBF-B3EC-3C7C74BB3EC3}
+		{8CC6E8D0-9532-4D3F-83F2-14BE6C3AF71B} = {FE07646A-4A52-4DC7-B135-AAD4A68D3292}
+		{62B9676C-F51D-4300-B034-083574149411} = {FE07646A-4A52-4DC7-B135-AAD4A68D3292}
+		{8F72405B-AB0A-4439-BD1B-3A086E1DE70A} = {B6B55AF0-8427-4BA0-9C22-3A7E849BD03E}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {97CFF3C5-B79C-4272-95B7-3E9267427D92}
+	EndGlobalSection
+EndGlobal
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/LiteNetwork.Sample.CustomPacketReaderWriter.sln
+================================================
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32407.343
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{900D5D9D-1C02-4CA9-BEE5-4EC0B92C3AB5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork", "..\..\src\LiteNetwork\LiteNetwork.csproj", "{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1E14FDEC-F294-4242-9C23-02A86C1A443B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.CustomPacketReaderWriter.Server", "Sample.CustomPacketReaderWriter.Server\Sample.CustomPacketReaderWriter.Server.csproj", "{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.CustomPacketReaderWriter.Client", "Sample.CustomPacketReaderWriter.Client\Sample.CustomPacketReaderWriter.Client.csproj", "{00AE87B0-D235-4E4A-BCE3-0389977272A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.CustomPacketReaderWriter.Protocol", "Sample.CustomPacketReaderWriter.Protocol\Sample.CustomPacketReaderWriter.Protocol.csproj", "{EFF7273F-DE59-410B-9D86-308B4419F794}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Package|Any CPU = Package|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}.Package|Any CPU.Build.0 = Package|Any CPU
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EFF7273F-DE59-410B-9D86-308B4419F794}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFF7273F-DE59-410B-9D86-308B4419F794}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFF7273F-DE59-410B-9D86-308B4419F794}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFF7273F-DE59-410B-9D86-308B4419F794}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{EFF7273F-DE59-410B-9D86-308B4419F794}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFF7273F-DE59-410B-9D86-308B4419F794}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C8B7EC93-AD21-441D-B6B0-0A1A629CEA3C} = {900D5D9D-1C02-4CA9-BEE5-4EC0B92C3AB5}
+		{44D8DE8D-BE10-4323-BD23-8DE18E439EAB} = {1E14FDEC-F294-4242-9C23-02A86C1A443B}
+		{00AE87B0-D235-4E4A-BCE3-0389977272A3} = {1E14FDEC-F294-4242-9C23-02A86C1A443B}
+		{EFF7273F-DE59-410B-9D86-308B4419F794} = {1E14FDEC-F294-4242-9C23-02A86C1A443B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A75F31EF-8F44-457E-90E9-CFD47B2FF2A1}
+	EndGlobalSection
+EndGlobal
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Client/CustomClient.cs
+================================================
+癤퓎sing LiteNetwork.Client;
+using Sample.CustomPacketReaderWriter.Protocol;
+using System;
+using System.Threading.Tasks;
+
+namespace Sample.CustomPacketReaderWriter.Client
+{
+    public class CustomClient : LiteClient
+    {
+        public CustomClient(LiteClientOptions options, IServiceProvider serviceProvider = null)
+            : base(options, serviceProvider)
+        {
+        }
+
+        public override Task HandleMessageAsync(byte[] packetBuffer)
+        {
+            using var packetReader = new CustomPacketReader(packetBuffer);
+
+            string message = packetReader.ReadString();
+
+            Console.WriteLine($"Received from server: {message}");
+
+            return Task.CompletedTask;
+        }
+
+        protected override void OnConnected()
+        {
+            Console.WriteLine("Client connected.");
+            base.OnConnected();
+        }
+
+        protected override void OnDisconnected()
+        {
+            Console.WriteLine("Disconnected");
+            base.OnDisconnected();
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Client/Program.cs
+================================================
+癤퓎sing LiteNetwork.Client;
+using Sample.CustomPacketReaderWriter.Client;
+using Sample.CustomPacketReaderWriter.Protocol;
+using System;
+
+Console.WriteLine("=== ECHO CLIENT ===");
+
+LiteClientOptions options = new()
+{
+    Host = "127.0.0.1",
+    Port = 4444
+};
+CustomClient client = new(options);
+Console.WriteLine("Press any key to connect to server.");
+Console.ReadKey();
+
+await client.ConnectAsync();
+
+while (client.Socket.Connected)
+{
+    string messageToSend = Console.ReadLine();
+
+    if (messageToSend == "quit")
+    {
+        await client.DisconnectAsync();
+        break;
+    }
+
+    using var packetWriter = new CustomPacketWriter();
+
+    packetWriter.WriteString(messageToSend);
+
+    client.Send(packetWriter);
+}
+
+Console.WriteLine("Leaving program.");
+Console.ReadKey();
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Client/Sample.CustomPacketReaderWriter.Client.csproj
+================================================
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net6.0</TargetFramework>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+		<ProjectReference Include="..\Sample.CustomPacketReaderWriter.Protocol\Sample.CustomPacketReaderWriter.Protocol.csproj" />
+	</ItemGroup>
+</Project>
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Protocol/CustomPacketReader.cs
+================================================
+癤퓎sing System.IO;
+using System.Text;
+
+namespace Sample.CustomPacketReaderWriter.Protocol
+{
+    /// <summary>
+    /// Provides a custom packet reader implementation.
+    /// </summary>
+    /// <remarks>
+    /// This is a really basic example which allows to read a input buffer.
+    /// </remarks>
+    public class CustomPacketReader : MemoryStream
+    {
+        private readonly BinaryReader _reader;
+
+        public CustomPacketReader(byte[] packetBuffer)
+            : base(packetBuffer)
+        {
+            _reader = new BinaryReader(this);
+        }
+
+        public int ReadInt32() => _reader.ReadInt32();
+
+        public uint ReadUInt32() => _reader.ReadUInt32();
+
+        public short ReadInt16() => _reader.ReadInt16();
+
+        public ushort ReadUInt16() => _reader.ReadUInt16();
+
+        public float ReadSingle() => _reader.ReadSingle();
+
+        public double ReadDouble() => _reader.ReadDouble();
+
+        public string ReadString()
+        {
+            int stringLength = _reader.ReadInt32();
+
+            if (stringLength > 0)
+            {
+                byte[] content = _reader.ReadBytes(stringLength);
+                
+                return Encoding.UTF8.GetString(content);
+            }
+
+            return string.Empty;
+        }
+    }
+}
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Protocol/CustomPacketWriter.cs
+================================================
+癤퓎sing System.IO;
+using System.Text;
+
+namespace Sample.CustomPacketReaderWriter.Protocol
+{
+    /// <summary>
+    /// Provides a custom packet writer implementation.
+    /// </summary>
+    /// <remarks>
+    /// This is a really basic example which allows to write data into a stream.
+    /// </remarks>
+    public class CustomPacketWriter : MemoryStream
+    {
+        private readonly BinaryWriter _writer;
+
+        public CustomPacketWriter()
+        {
+            _writer = new BinaryWriter(this);
+        }
+
+        //
+        // Here you can specify the different methods to write your values.
+        // You can even write custom methods to add objects and serialize them as JSON for example.
+        // It's up to you and your imagination.
+        //
+
+        public void WriteInt32(int value) => _writer.Write(value);
+
+        public void WriteUInt32(uint value) => _writer.Write(value);
+
+        public void WriteInt16(short value) => _writer.Write(value);
+
+        public void WriteUInt16(ushort value) => _writer.Write(value);
+
+        public void WriteSingle(float value) => _writer.Write(value);
+
+        public void WriteDouble(double value) => _writer.Write(value);
+
+        public void WriteString(string value)
+        {
+            _writer.Write(value?.Length ?? 0);
+            
+            if (!string.IsNullOrEmpty(value))
+            {
+                _writer.Write(Encoding.UTF8.GetBytes(value));
+            }
+        }
+    }
+}
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Protocol/Sample.CustomPacketReaderWriter.Protocol.csproj
+================================================
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+	</ItemGroup>
+
+</Project>
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Server/CustomServer.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using System;
+
+namespace Sample.CustomPacketReaderWriter.Server
+{
+    public class CustomServer : LiteServer<CustomServerUser>
+    {
+        public CustomServer(LiteServerOptions options)
+            : base(options)
+        {
+        }
+
+        protected override void OnBeforeStart()
+        {
+            Console.WriteLine("Starting Echo server.");
+        }
+
+        protected override void OnAfterStart()
+        {
+            Console.WriteLine($"Echo server listining on port: {Options.Port}");
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Server/CustomServerUser.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using Sample.CustomPacketReaderWriter.Protocol;
+using System;
+using System.Threading.Tasks;
+
+namespace Sample.CustomPacketReaderWriter.Server
+{
+    public class CustomServerUser : LiteServerUser
+    {
+        public override Task HandleMessageAsync(byte[] packetBuffer)
+        {
+            using var packetReader = new CustomPacketReader(packetBuffer);
+
+            string receivedMessage = packetReader.ReadString();
+
+            Console.WriteLine($"Received from '{Id}': {receivedMessage}");
+            SendMessage($"Received: '{receivedMessage}'.");
+
+            return Task.CompletedTask;
+        }
+
+        protected override void OnConnected()
+        {
+            Console.WriteLine($"New client connected with id: {Id}");
+
+            SendMessage($"Hello {Id}!");
+        }
+
+        protected override void OnDisconnected()
+        {
+            Console.WriteLine($"Client '{Id}' disconnected.");
+        }
+
+        private void SendMessage(string message)
+        {
+            using var packetWriter = new CustomPacketWriter();
+
+            packetWriter.WriteString(message);
+
+            Send(packetWriter);
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Server/Program.cs
+================================================
+癤퓎sing LiteNetwork;
+using LiteNetwork.Server;
+using Sample.CustomPacketReaderWriter.Server;
+using System;
+
+Console.WriteLine("=== CUSTOM SERVER ===");
+
+var configuration = new LiteServerOptions()
+{
+    Host = "127.0.0.1",
+    Port = 4444,
+    ReceiveStrategy = ReceiveStrategyType.Queued
+};
+using var server = new CustomServer(configuration);
+
+await server.StartAsync();
+Console.ReadKey();
+
+
+================================================
+FILE: samples/custom-packet-reader-writer/Sample.CustomPacketReaderWriter.Server/Sample.CustomPacketReaderWriter.Server.csproj
+================================================
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+    <ProjectReference Include="..\Sample.CustomPacketReaderWriter.Protocol\Sample.CustomPacketReaderWriter.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>
+
+
+
+================================================
+FILE: samples/echo/LiteNetwork.Sample.Echo.sln
+================================================
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31815.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C23C8FE8-BB5B-4C31-9BDC-96AC33E065CE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{DB71DDD0-2741-4A39-B0F1-52267EB25B53}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample.Echo.Client", "Sample.Echo.Client\Sample.Echo.Client.csproj", "{F96BD587-1A87-40AD-9C94-894A2B763426}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample.Echo.Server", "Sample.Echo.Server\Sample.Echo.Server.csproj", "{B2396CDC-1FCB-4C20-8937-3A835462B5A4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork", "..\..\src\LiteNetwork\LiteNetwork.csproj", "{BC1537FE-1184-43A5-86F2-27FE87B27455}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Package|Any CPU = Package|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F96BD587-1A87-40AD-9C94-894A2B763426}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F96BD587-1A87-40AD-9C94-894A2B763426}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F96BD587-1A87-40AD-9C94-894A2B763426}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{F96BD587-1A87-40AD-9C94-894A2B763426}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{F96BD587-1A87-40AD-9C94-894A2B763426}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F96BD587-1A87-40AD-9C94-894A2B763426}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC1537FE-1184-43A5-86F2-27FE87B27455}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC1537FE-1184-43A5-86F2-27FE87B27455}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC1537FE-1184-43A5-86F2-27FE87B27455}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{BC1537FE-1184-43A5-86F2-27FE87B27455}.Package|Any CPU.Build.0 = Package|Any CPU
+		{BC1537FE-1184-43A5-86F2-27FE87B27455}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC1537FE-1184-43A5-86F2-27FE87B27455}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F96BD587-1A87-40AD-9C94-894A2B763426} = {C23C8FE8-BB5B-4C31-9BDC-96AC33E065CE}
+		{B2396CDC-1FCB-4C20-8937-3A835462B5A4} = {C23C8FE8-BB5B-4C31-9BDC-96AC33E065CE}
+		{BC1537FE-1184-43A5-86F2-27FE87B27455} = {DB71DDD0-2741-4A39-B0F1-52267EB25B53}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {459B62F4-FEAA-41B8-9560-CBDE13427978}
+	EndGlobalSection
+EndGlobal
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Client/EchoClient.cs
+================================================
+癤퓎sing LiteNetwork.Client;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+namespace Sample.Echo.Client;
+
+public class EchoClient : LiteClient
+{
+    public EchoClient(LiteClientOptions options, IServiceProvider serviceProvider = null) 
+        : base(options, serviceProvider)
+    {
+    }
+
+    public override Task HandleMessageAsync(byte[] packetBuffer)
+    {
+        using var incomingPacketStream = new MemoryStream(packetBuffer);
+        using var packetReader = new BinaryReader(incomingPacketStream);
+
+        string message = packetReader.ReadString();
+
+        Console.WriteLine($"Received from server: {message}");
+
+        return Task.CompletedTask;
+    }
+
+    protected override void OnConnected()
+    {
+        Console.WriteLine("Client connected.");
+        base.OnConnected();
+    }
+
+    protected override void OnDisconnected()
+    {
+        Console.WriteLine("Disconnected");
+        base.OnDisconnected();
+    }
+}
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Client/Program.cs
+================================================
+癤퓎sing LiteNetwork.Client;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+namespace Sample.Echo.Client;
+
+internal class Program
+{
+    static async Task Main()
+    {
+        Console.WriteLine("=== ECHO CLIENT ===");
+
+        LiteClientOptions options = new()
+        {
+            Host = "127.0.0.1",
+            Port = 4444
+        };
+        EchoClient client = new(options);
+        Console.WriteLine("Press any key to connect to server.");
+        Console.ReadKey();
+
+        await client.ConnectAsync();
+
+        while (client.Socket.Connected)
+        {
+            string messageToSend = Console.ReadLine();
+
+            if (messageToSend == "quit")
+            {
+                await client.DisconnectAsync();
+                break;
+            }
+
+            using var packetStream = new MemoryStream();
+            using var packet = new BinaryWriter(packetStream);
+
+            packet.Write(messageToSend);
+
+            client.Send(packet.BaseStream);
+        }
+
+        Console.WriteLine("Leaving program.");
+        Console.ReadKey();
+    }
+}
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Client/Sample.Echo.Client.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net6.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+	</ItemGroup>
+
+</Project>
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Server/EchoServer.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using System;
+
+namespace LiteNetwork.Sample.Echo.Server;
+
+public class EchoServer : LiteServer<EchoUser>
+{
+    public EchoServer(LiteServerOptions options)
+        : base(options)
+    {
+    }
+
+    protected override void OnBeforeStart()
+    {
+        Console.WriteLine("Starting Echo server.");
+    }
+
+    protected override void OnAfterStart()
+    {
+        Console.WriteLine($"Echo server listining on port: {Options.Port}");
+    }
+}
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Server/EchoUser.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Sample.Echo.Server;
+
+public class EchoUser : LiteServerUser
+{
+    public override Task HandleMessageAsync(byte[] packetBuffer)
+    {
+        using var incomingPacketStream = new MemoryStream(packetBuffer);
+        using var packetReader = new BinaryReader(incomingPacketStream);
+
+        string receivedMessage = packetReader.ReadString();
+
+        Console.WriteLine($"Received from '{Id}': {receivedMessage}");
+        SendMessage($"Received: '{receivedMessage}'.");
+
+        return Task.CompletedTask;
+    }
+
+    protected override void OnConnected()
+    {
+        Console.WriteLine($"New client connected with id: {Id}");
+        SendMessage($"Hello {Id}!");
+    }
+
+    protected override void OnDisconnected()
+    {
+        Console.WriteLine($"Client '{Id}' disconnected.");
+    }
+
+    private void SendMessage(string message)
+    {
+        using var outgoingPacketStream = new MemoryStream();
+        using var packetWriter = new BinaryWriter(outgoingPacketStream);
+
+        packetWriter.Write(message);
+
+        Send(packetWriter.BaseStream);
+    }
+}
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Server/Program.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using System;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Sample.Echo.Server;
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        Console.WriteLine("=== ECHO SERVER ===");
+        
+        var configuration = new LiteServerOptions()
+        {
+            Host = "127.0.0.1",
+            Port = 4444,
+            ReceiveStrategy = ReceiveStrategyType.Queued
+        };
+        using var server = new EchoServer(configuration);
+
+        await server.StartAsync();
+        Console.ReadKey();
+    }
+}
+
+
+
+================================================
+FILE: samples/echo/Sample.Echo.Server/Sample.Echo.Server.csproj
+================================================
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net6.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+	</ItemGroup>
+
+</Project>
+
+
+
+================================================
+FILE: samples/hosting/LiteNetwork.Sample.Hosting.sln
+================================================
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31815.197
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{69FE0004-0DCA-43B6-BDB9-C2E30EA3336F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{245D6146-164B-43D5-B84A-421C2633F680}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LiteNetwork", "..\..\src\LiteNetwork\LiteNetwork.csproj", "{2004F4CA-93A3-45F1-A395-08C37A005AC3}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample.Hosting.Server", "Sample.Hosting.Server\Sample.Hosting.Server.csproj", "{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.Hosting.Client", "Sample.Hosting.Client\Sample.Hosting.Client.csproj", "{7B6A4B4B-930F-441D-B349-25E75E63371F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Package|Any CPU = Package|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3}.Package|Any CPU.ActiveCfg = Package|Any CPU
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3}.Package|Any CPU.Build.0 = Package|Any CPU
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B6A4B4B-930F-441D-B349-25E75E63371F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B6A4B4B-930F-441D-B349-25E75E63371F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B6A4B4B-930F-441D-B349-25E75E63371F}.Package|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B6A4B4B-930F-441D-B349-25E75E63371F}.Package|Any CPU.Build.0 = Debug|Any CPU
+		{7B6A4B4B-930F-441D-B349-25E75E63371F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B6A4B4B-930F-441D-B349-25E75E63371F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2004F4CA-93A3-45F1-A395-08C37A005AC3} = {245D6146-164B-43D5-B84A-421C2633F680}
+		{260B4157-1A88-4F7E-88F6-0BF44CA17F6D} = {69FE0004-0DCA-43B6-BDB9-C2E30EA3336F}
+		{7B6A4B4B-930F-441D-B349-25E75E63371F} = {69FE0004-0DCA-43B6-BDB9-C2E30EA3336F}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {25A3AFE5-44DC-437B-88A4-63A86A155555}
+	EndGlobalSection
+EndGlobal
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Client/Client.cs
+================================================
+癤퓎sing LiteNetwork.Client;
+
+namespace LiteNetwork.Samples.Hosting.Server
+{
+    internal class Client : LiteClient
+    {
+        public bool IsConnected { get; private set; }
+
+        public Client(LiteClientOptions options, IServiceProvider serviceProvider = null!) 
+            : base(options, serviceProvider)
+        {
+        }
+
+        public override Task HandleMessageAsync(byte[] packetBuffer)
+        {
+            using var memoryStream = new MemoryStream(packetBuffer);
+            using var binaryReader = new BinaryReader(memoryStream);
+            string message = binaryReader.ReadString();
+
+            Console.WriteLine($"Received from server: {message}");
+
+            return Task.CompletedTask;
+        }
+
+        protected override void OnConnected()
+        {
+            Console.WriteLine("Client connected.");
+            IsConnected = true;
+            base.OnConnected();
+        }
+
+        protected override void OnDisconnected()
+        {
+            Console.WriteLine("Disconnected");
+            IsConnected = false;
+            base.OnDisconnected();
+        }
+
+        public void SendMessage(string message)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+
+            writer.Write(message);
+
+            Send(stream);
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Client/ClientInputService.cs
+================================================
+癤퓎sing Microsoft.Extensions.Hosting;
+
+namespace LiteNetwork.Samples.Hosting.Server
+{
+    internal class ClientInputService : IHostedService
+    {
+        private readonly Client _client;
+
+        public ClientInputService(Client client)
+        {
+            _client = client;
+        }
+
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (!_client.IsConnected)
+                {
+                    Console.WriteLine("Waiting for connection...");
+                    await Task.Delay(1000, cancellationToken);
+                    continue;
+                }
+
+                string? message = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(message))
+                {
+                    _client.SendMessage(message);
+                }
+            }
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    }
+}
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Client/Program.cs
+================================================
+癤퓎sing LiteNetwork.Client.Hosting;
+using LiteNetwork.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+namespace LiteNetwork.Samples.Hosting.Server
+{
+    class Program
+    {
+        static async Task Main(string[] args)
+        {
+            Console.Title = "LiteNetwork Hosting Sample (Client)";
+
+            var host = new HostBuilder()
+                .ConfigureLiteNetwork((context, builder) =>
+                {
+                    builder.AddLiteClient<Client>(options =>
+                    {
+                        options.Host = "127.0.0.1";
+                        options.Port = 4444;
+                    });
+                })
+                .UseConsoleLifetime()
+                .Build();
+
+            // Run the host build services in background.
+            await Task.Factory.StartNew(async () => await host.RunAsync()).ConfigureAwait(false);
+
+            // Process user input.
+            bool isRunning = true;
+            var client  = host.Services.GetRequiredService<Client>();
+            while (isRunning)
+            {
+                if (!client.IsConnected)
+                {
+                    Console.WriteLine("Waiting for connection...");
+                    await Task.Delay(1000);
+                    continue;
+                }
+
+                string? message = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(message))
+                {
+                    client.SendMessage(message);
+                }
+                else
+                {
+                    isRunning = false;
+                }
+            }
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Client/Sample.Hosting.Client.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+	
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
+	</ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+  </ItemGroup>
+
+</Project>
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Server/Program.cs
+================================================
+癤퓎sing LiteNetwork.Hosting;
+using LiteNetwork.Server.Hosting;
+using Microsoft.Extensions.Hosting;
+using System;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Samples.Hosting.Server
+{
+    class Program
+    {
+        static Task Main(string[] args)
+        {
+            Console.Title = "LiteNetwork Hosting Sample";
+
+            var host = new HostBuilder()
+                .ConfigureLiteNetwork((context, builder) =>
+                {
+                    builder.AddLiteServer<Server>(options =>
+                    {
+                        options.Host = "127.0.0.1";
+                        options.Port = 4444;
+                    });
+                })
+                .UseConsoleLifetime()
+                .Build();
+
+            return host.RunAsync();
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Server/Sample.Hosting.Server.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\LiteNetwork\LiteNetwork.csproj" />
+  </ItemGroup>
+
+</Project>
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Server/Server.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using System;
+
+namespace LiteNetwork.Samples.Hosting.Server
+{
+    public class Server : LiteServer<ServerUser>
+    {
+        public Server(LiteServerOptions options, IServiceProvider serviceProvider)
+            : base(options, serviceProvider)
+        {
+        }
+
+        protected override void OnBeforeStart()
+        {
+            Console.WriteLine("Starting server...");
+        }
+
+        protected override void OnAfterStart()
+        {
+            Console.WriteLine($"Server listening on port {Options.Port}.");
+        }
+    }
+}
+
+
+
+================================================
+FILE: samples/hosting/Sample.Hosting.Server/ServerUser.cs
+================================================
+癤퓎sing LiteNetwork.Server;
+using System;
+using System.IO;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Samples.Hosting.Server
+{
+    public class ServerUser : LiteServerUser
+    {
+        public override Task HandleMessageAsync(byte[] packetBuffer)
+        {
+            using var memoryStream = new MemoryStream(packetBuffer);
+            using var binaryReader = new BinaryReader(memoryStream);
+            string receivedMessage = binaryReader.ReadString();
+
+            Console.WriteLine($"Received from '{Id}': {receivedMessage}");
+
+            return Task.CompletedTask;
+        }
+
+        protected override void OnConnected()
+        {
+            Console.WriteLine($"New client connected with id: {Id}");
+
+            using Stream welcomePacketStream = BuildWelcomePacket();
+
+            Send(welcomePacketStream);
+        }
+
+        protected override void OnDisconnected()
+        {
+            Console.WriteLine($"Client '{Id}' disconnected.");
+        }
+
+        private Stream BuildWelcomePacket()
+        {
+            var stream = new MemoryStream();
+            var writer = new BinaryWriter(stream);
+
+            writer.Write($"Hello {Id}!");
+
+            return stream;
+        }
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/LiteConnection.cs
+================================================
+癤퓎sing LiteNetwork.Internal;
+using LiteNetwork.Protocol.Abstractions;
+using System;
+using System.IO;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+namespace LiteNetwork;
+
+/// <summary>
+/// Provides an abstraction that represents a living connection.
+/// </summary>
+public abstract class LiteConnection : IDisposable
+{
+    private bool _disposed;
+    private LiteSender? _sender = null;
+
+    /// <summary>
+    /// Gets the connection unique identifier.
+    /// </summary>
+    public Guid Id { get; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Gets the connection socket.
+    /// </summary>
+    public Socket? Socket { get; internal set; } = null;
+
+    /// <summary>
+    /// Default constructor for ever connection.
+    /// </summary>
+    protected LiteConnection()
+    {
+    }
+
+    /// <summary>
+    /// Handle an incoming packet message asynchronously.
+    /// </summary>
+    /// <param name="packetBuffer">Incoming packet buffer.</param>
+    /// <returns>A <see cref="Task"/> that completes when finished the handle message operation.</returns>
+    public abstract Task HandleMessageAsync(byte[] packetBuffer);
+
+    /// <summary>
+    /// Sends a raw <see cref="byte" /> array buffer to the remote end point.
+    /// </summary>
+    /// <param name="packetBuffer">Raw packet buffer as a byte array.</param>
+    public virtual void Send(byte[] packetBuffer)
+    {
+        _sender?.Send(packetBuffer);
+    }
+
+    /// <summary>
+    /// Sends a buffer contained into a <see cref="Stream"/> to the remote end point.
+    /// </summary>
+    /// <param name="packetStream">Packet stream.</param>
+    public virtual void Send(Stream packetStream)
+    {
+        long oldPosition = packetStream.Position;
+        byte[] packetBuffer = new byte[packetStream.Length];
+
+        packetStream.Seek(0, SeekOrigin.Begin);
+        packetStream.Read(packetBuffer, 0, packetBuffer.Length);
+        packetStream.Seek(oldPosition, SeekOrigin.Begin);
+        Send(packetBuffer);
+    }
+
+    /// <summary>
+    /// Triggered when an error occured related with the current <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="exception"></param>
+    protected virtual void OnError(object? sender, Exception exception)
+    {
+    }
+
+    /// <summary>
+    /// Initialize the <see cref="LiteConnection"/> sender.
+    /// </summary>
+    /// <param name="packetProcessor">Packet processor.</param>
+    internal void InitializeSender(ILitePacketProcessor packetProcessor)
+    {
+        if (_sender is null)
+        {
+            _sender = new LiteSender(this, packetProcessor);
+            _sender.Error += OnError;
+        }
+
+        _sender.Start();
+    }
+
+    /// <summary>
+    /// Stops the sender.
+    /// </summary>
+    internal void StopSender()
+    {
+        _sender?.Stop();
+    }
+
+    /// <summary>
+    /// Dispose a <see cref="LiteConnection"/> managed resources.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                if (_sender != null)
+                {
+                    _sender.Error -= OnError;
+                    _sender.Dispose();
+                }
+
+                Socket?.Dispose();
+            }
+
+            _disposed = true;
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/LiteNetwork.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0</TargetFrameworks>
+		<LangVersion>10.0</LangVersion>
+		<Version>2.4.0</Version>
+		<Authors>Filipe GOMES PEIXOTO</Authors>
+		<Product>LiteNetwork</Product>
+		<Copyright>Filipe GOMES PEIXOTO 짤 2019-2024</Copyright>
+		<Company>Filipe GOMES PEIXOTO</Company>
+		<PackageProjectUrl>https://github.com/Eastrall/LiteNetwork</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/Eastrall/LiteNetwork</RepositoryUrl>
+		<RepositoryType>Git</RepositoryType>
+		<Nullable>enable</Nullable>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageTags>socket,server,tcp,network,networking,lite,packet,client</PackageTags>
+		<Configurations>Debug;Release;Package</Configurations>
+		<Description>LiteNetwork is a simple and fast networking library built with C# and compatible with .NET Standard 2, .NET 5, 6 and 7. Its main goal is to simply the creation of basic socket servers over the TCP/IP protocol. It has been initialy developed for game development networking, but can also be used for other purposes.</Description>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<NeutralLanguage>en-001</NeutralLanguage>
+		<AssemblyVersion>2.4.0</AssemblyVersion>
+		<FileVersion>2.4.0</FileVersion>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+	</PropertyGroup>
+
+	<ItemGroup Condition="('$(TargetFramework)' == 'netstandard2.0')">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="[3.1.20,5)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[3.1.20,5)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[3.1.20,5)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="('$(TargetFramework)' == 'net6.0')">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="[6,7)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[6,7)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[6,7)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="('$(TargetFramework)' == 'net7.0')">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="[7,8)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[7,8)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[7,8)" />
+	</ItemGroup>
+	
+	<ItemGroup Condition="('$(TargetFramework)' == 'net8.0')">
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="[8,)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[8,)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[8,)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\LICENSE">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="..\..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="Resources\icon.png" />
+		<None Include="Resources\icon.png">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+
+
+</Project>
+
+
+================================================
+FILE: src/LiteNetwork/ReceiveStrategyType.cs
+================================================
+癤퓆amespace LiteNetwork;
+
+/// <summary>
+/// Defines the different receive strategy types available.
+/// </summary>
+public enum ReceiveStrategyType
+{
+    /// <summary>
+    /// The default strategy. Handles the incoming packets right after they got received.
+    /// </summary>
+    Default,
+
+    /// <summary>
+    /// Place the received packet into a receive queue. The packet will be processed in the same order it got received.
+    /// </summary>
+    Queued
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/LiteClient.cs
+================================================
+癤퓎sing LiteNetwork.Client.Internal;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Client;
+
+/// <summary>
+/// Provides a basic TCP client implementation.
+/// </summary>
+public class LiteClient : LiteConnection
+{
+    /// <summary>
+    /// The event used when the client has been connected.
+    /// </summary>
+    public event EventHandler? Connected;
+
+    /// <summary>
+    /// The event used when the client has been disconnected.
+    /// </summary>
+    public event EventHandler? Disconnected;
+
+    /// <summary>
+    /// The event used when the client has encountered an error.
+    /// </summary>
+    public event EventHandler<Exception>? Error;
+
+    private readonly IServiceProvider? _serviceProvider;
+    private readonly ILogger<LiteClient>? _logger;
+    private readonly LiteClientConnector _connector;
+    private readonly LiteClientReceiver _receiver;
+
+    /// <inheritdoc />
+    public LiteClientOptions Options { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClient"/> instance with the given <see cref="LiteClientOptions"/>.
+    /// </summary>
+    /// <param name="options">A client configuration options.</param>
+    /// <param name="serviceProvider">Service provider to use.</param>
+    public LiteClient(LiteClientOptions options, IServiceProvider? serviceProvider = null)
+    {
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        Options = options;
+
+        _serviceProvider = serviceProvider;
+        _connector = new LiteClientConnector(Socket, Options.Host, Options.Port);
+        _receiver = new LiteClientReceiver(options.PacketProcessor, options.ReceiveStrategy, options.BufferSize);
+        _receiver.Error += (s, e) => OnError(e);
+
+        if (_serviceProvider is not null)
+        {
+            _logger = _serviceProvider.GetService<ILogger<LiteClient>>();
+        }
+    }
+
+    /// <inheritdoc />
+    public override Task HandleMessageAsync(byte[] packetBuffer) => Task.CompletedTask;
+
+    /// <inheritdoc />
+    public async Task ConnectAsync()
+    {
+        _logger?.LogTrace($"Connecting to {Options.Host}:{Options.Port}.");
+        bool isConnected = await _connector.ConnectAsync();
+
+        if (isConnected)
+        {
+            InitializeSender(Options.PacketProcessor);
+            _receiver.StartReceiving(this);
+            OnConnected();
+            _logger?.LogTrace($"Connected to {Options.Host}:{Options.Port}.");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task DisconnectAsync()
+    {
+        _logger?.LogTrace($"Disconnecting from {Options.Host}:{Options.Port}.");
+        bool isDisconnected = await _connector.DisconnectAsync();
+
+        if (isDisconnected)
+        {
+            StopSender();
+            OnDisconnected();
+            _logger?.LogTrace($"Disconnected from {Options.Host}:{Options.Port}.");
+        }
+    }
+
+    /// <summary>
+    /// Fired when the client has been connected.
+    /// </summary>
+    protected virtual void OnConnected()
+    {
+        Connected?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Fired when the client has been disconnected.
+    /// </summary>
+    protected virtual void OnDisconnected()
+    {
+        Disconnected?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Fired when the client has encountered an error.
+    /// </summary>
+    /// <param name="exception">Exception with the error.</param>
+    protected virtual void OnError(Exception exception)
+    {
+        Error?.Invoke(this, exception);
+    }
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _connector.Dispose();
+
+            _receiver.Error -= OnError;
+            _receiver.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/LiteClientOptions.cs
+================================================
+癤퓎sing LiteNetwork.Protocol;
+using LiteNetwork.Protocol.Abstractions;
+
+namespace LiteNetwork.Client;
+
+/// <summary>
+/// Provides a data structure that describes the client options.
+/// </summary>
+public class LiteClientOptions
+{
+    /// <summary>
+    /// Gets the default buffer allocated size.
+    /// </summary>
+    public const int DefaultBufferSize = 128;
+
+    /// <summary>
+    /// Gets or sets the remote host to connect.
+    /// </summary>
+    public string Host { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the remote port to connect.
+    /// </summary>
+    public int Port { get; set; }
+
+    /// <summary>
+    /// Gets or sets the handled client buffer size.
+    /// </summary>
+    public int BufferSize { get; set; } = DefaultBufferSize;
+
+    /// <summary>
+    /// Gets or sets the receive strategy type.
+    /// </summary>
+    public ReceiveStrategyType ReceiveStrategy { get; set; }
+
+    /// <summary>
+    /// Gets the default server packet processor.
+    /// </summary>
+    public ILitePacketProcessor PacketProcessor { get; set; }
+
+    /// <summary>
+    /// Creates and initializes a new <see cref="LiteClientOptions"/> instance
+    /// with a default <see cref="LitePacketProcessor"/>.
+    /// </summary>
+    public LiteClientOptions()
+    {
+        PacketProcessor = new LitePacketProcessor();
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/LiteClientStateType.cs
+================================================
+癤퓆amespace LiteNetwork.Client;
+
+/// <summary>
+/// Defines the client connection states.
+/// </summary>
+public enum LiteClientStateType
+{
+    /// <summary>
+    /// The client is not connected to a remote host.
+    /// </summary>
+    Disconnected,
+
+    /// <summary>
+    /// The client is in connection process.
+    /// </summary>
+    Connecting,
+
+    /// <summary>
+    /// The client is connected to a remote host.
+    /// </summary>
+    Connected
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/Hosting/LiteClientBuilderExtensions.cs
+================================================
+癤퓎sing LiteNetwork.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System;
+
+namespace LiteNetwork.Client.Hosting;
+
+/// <summary>
+/// Provides extensions methods for the <see cref="ILiteBuilder"/> interface.
+/// </summary>
+public static class LiteClientBuilderExtensions
+{
+    /// <summary>
+    /// Initializes a custom <see cref="LiteClient"/>.
+    /// </summary>
+    /// <typeparam name="TLiteClient">Custom client type.</typeparam>
+    /// <param name="builder">A <see cref="ILiteBuilder"/> to add the client.</param>
+    /// <param name="configure">Delegate to configure a <see cref="LiteClientOptions"/>.</param>
+    /// <returns>The <see cref="ILiteBuilder"/>.</returns>
+    public static ILiteBuilder AddLiteClient<TLiteClient>(this ILiteBuilder builder, Action<LiteClientOptions> configure)
+        where TLiteClient : LiteClient
+    {
+        if (builder is null)
+        {
+            throw new ArgumentNullException(nameof(builder));
+        }
+
+        builder.Services.AddSingleton<TLiteClient>(serviceProvider => ConfigureClient<TLiteClient>(serviceProvider, configure));
+        builder.Services.AddLiteClientHostedService<TLiteClient>();
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Initializes a custom <see cref="LiteClient"/> with a custom interface.
+    /// </summary>
+    /// <typeparam name="TLiteClient">LiteClient abstraction.</typeparam>
+    /// <typeparam name="TLiteClientImplementation">LiteClient implementation.</typeparam>
+    /// <param name="builder">A <see cref="ILiteBuilder"/> to add the client.</param>
+    /// <param name="configure">Delegate to configure a <see cref="LiteClientOptions"/>.</param>
+    /// <returns>The <see cref="ILiteBuilder"/>.</returns>
+    public static ILiteBuilder AddLiteClient<TLiteClient, TLiteClientImplementation>(this ILiteBuilder builder, Action<LiteClientOptions> configure)
+        where TLiteClient : class
+        where TLiteClientImplementation : LiteClient, TLiteClient
+    {
+        if (builder is null)
+        {
+            throw new ArgumentNullException(nameof(builder));
+        }
+
+        builder.Services.AddSingleton<TLiteClientImplementation>(serviceProvider => ConfigureClient<TLiteClientImplementation>(serviceProvider, configure));
+        builder.Services.AddSingleton<TLiteClient, TLiteClientImplementation>(serviceProvider => serviceProvider.GetRequiredService<TLiteClientImplementation>());
+        builder.Services.AddLiteClientHostedService<TLiteClientImplementation>();
+
+        return builder;
+    }
+
+    private static TLiteClient ConfigureClient<TLiteClient>(IServiceProvider serviceProvider, Action<LiteClientOptions> configure)
+        where TLiteClient : LiteClient
+    {
+        LiteClientOptions options = new();
+        configure(options);
+
+        return ActivatorUtilities.CreateInstance<TLiteClient>(serviceProvider, options);
+    }
+
+    private static void AddLiteClientHostedService<TLiteClient>(this IServiceCollection services)
+        where TLiteClient : LiteClient
+    {
+        services.AddSingleton<IHostedService>(serviceProvider => new LiteClientHostedService(serviceProvider.GetRequiredService<TLiteClient>()));
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/Hosting/LiteClientHostedService.cs
+================================================
+癤퓎sing Microsoft.Extensions.Hosting;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Client.Hosting;
+
+/// <summary>
+/// Defines a basic <see cref="IHostedService"/> to use with <see cref="LiteClient"/>
+/// </summary>
+internal class LiteClientHostedService : IHostedService
+{
+    private readonly LiteClient _client;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientHostedService"/> with the given server.
+    /// </summary>
+    /// <param name="client">Client to host.</param>
+    public LiteClientHostedService(LiteClient client)
+    {
+        _client = client ?? throw new ArgumentNullException(nameof(client), "Failed to inject client.");
+    }
+
+    public async Task StartAsync(CancellationToken cancellationToken) => await _client.ConnectAsync();
+
+    public async Task StopAsync(CancellationToken cancellationToken) => await _client.DisconnectAsync();
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/Internal/LiteClientConnector.cs
+================================================
+癤퓎sing LiteNetwork.Exceptions;
+using LiteNetwork.Internal;
+using System;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Client.Internal;
+
+/// <summary>
+/// Provides a mechanism to manage the lite client connection to a given endpoint.
+/// </summary>
+internal class LiteClientConnector : IDisposable
+{
+    /// <summary>
+    /// The event used when an error has been occurred during the connection process.
+    /// </summary>
+    public event EventHandler<LiteClientConnectionException>? Error;
+
+    private readonly SocketAsyncEventArgs _socketEvent;
+    private TaskCompletionSource<bool>? _taskCompletion;
+    private readonly Socket _socket;
+    private readonly string _host;
+    private readonly int _port;
+    private readonly object _lockObject = new();
+
+    /// <summary>
+    /// Gets the current connection state.
+    /// </summary>
+    public LiteClientStateType State { get; private set; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientConnector"/> instance with the given socket, host and port.
+    /// </summary>
+    /// <param name="connectionSocket">Socket to use for connection process.</param>
+    /// <param name="host">The remote host to connect.</param>
+    /// <param name="port">The remote port to connect.</param>
+    public LiteClientConnector(Socket connectionSocket, string host, int port)
+    {
+        _socket = connectionSocket;
+        _host = host;
+        _port = port;
+        _socketEvent = new SocketAsyncEventArgs
+        {
+            DisconnectReuseSocket = true
+        };
+        _socketEvent.Completed += OnCompleted;
+    }
+
+
+    /// <summary>
+    /// Begins an asynchronous connection to a remote host.
+    /// </summary>
+    /// <returns>A <see cref="Task{TResult}"/> that representing the asynchronous operation.
+    /// Returns True if the client has been connected successfully, otherwise, False.</returns>
+    public Task<bool> ConnectAsync()
+    {
+        lock (_lockObject)
+        {
+            if (State != LiteClientStateType.Disconnected)
+            {
+                throw new InvalidOperationException($"Cannot connect with current client state: {State}");
+            }
+
+            State = LiteClientStateType.Connecting;
+        }
+
+        _taskCompletion = new TaskCompletionSource<bool>();
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                _socketEvent.RemoteEndPoint = await LiteNetworkHelpers.CreateIpEndPointAsync(_host, _port).ConfigureAwait(false);
+
+                if (!_socket.ConnectAsync(_socketEvent))
+                {
+                    OnCompleted(this, _socketEvent);
+                }
+            }
+            catch (SocketException)
+            {
+                Error?.Invoke(this, new LiteClientConnectionException(SocketError.HostUnreachable));
+                _taskCompletion.SetResult(false);
+            }
+        });
+
+        return _taskCompletion.Task;
+    }
+
+    /// <summary>
+    /// Begins an asynchronous disconnection to a remote host.
+    /// </summary>
+    /// <returns>A <see cref="Task{TResult}"/> that representing the asynchronous operation.
+    /// Returns True if the client has been disconnected successfully, otherwise, False.</returns>
+    public Task<bool> DisconnectAsync()
+    {
+        lock (_lockObject)
+        {
+            if (State != LiteClientStateType.Connected)
+            {
+                throw new InvalidOperationException($"Cannot disconnect with current client state: {State}");
+            }
+        }
+        _taskCompletion = new TaskCompletionSource<bool>();
+
+        Task.Run(() =>
+        {
+            if (!_socket.DisconnectAsync(_socketEvent))
+            {
+                OnCompleted(this, _socketEvent);
+            }
+        });
+
+        return _taskCompletion.Task;
+    }
+
+    private void OnCompleted(object? sender, SocketAsyncEventArgs e)
+    {
+        try
+        {
+            if (e.LastOperation == SocketAsyncOperation.Connect)
+            {
+                if (e.SocketError == SocketError.Success)
+                {
+                    State = LiteClientStateType.Connected;
+                    _taskCompletion?.SetResult(true);
+                }
+                else
+                {
+                    State = LiteClientStateType.Disconnected;
+                    Error?.Invoke(this, new LiteClientConnectionException(e.SocketError));
+                    _taskCompletion?.SetResult(false);
+                }
+            }
+            else if (e.LastOperation == SocketAsyncOperation.Disconnect)
+            {
+                if (e.SocketError == SocketError.Success)
+                {
+                    State = LiteClientStateType.Disconnected;
+                    _taskCompletion?.SetResult(true);
+                }
+                else
+                {
+                    Error?.Invoke(this, new LiteClientConnectionException(e.SocketError));
+                    _taskCompletion?.SetResult(false);
+                }
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Error?.Invoke(this, new LiteClientConnectionException("Cannot connect to remote host.", ex));
+        }
+    }
+
+    /// <summary>
+    /// Dispose the connector resources.
+    /// </summary>
+    public void Dispose()
+    {
+        _socketEvent.Dispose();
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Client/Internal/LiteClientReceiver.cs
+================================================
+癤퓎sing LiteNetwork.Internal;
+using LiteNetwork.Protocol.Abstractions;
+using System;
+using System.Net.Sockets;
+
+namespace LiteNetwork.Client.Internal;
+
+/// <summary>
+/// Overrides the basic <see cref="LiteReceiver"/> for the client needs.
+/// </summary>
+internal class LiteClientReceiver : LiteReceiver, IDisposable
+{
+    private readonly byte[] _buffer;
+    private readonly SocketAsyncEventArgs _socketEvent;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientReceiver"/> instance with the given <see cref="ILitePacketProcessor"/>
+    /// and a client buffer size.
+    /// </summary>
+    /// <param name="packetProcessor">Current packet processor used in the client.</param>
+    /// <param name="receiveStrategy">The receive strategy type for every received message.</param>
+    /// <param name="bufferSize">Buffer size defined in client configuration.</param>
+    public LiteClientReceiver(ILitePacketProcessor packetProcessor, ReceiveStrategyType receiveStrategy, int bufferSize)
+        : base(packetProcessor, receiveStrategy)
+    {
+        _buffer = new byte[bufferSize];
+        _socketEvent = new SocketAsyncEventArgs();
+        _socketEvent.Completed += OnCompleted;
+        _socketEvent.SetBuffer(_buffer, 0, _buffer.Length);
+    }
+
+    protected override void ClearSocketEvent(SocketAsyncEventArgs socketAsyncEvent)
+    {
+        Array.Clear(_buffer, 0, _buffer.Length);
+        _socketEvent.UserToken = null;
+    }
+
+    protected override SocketAsyncEventArgs GetSocketEvent()
+    {
+        return _socketEvent;
+    }
+
+    public void Dispose()
+    {
+        _socketEvent.SetBuffer(null, 0, 0);
+        _socketEvent.UserToken = null;
+        _socketEvent.Completed -= OnCompleted;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Exceptions/LiteClientConnectionException.cs
+================================================
+癤퓎sing System;
+using System.Net.Sockets;
+
+namespace LiteNetwork.Exceptions;
+
+/// <summary>
+/// Exception used when a client connection fails.
+/// </summary>
+public class LiteClientConnectionException : LiteClientException
+{
+    /// <summary>
+    /// Gets the connection socket error.
+    /// </summary>
+    public SocketError SocketError { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientConnectionException"/> instance.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    /// <param name="innerException">Inner exception.</param>
+    internal LiteClientConnectionException(string message, Exception innerException = null!)
+        : base(message, innerException)
+    {
+        SocketError = SocketError.HostUnreachable;
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientConnectionException"/> instance.
+    /// </summary>
+    /// <param name="socketError">Socket error.</param>
+    /// <param name="innerException">Inner exception.</param>
+    internal LiteClientConnectionException(SocketError socketError, Exception innerException = null!)
+        : base(innerException)
+    {
+        SocketError = socketError;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Exceptions/LiteClientException.cs
+================================================
+癤퓎sing System;
+
+namespace LiteNetwork.Exceptions;
+
+/// <summary>
+/// Describes a basic exception that occured on a <see cref="LiteNetwork.Client.LiteClient"/>
+/// </summary>
+public class LiteClientException : Exception
+{
+    /// <summary>
+    /// Creates a new <see cref="LiteClientException"/> instance.
+    /// </summary>
+    public LiteClientException()
+        : this(string.Empty)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientException"/> instance.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    public LiteClientException(string message)
+        : this(message, null!)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientException"/> instance.
+    /// </summary>
+    /// <param name="innerException">Inner exception.</param>
+    public LiteClientException(Exception innerException)
+        : this(string.Empty, innerException)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteClientException"/> instance.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    /// <param name="innerException">Inner exception.</param>
+    public LiteClientException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Exceptions/LiteNetworkException.cs
+================================================
+癤퓎sing System;
+
+namespace LiteNetwork.Exceptions;
+
+/// <summary>
+/// Basic LiteNetwork exception.
+/// </summary>
+public class LiteNetworkException : Exception
+{
+    /// <summary>
+    /// Creates a new <see cref="LiteNetworkException"/> instance with a specified error message.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    public LiteNetworkException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteNetworkException"/> instance with a specified error message
+    /// and reference to the inner exception.
+    /// </summary>
+    /// <param name="message">Exception message.</param>
+    /// <param name="innerException">Inner exception.</param>
+    public LiteNetworkException(string message, Exception? innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Exceptions/LiteReceiverException.cs
+================================================
+癤퓎sing System;
+using System.Net.Sockets;
+
+namespace LiteNetwork.Exceptions;
+
+/// <summary>
+/// The exception that is thrown when an error occurs during the receive process.
+/// </summary>
+public class LiteReceiverException : LiteNetworkException
+{
+    /// <summary>
+    /// Gets the connection that thrown the exception.
+    /// </summary>
+    public LiteConnection Connection { get; }
+
+    /// <summary>
+    /// Gets the receive socket error.
+    /// </summary>
+    public SocketError SocketError { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteReceiverException"/> instance with a default receiver message error.
+    /// </summary>
+    /// <param name="connection">Connection that thrown the exception.</param>
+    /// <param name="socketError">Socket error.</param>
+    /// <param name="innerException">Inner exception.</param>
+    public LiteReceiverException(LiteConnection connection, SocketError socketError, Exception? innerException = null)
+        : base($"An error as occured while receiving data for connection with id: '{connection.Id}'.", innerException)
+    {
+        Connection = connection;
+        SocketError = socketError;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Hosting/HostBuilderExtensions.cs
+================================================
+癤퓎sing Microsoft.Extensions.Hosting;
+using System;
+
+namespace LiteNetwork.Hosting;
+
+/// <summary>
+/// Provides extension methods to configure a LiteNetwork services in an <see cref="IHostBuilder"/>.
+/// </summary>
+public static class HostBuilderExtensions
+{
+    /// <summary>
+    /// Configures a <see cref="ILiteBuilder"/> service in to the specified <see cref="IHostBuilder"/>.
+    /// </summary>
+    /// <param name="hostBuilder">The <see cref="IHostBuilder"/> to configure.</param>
+    /// <param name="configureLite">A <see cref="ILiteBuilder"/> configuration.</param>
+    /// <returns>A <see cref="IHostBuilder"/> configured.</returns>
+    public static IHostBuilder ConfigureLiteNetwork(this IHostBuilder hostBuilder, Action<HostBuilderContext, ILiteBuilder> configureLite)
+    {
+        return hostBuilder.ConfigureServices((context, collection) => collection.UseLiteNetwork(builder => configureLite(context, builder)));
+    }
+
+    /// <summary>
+    /// Configures a <see cref="ILiteBuilder"/> service in to the specified <see cref="IHostBuilder"/>.
+    /// </summary>
+    /// <param name="hostBuilder">The <see cref="IHostBuilder"/> to configure.</param>
+    /// <param name="configureLite">A <see cref="ILiteBuilder"/> configuration.</param>
+    /// <returns>A <see cref="IHostBuilder"/> configured.</returns>
+    public static IHostBuilder ConfigureLiteNetwork(this IHostBuilder hostBuilder, Action<ILiteBuilder> configureLite)
+    {
+        return hostBuilder.ConfigureServices((_, collection) => collection.UseLiteNetwork(builder => configureLite(builder)));
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Hosting/ILiteBuilder.cs
+================================================
+癤퓎sing Microsoft.Extensions.DependencyInjection;
+
+namespace LiteNetwork.Hosting;
+
+/// <summary>
+/// Provides a basic mechanism to configuring LiteNetwork clients or servers.
+/// </summary>
+public interface ILiteBuilder
+{
+    /// <summary>
+    /// Gets an <see cref="IServiceCollection"/> where services are configured.
+    /// </summary>
+    IServiceCollection Services { get; }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Hosting/LiteBuilder.cs
+================================================
+癤퓎sing Microsoft.Extensions.DependencyInjection;
+
+namespace LiteNetwork.Hosting;
+
+/// <summary>
+/// Provides a basic <see cref="ILiteBuilder"/> implementation.
+/// </summary>
+internal class LiteBuilder : ILiteBuilder
+{
+    public IServiceCollection Services { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteBuilder"/> instance with the given services.
+    /// </summary>
+    /// <param name="services">Service collection.</param>
+    public LiteBuilder(IServiceCollection services)
+    {
+        Services = services;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Hosting/LiteNetworkCollectionExtensions.cs
+================================================
+癤퓎sing Microsoft.Extensions.DependencyInjection;
+using System;
+
+namespace LiteNetwork.Hosting;
+
+/// <summary>
+/// Provides extension methods for setup a LiteNetwork service in an <see cref="IServiceCollection"/>.
+/// </summary>
+public static class LiteNetworkCollectionExtensions
+{
+    /// <summary>
+    /// Adds a LiteNetwork services to the specified <see cref="IServiceCollection"/>.
+    /// </summary>
+    /// <param name="services">An <see cref="IServiceCollection"/> to add services.</param>
+    /// <param name="configure">A <see cref="ILiteBuilder"/> configuration.</param>
+    /// <returns></returns>
+    public static IServiceCollection UseLiteNetwork(this IServiceCollection services, Action<ILiteBuilder> configure)
+    {
+        if (services is null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+
+        configure(new LiteBuilder(services));
+        return services;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/ILiteConnectionToken.cs
+================================================
+癤퓎sing LiteNetwork.Protocol;
+using System;
+using System.Collections.Generic;
+
+namespace LiteNetwork.Internal;
+
+/// <summary>
+/// Provides a structure to used in receiver process.
+/// </summary>
+internal interface ILiteConnectionToken : IDisposable
+{
+    /// <summary>
+    /// Gets the connection attached to the current token.
+    /// </summary>
+    LiteConnection Connection { get; }
+
+    /// <summary>
+    /// Gets the data token.
+    /// </summary>
+    LiteDataToken DataToken { get; }
+
+    /// <summary>
+    /// Process a received messages.
+    /// </summary>
+    /// <param name="messages">Collection of message data buffers.</param>
+    void ProcessReceivedMessages(IEnumerable<byte[]> messages);
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/LiteNetworkHelpers.cs
+================================================
+癤퓎sing System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Internal;
+
+/// <summary>
+/// Provides network helper methods.
+/// </summary>
+internal static class LiteNetworkHelpers
+{
+    /// <summary>
+    /// Creates a new <see cref="IPEndPoint"/> with the specified IP or host and a port number
+    /// as an asynchronous operation.
+    /// </summary>
+    /// <param name="ipOrHost">IP or Host address.</param>
+    /// <param name="port">Port number.</param>
+    /// <returns>A <see cref="Task{TResult}"/> that representing the asynchronous operation. 
+    /// The result returns a <see cref="IPEndPoint"/> with the specified IP or host and port number.></returns>
+    public static async Task<IPEndPoint> CreateIpEndPointAsync(string ipOrHost, int port)
+    {
+        IPAddress address = ipOrHost == IPAddress.Any.ToString() ?
+            IPAddress.Any :
+            (await Dns.GetHostAddressesAsync(ipOrHost).ConfigureAwait(false)).First(x => x.AddressFamily == AddressFamily.InterNetwork);
+
+        return new IPEndPoint(address, port);
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/LiteReceiver.cs
+================================================
+癤퓎sing LiteNetwork.Exceptions;
+using LiteNetwork.Internal.Tokens;
+using LiteNetwork.Protocol.Abstractions;
+using LiteNetwork.Protocol.Internal;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Internal;
+
+/// <summary>
+/// Provides a mechanism to receive and parse incoming data.
+/// </summary>
+internal abstract class LiteReceiver
+{
+    private readonly LitePacketParser _packetParser;
+
+    /// <summary>
+    /// Gets the receive strategy type.
+    /// </summary>
+    protected ReceiveStrategyType ReceiveStrategy { get; }
+
+    /// <summary>
+    /// The event used when a client has been disconnected.
+    /// </summary>
+    public event EventHandler<LiteConnection>? Disconnected;
+
+    /// <summary>
+    /// The event used when an error has been occurred.
+    /// </summary>
+    public event EventHandler<Exception>? Error;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteReceiver"/> instance with a <see cref="ILitePacketProcessor"/> and a <see cref="ReceiveStrategyType"/>.
+    /// </summary>
+    /// <param name="packetProcessor">Packet processor to process incoming data and convert it into an exploitable packet stream.</param>
+    /// <param name="receiveStrategy">A <see cref="ReceiveStrategyType"/> to use.</param>
+    protected LiteReceiver(ILitePacketProcessor packetProcessor, ReceiveStrategyType receiveStrategy)
+    {
+        ReceiveStrategy = receiveStrategy;
+        _packetParser = new LitePacketParser(packetProcessor);
+    }
+
+    /// <summary>
+    /// Starts the receive process for the given connection and socket.
+    /// </summary>
+    /// <param name="connection">User connection.</param>
+    public void StartReceiving(LiteConnection connection)
+    {
+        ILiteConnectionToken token = BuildConnectionToken(connection);
+        SocketAsyncEventArgs socketAsyncEvent = GetSocketEvent();
+        socketAsyncEvent.UserToken = token;
+
+        ReceiveData(token, socketAsyncEvent);
+    }
+
+    /// <summary>
+    /// Receive data from a client.
+    /// </summary>
+    /// <param name="userConnectionToken">User connection token.</param>
+    /// <param name="socketAsyncEvent">Socket async event arguments.</param>
+    private void ReceiveData(ILiteConnectionToken userConnectionToken, SocketAsyncEventArgs socketAsyncEvent)
+    {
+        if (userConnectionToken.Connection.Socket != null && !userConnectionToken.Connection.Socket.ReceiveAsync(socketAsyncEvent))
+        {
+            ProcessReceive(userConnectionToken, socketAsyncEvent);
+        }
+    }
+
+    /// <summary>
+    /// Process the received data.
+    /// </summary>
+    /// <param name="clientToken">Client token.</param>
+    /// <param name="socketAsyncEvent">Socket async event arguments.</param>
+    [ExcludeFromCodeCoverage]
+    private void ProcessReceive(ILiteConnectionToken clientToken, SocketAsyncEventArgs socketAsyncEvent)
+    {
+        try
+        {
+            if (socketAsyncEvent.BytesTransferred > 0)
+            {
+                if (socketAsyncEvent.SocketError == SocketError.Success)
+                {
+                    if (socketAsyncEvent.Buffer is null)
+                    {
+                        throw new LiteNetworkException("A network error occurred: socket buffer is null.");
+                    }
+
+                    IEnumerable<byte[]> messages = _packetParser.ParseIncomingData(clientToken.DataToken, socketAsyncEvent.Buffer, socketAsyncEvent.BytesTransferred);
+
+                    if (messages.Any())
+                    {
+                        clientToken.ProcessReceivedMessages(messages);
+                    }
+
+                    if (clientToken.DataToken.DataStartOffset >= socketAsyncEvent.BytesTransferred)
+                    {
+                        clientToken.DataToken.Reset();
+                    }
+
+                    ReceiveData(clientToken, socketAsyncEvent);
+                }
+                else
+                {
+                    throw new LiteReceiverException(clientToken.Connection, socketAsyncEvent.SocketError);
+                }
+            }
+            else
+            {
+                clientToken.Dispose();
+                ClearSocketEvent(socketAsyncEvent);
+                OnDisconnected(clientToken.Connection);
+            }
+        }
+        catch (Exception e)
+        {
+            OnError(e);
+        }
+    }
+
+    /// <summary>
+    /// Fired when a receive operation has completed.
+    /// </summary>
+    /// <param name="sender">Sender.</param>
+    /// <param name="e">Socket async event arguments.</param>
+    [ExcludeFromCodeCoverage]
+    protected void OnCompleted(object? sender, SocketAsyncEventArgs e)
+    {
+        try
+        {
+            if (sender is null)
+            {
+                throw new ArgumentNullException(nameof(sender));
+            }
+
+            if (e.UserToken is not ILiteConnectionToken connectionToken)
+            {
+                throw new ArgumentException("Incorrect token type.");
+            }
+
+            if (e.LastOperation == SocketAsyncOperation.Receive)
+            {
+                ProcessReceive(connectionToken, e);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Unknown '{e.LastOperation}' socket operation in receiver.");
+            }
+        }
+        catch (Exception ex)
+        {
+            OnError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Gets a <see cref="SocketAsyncEventArgs"/> for the receive operation.
+    /// </summary>
+    /// <returns></returns>
+    protected abstract SocketAsyncEventArgs GetSocketEvent();
+
+    /// <summary>
+    /// Clears an used <see cref="SocketAsyncEventArgs"/>.
+    /// </summary>
+    /// <param name="socketAsyncEvent">Socket async vent arguments to clear.</param>
+    protected abstract void ClearSocketEvent(SocketAsyncEventArgs socketAsyncEvent);
+
+    /// <summary>
+    /// Called when a client has been disconnected.
+    /// </summary>
+    /// <param name="client">Disconnected client.</param>
+    private void OnDisconnected(LiteConnection client) => Disconnected?.Invoke(this, client);
+
+    /// <summary>
+    /// Called when an exeption has been thrown during the receive process.
+    /// </summary>
+    /// <param name="exception">Thrown exception.</param>
+    private void OnError(Exception exception) => Error?.Invoke(this, exception);
+
+    /// <summary>
+    /// Process a single received message.
+    /// </summary>
+    /// <param name="connection">Connection that received the message.</param>
+    /// <param name="messageData">Message data.</param>
+    internal async Task ProcessReceivedMessage(LiteConnection connection, byte[] messageData)
+    {
+        try
+        {
+            await connection.HandleMessageAsync(messageData).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            OnError(e);
+        }
+    }
+
+    /// <summary>
+    /// Builds an user connection token with the given <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connection">The connection associated with the token.</param>
+    /// <returns>A new connection token implementation.</returns>
+    private ILiteConnectionToken BuildConnectionToken(LiteConnection connection)
+        => ReceiveStrategy switch
+        {
+            ReceiveStrategyType.Default => new LiteDefaultConnectionToken(connection, ProcessReceivedMessage),
+            ReceiveStrategyType.Queued => new LiteQueuedConnectionToken(connection, ProcessReceivedMessage),
+            _ => throw new NotImplementedException(),
+        };
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/LiteSender.cs
+================================================
+癤퓎sing LiteNetwork.Protocol.Abstractions;
+using System;
+using System.Collections.Concurrent;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Internal;
+
+/// <summary>
+/// Provides a mechanism to send data.
+/// </summary>
+internal class LiteSender : IDisposable
+{
+    private readonly BlockingCollection<byte[]> _sendingCollection;
+    private readonly CancellationTokenSource _cancellationTokenSource;
+    private readonly CancellationToken _cancellationToken;
+    private readonly LiteConnection _connection;
+    private readonly ILitePacketProcessor _packetProcessor;
+    private readonly SocketAsyncEventArgs _socketAsyncEvent;
+    private bool _disposedValue;
+
+    public event EventHandler<Exception>? Error;
+
+    /// <summary>
+    /// Gets a boolean value that indiciates if the sender process is running.
+    /// </summary>
+    public bool IsRunning { get; private set; }
+
+    /// <summary>
+    /// Creates and initializes a new <see cref="LiteSender"/> base instance.
+    /// </summary>
+    public LiteSender(LiteConnection connection, ILitePacketProcessor packetProcessor)
+    {
+        _sendingCollection = new BlockingCollection<byte[]>();
+        _cancellationTokenSource = new CancellationTokenSource();
+        _cancellationToken = _cancellationTokenSource.Token;
+        _connection = connection;
+        _packetProcessor = packetProcessor;
+        _socketAsyncEvent = new SocketAsyncEventArgs();
+        _socketAsyncEvent.Completed += OnSendCompleted;
+    }
+
+    /// <summary>
+    /// Starts the sender process.
+    /// </summary>
+    public void Start()
+    {
+        if (IsRunning)
+        {
+            throw new InvalidOperationException("Sender is already running.");
+        }
+
+        Task.Factory.StartNew(ProcessSendingQueue,
+            _cancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        IsRunning = true;
+    }
+
+    /// <summary>
+    /// Stops the sender process.
+    /// </summary>
+    public void Stop()
+    {
+        if (!IsRunning)
+        {
+            throw new InvalidOperationException("Sender is not running.");
+        }
+
+        _cancellationTokenSource.Cancel(false);
+        IsRunning = false;
+    }
+
+    /// <summary>
+    /// Sends a message to the current connection.
+    /// </summary>
+    /// <param name="messageData">Message data buffer to be sent.</param>
+    public void Send(byte[] messageData) => _sendingCollection.Add(messageData);
+
+    /// <summary>
+    /// Dequeue the message collection and sends the messages to their recipients.
+    /// </summary>
+    private void ProcessSendingQueue()
+    {
+        while (!_cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                byte[] message = _sendingCollection.Take(_cancellationToken);
+                message = _packetProcessor.AppendHeader(message);
+
+                _socketAsyncEvent.SetBuffer(message, 0, message.Length);
+
+                if (_connection.Socket != null && !_connection.Socket.SendAsync(_socketAsyncEvent))
+                {
+                    OnSendCompleted(this, _socketAsyncEvent);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // The operation has been cancelled: nothing to do
+            }
+            catch (Exception e)
+            {
+                Error?.Invoke(this, e);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Fired when a send operation has been completed.
+    /// </summary>
+    /// <param name="sender">Sender.</param>
+    /// <param name="e">Socket async event arguments.</param>
+    protected void OnSendCompleted(object? sender, SocketAsyncEventArgs e)
+    {
+        _socketAsyncEvent.SetBuffer(null, 0, 0);
+    }
+
+    /// <summary>
+    /// Disposes the sender resources.
+    /// </summary>
+    /// <param name="disposing">Disposing value.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposedValue)
+        {
+            if (disposing)
+            {
+                if (IsRunning)
+                {
+                    Stop();
+                }
+                _sendingCollection.Dispose();
+                _cancellationTokenSource.Dispose();
+            }
+
+            _disposedValue = true;
+        }
+    }
+
+    /// <summary>
+    /// Dispose the <see cref="LiteSender"/> resources.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/ObjectPool.cs
+================================================
+癤퓎sing System;
+using System.Collections.Concurrent;
+
+namespace LiteNetwork.Internal;
+
+internal class ObjectPool<TObject> where TObject : class
+{
+    private readonly ConcurrentBag<TObject> _objects;
+    private readonly Func<TObject> _objectFactory;
+
+    public ObjectPool(Func<TObject> objectFactory)
+    {
+        _objects = new();
+        _objectFactory = objectFactory ?? throw new ArgumentNullException(nameof(objectFactory));
+    }
+
+    public TObject Get()
+    {
+        return _objects.TryTake(out var @object) ? @object : _objectFactory();
+    }
+
+    public void Return(TObject @object)
+    {
+        _objects.Add(@object);
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/Tokens/LiteDefaultConnectionToken.cs
+================================================
+癤퓎sing LiteNetwork.Protocol;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Internal.Tokens;
+
+/// <summary>
+/// Provides a data structure representing a lite connection token used for the receive process.
+/// </summary>
+internal class LiteDefaultConnectionToken : ILiteConnectionToken
+{
+    private readonly Func<LiteConnection, byte[], Task> _handlerAction;
+
+    public LiteConnection Connection { get; }
+
+    public LiteDataToken DataToken { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteDefaultConnectionToken"/> instance with a <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connection">Current connection.</param>
+    /// <param name="handlerAction">Asynchronous action to execute when a packet message is being processed.</param>
+    public LiteDefaultConnectionToken(LiteConnection connection, Func<LiteConnection, byte[], Task> handlerAction)
+    {
+        Connection = connection;
+        _handlerAction = handlerAction;
+        DataToken = new LiteDataToken(Connection);
+    }
+
+    public void Dispose()
+    {
+        // nothing to do
+    }
+
+    public void ProcessReceivedMessages(IEnumerable<byte[]> messages)
+    {
+        Task.Run(async () =>
+        {
+            foreach (var messageBuffer in messages)
+            {
+                await _handlerAction(Connection, messageBuffer).ConfigureAwait(false);
+            }
+        });
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Internal/Tokens/LiteQueuedConnectionToken.cs
+================================================
+癤퓎sing LiteNetwork.Protocol;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Internal.Tokens;
+
+/// <summary>
+/// Provides a mechanism used for the receive process.
+/// </summary>
+internal class LiteQueuedConnectionToken : ILiteConnectionToken
+{
+    private readonly Func<LiteConnection, byte[], Task> _handlerAction;
+    private readonly BlockingCollection<byte[]> _receiveMessageQueue;
+    private readonly CancellationToken _receiveCancellationToken;
+    private readonly CancellationTokenSource _receiveCancellationTokenSource;
+
+    public LiteConnection Connection { get; }
+
+    public LiteDataToken DataToken { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteDefaultConnectionToken"/> instance with a <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connection">Current connection.</param>
+    /// <param name="handlerAction">Action to execute when a packet message is being processed.</param>
+    public LiteQueuedConnectionToken(LiteConnection connection, Func<LiteConnection, byte[], Task> handlerAction)
+    {
+        Connection = connection;
+        _handlerAction = handlerAction;
+        DataToken = new LiteDataToken(Connection);
+        _receiveMessageQueue = new BlockingCollection<byte[]>();
+        _receiveCancellationTokenSource = new CancellationTokenSource();
+        _receiveCancellationToken = _receiveCancellationTokenSource.Token;
+        Task.Factory.StartNew(OnProcessMessageQueue,
+            _receiveCancellationToken,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+    }
+
+    public void Dispose()
+    {
+        _receiveCancellationTokenSource.Cancel();
+
+        while (_receiveMessageQueue.Count > 0)
+        {
+            _receiveMessageQueue.Take();
+        }
+    }
+
+    /// <summary>
+    /// Processes the received message queue until cancellation is requested.
+    /// </summary>
+    private async Task OnProcessMessageQueue()
+    {
+        while (!_receiveCancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                byte[] message = _receiveMessageQueue.Take(_receiveCancellationToken);
+                await _handlerAction(Connection, message).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The operation has been cancelled: nothing to do
+            }
+        }
+    }
+
+    public void ProcessReceivedMessages(IEnumerable<byte[]> messages)
+    {
+        foreach (byte[] message in messages)
+        {
+            _receiveMessageQueue.Add(message);
+        }
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Properties/AssemblyInfo.cs
+================================================
+癤퓎sing System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("LiteNetwork.Common.Tests")]
+[assembly: InternalsVisibleTo("LiteNetwork.Protocol.Tests")]
+
+
+================================================
+FILE: src/LiteNetwork/Protocol/LiteDataToken.cs
+================================================
+癤퓎sing System;
+
+namespace LiteNetwork.Protocol;
+
+/// <summary>
+/// Provides a data structure that defines a lite packet data.
+/// </summary>
+public class LiteDataToken
+{
+    /// <summary>
+    /// Gets or sets the message header data.
+    /// </summary>
+    public byte[]? HeaderData { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of bytes received for the the message header.
+    /// </summary>
+    public int ReceivedHeaderBytesCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets a boolean value that indicates if the header is complete.
+    /// </summary>
+    public bool IsHeaderComplete { get; set; }
+
+    /// <summary>
+    /// Gets or sets the full message size.
+    /// </summary>
+    public int? MessageSize { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of bytes received for the message body.
+    /// </summary>
+    public int ReceivedMessageBytesCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the received message data.
+    /// </summary>
+    public byte[]? MessageData { get; set; }
+
+    /// <summary>
+    /// Gets or sets the data start offset.
+    /// </summary>
+    public int DataStartOffset { get; set; }
+
+    /// <summary>
+    /// Gets a value that indicates if the message is complete.
+    /// </summary>
+    public bool IsMessageComplete => MessageSize.HasValue && ReceivedMessageBytesCount == MessageSize.Value;
+
+    /// <summary>
+    /// Gets the connection attached to the current data token.
+    /// </summary>
+    public LiteConnection Connection { get; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteDataToken"/> instance.
+    /// </summary>
+    /// <param name="connection">Current connection attached to this data token.</param>
+    /// <exception cref="ArgumentNullException">Thrown when the given connection is null.</exception>
+    public LiteDataToken(LiteConnection connection)
+    {
+        Connection = connection ?? throw new ArgumentNullException(nameof(connection));
+    }
+
+    /// <summary>
+    /// Reset the token data properties.
+    /// </summary>
+    internal void Reset()
+    {
+        IsHeaderComplete = false;
+        ReceivedHeaderBytesCount = 0;
+        ReceivedMessageBytesCount = 0;
+        HeaderData = null;
+        MessageData = null;
+        MessageSize = null;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Protocol/LitePacketProcessor.cs
+================================================
+癤퓎sing LiteNetwork.Protocol.Abstractions;
+using System;
+using System.Buffers.Binary;
+
+namespace LiteNetwork.Protocol;
+
+/// <summary>
+/// Default LiteNetwork packet processor.
+/// </summary>
+public class LitePacketProcessor : ILitePacketProcessor
+{
+    /// <summary>
+    ///     Create a new <see cref="LitePacketProcessor"/>.
+    /// </summary>
+    public LitePacketProcessor()
+    {
+        IsLittleEndianMode = BitConverter.IsLittleEndian;
+    }
+
+    /// <summary>
+    /// Create a new <see cref="LitePacketProcessor"/>.
+    /// </summary>
+    /// <param name="isLittleEndianMode">Header byte order mode.</param>
+    public LitePacketProcessor(bool isLittleEndianMode)
+    {
+        IsLittleEndianMode = isLittleEndianMode;
+    }
+
+    /// <inheritdoc/>
+    public virtual int HeaderSize { get; protected set; } = sizeof(int);
+
+    /// <inheritdoc/>
+    public virtual bool IncludeHeader { get; protected set; }
+
+    /// <summary>
+    /// Header byte order mode.
+    /// </summary>
+    public bool IsLittleEndianMode { get; }
+
+    /// <inheritdoc/>
+    public virtual int GetMessageLength(byte[] buffer)
+    {
+        return IsLittleEndianMode
+            ? BinaryPrimitives.ReadInt32LittleEndian(buffer)
+            : BinaryPrimitives.ReadInt32BigEndian(buffer);
+    }
+
+    /// <inheritdoc/>
+    public virtual bool ReadHeader(LiteDataToken token, byte[] buffer, int bytesTransfered)
+    {
+        if (token.HeaderData is null)
+        {
+            token.HeaderData = new byte[HeaderSize];
+        }
+
+        int bufferRemainingBytes = bytesTransfered - token.DataStartOffset;
+
+        if (bufferRemainingBytes > 0)
+        {
+            int headerRemainingBytes = HeaderSize - token.ReceivedHeaderBytesCount;
+            int bytesToRead = Math.Min(bufferRemainingBytes, headerRemainingBytes);
+
+            Buffer.BlockCopy(buffer, token.DataStartOffset, token.HeaderData, token.ReceivedHeaderBytesCount, bytesToRead);
+            
+            token.ReceivedHeaderBytesCount += bytesToRead;
+            token.DataStartOffset += bytesToRead;
+        }
+        
+        return token.ReceivedHeaderBytesCount == HeaderSize;
+    }
+
+    /// <inheritdoc/>
+    public virtual void ReadContent(LiteDataToken token, byte[] buffer, int bytesTransfered)
+    {
+        if (token.HeaderData is null)
+        {
+            throw new ArgumentException($"Header data is null.");
+        }
+
+        if (!token.MessageSize.HasValue)
+        {
+            token.MessageSize = GetMessageLength(token.HeaderData);
+        }
+
+        if (token.MessageSize.Value < 0)
+        {
+            throw new InvalidOperationException("Message size cannot be smaller than zero.");
+        }
+
+        if (token.MessageData is null)
+        {
+            token.MessageData = new byte[token.MessageSize.Value];
+        }
+
+        if (token.ReceivedMessageBytesCount < token.MessageSize.Value)
+        {
+            int bufferRemainingBytes = bytesTransfered - token.DataStartOffset;
+            int messageRemainingBytes = token.MessageSize.Value - token.ReceivedMessageBytesCount;
+            int bytesToRead = Math.Min(bufferRemainingBytes, messageRemainingBytes);
+
+            Buffer.BlockCopy(buffer, token.DataStartOffset, token.MessageData, token.ReceivedMessageBytesCount, bytesToRead);
+
+            token.ReceivedMessageBytesCount += bytesToRead;
+            token.DataStartOffset += bytesToRead;
+        }
+    }
+
+    /// <inheritdoc/>
+    public virtual byte[] AppendHeader(byte[] buffer)
+    {
+        int contentLength = buffer.Length;
+        byte[] packetBuffer = new byte[HeaderSize + buffer.Length];
+        
+        if (IsLittleEndianMode)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(packetBuffer, contentLength);
+        }
+        else
+        {
+            BinaryPrimitives.WriteInt32BigEndian(packetBuffer, contentLength);
+        }
+
+        Array.Copy(buffer, 0, packetBuffer, HeaderSize, contentLength);
+
+        return packetBuffer;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Protocol/Abstractions/ILitePacketProcessor.cs
+================================================
+癤퓆amespace LiteNetwork.Protocol.Abstractions;
+
+/// <summary>
+/// Defines the behavior of a packet processor and how the packet should be handled.
+/// </summary>
+public interface ILitePacketProcessor
+{
+    /// <summary>
+    /// Gets the packet header size that should contain the packet message size.
+    /// </summary>
+    int HeaderSize { get; }
+
+    /// <summary>
+    /// Gets a value that indicates whether to include the packet header in the final packet buffer.
+    /// </summary>
+    bool IncludeHeader { get; }
+
+    /// <summary>
+    /// Gets the packet message length with the given buffer.
+    /// </summary>
+    /// <param name="buffer">Header buffer.</param>
+    /// <returns>Packet message data length.</returns>
+    int GetMessageLength(byte[] buffer);
+
+    /// <summary>
+    /// Reads the packet header based on the given data token information.
+    /// </summary>
+    /// <param name="token">Current data token.</param>
+    /// <param name="buffer">Current buffer from socket receive operation.</param>
+    /// <param name="bytesTransfered">Number of bytes transfered by the socket.</param>
+    /// <returns>True if the header is complete; otherwise, false.</returns>
+    bool ReadHeader(LiteDataToken token, byte[] buffer, int bytesTransfered);
+
+    /// <summary>
+    /// Reads the packet content based on the given data token information.
+    /// </summary>
+    /// <param name="token">Current data token.</param>
+    /// <param name="buffer">Current buffer from socket receive operation.</param>
+    /// <param name="bytesTransfered">Number of bytes transfered by the socket.</param>
+    void ReadContent(LiteDataToken token, byte[] buffer, int bytesTransfered);
+
+    /// <summary>
+    /// Append the packet header to the given buffer.
+    /// </summary>
+    /// <param name="buffer">Current packet buffer content.</param>
+    /// <returns>The buffer with the packet header.</returns>
+    byte[] AppendHeader(byte[] buffer);
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Protocol/Internal/LitePacketParser.cs
+================================================
+癤퓎sing LiteNetwork.Protocol.Abstractions;
+using System;
+using System.Collections.Generic;
+
+namespace LiteNetwork.Protocol.Internal;
+
+/// <summary>
+/// Provides methods to parse incoming packets.
+/// </summary>
+internal sealed class LitePacketParser
+{
+    private readonly ILitePacketProcessor _packetProcessor;
+
+    /// <summary>
+    /// Creates a new <see cref="LitePacketParser"/> instance with an <see cref="ILitePacketProcessor"/>.
+    /// </summary>
+    /// <param name="packetProcessor">Packet processor used to parse the incoming data.</param>
+    public LitePacketParser(ILitePacketProcessor packetProcessor)
+    {
+        _packetProcessor = packetProcessor;
+    }
+
+    /// <summary>
+    /// Parses incoming buffer for a specified connection.
+    /// </summary>
+    /// <param name="token">Client token information.</param>
+    /// <param name="buffer">Received buffer.</param>
+    /// <param name="bytesTransfered">Number of bytes transfered throught the network.</param>
+    /// <returns>A collection containing all messages as byte arrays.</returns>
+    public IEnumerable<byte[]> ParseIncomingData(LiteDataToken token, byte[] buffer, int bytesTransfered)
+    {
+        var messages = new List<byte[]>();
+
+        while (token.DataStartOffset < bytesTransfered)
+        {
+            if (!token.IsHeaderComplete)
+            {
+                token.IsHeaderComplete = _packetProcessor.ReadHeader(token, buffer, bytesTransfered);
+            }
+
+            if (token.IsHeaderComplete && token.HeaderData is not null)
+            {
+                _packetProcessor.ReadContent(token, buffer, bytesTransfered);
+            }
+
+            if (token.IsMessageComplete)
+            {
+                messages.Add(BuildClientMessageData(token));
+                token.Reset();
+            }
+        }
+
+        token.DataStartOffset = 0;
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Builds the received message data based on the given data token.
+    /// </summary>
+    /// <param name="token">Client data token.</param>
+    /// <returns>Client received data.</returns>
+    private byte[] BuildClientMessageData(LiteDataToken token)
+    {
+        if (token.MessageSize is null)
+        {
+            throw new ArgumentNullException("An error occurred: Message size cannot be null.");
+        }
+
+        if (token.MessageData is null)
+        {
+            throw new ArgumentNullException("An error occured: Message data buffer is null.");
+        }
+
+        var bufferSize = _packetProcessor.IncludeHeader ? _packetProcessor.HeaderSize + token.MessageSize.Value : token.MessageSize.Value;
+        var buffer = new byte[bufferSize];
+
+        if (_packetProcessor.IncludeHeader)
+        {
+            if (token.HeaderData is null)
+            {
+                throw new ArgumentNullException("An error occureed: Header data cannot be null when including it in the final message buffer.");
+            }
+
+            Array.Copy(token.HeaderData, 0, buffer, 0, _packetProcessor.HeaderSize);
+            Array.Copy(token.MessageData, 0, buffer, _packetProcessor.HeaderSize, token.MessageSize.Value);
+        }
+        else
+        {
+            Array.Copy(token.MessageData, 0, buffer, 0, token.MessageSize.Value);
+        }
+
+        return buffer;
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/LiteServer.cs
+================================================
+癤퓎sing LiteNetwork.Exceptions;
+using LiteNetwork.Internal;
+using LiteNetwork.Server.Abstractions;
+using LiteNetwork.Server.Internal;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Server;
+
+/// <summary>
+/// Provides a basic TCP server implementation handling users of type <typeparamref name="TUser"/>.
+/// </summary>
+/// <typeparam name="TUser">The user type that the server will handle.</typeparam>
+public class LiteServer<TUser> : ILiteServer
+    where TUser : LiteServerUser
+{
+    private readonly ILogger<LiteServer<TUser>>? _logger;
+    private readonly IServiceProvider? _serviceProvider;
+    private readonly ConcurrentDictionary<Guid, TUser> _connectedUsers;
+    private readonly Socket _socket;
+    private readonly LiteServerAcceptor _acceptor;
+    private readonly LiteServerReceiver _receiver;
+
+    /// <inheritdoc/>
+    public bool IsRunning { get; private set; }
+
+    /// <inheritdoc/>
+    public LiteServerOptions Options { get; }
+
+    /// <inheritdoc/>
+    public IEnumerable<LiteConnection> Users => _connectedUsers.Values;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteServer{TUser}"/> instance with a server configuration 
+    /// and a service provider.
+    /// </summary>
+    /// <param name="options">Server configuration options.</param>
+    /// <param name="serviceProvider">Service provider to use.</param>
+    public LiteServer(LiteServerOptions options, IServiceProvider? serviceProvider = null)
+    {
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        Options = options;
+        _serviceProvider = serviceProvider ?? new ServiceCollection().BuildServiceProvider();
+        _logger = _serviceProvider.GetService<ILogger<LiteServer<TUser>>>();
+
+        _connectedUsers = new ConcurrentDictionary<Guid, TUser>();
+        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+
+        _acceptor = new LiteServerAcceptor(_socket);
+        _acceptor.OnClientAccepted += OnClientAccepted;
+        _acceptor.OnError += OnAcceptorError;
+
+        _receiver = new LiteServerReceiver(options.PacketProcessor, Options.ReceiveStrategy, Options.ClientBufferSize);
+        _receiver.Disconnected += OnDisconnected;
+        _receiver.Error += OnReceiverError;
+    }
+
+    /// <summary>
+    /// Gets a connected <typeparamref name="TUser"/> associated with the specified id.
+    /// </summary>
+    /// <param name="userId">User id to get.</param>
+    /// <returns>A <typeparamref name="TUser"/> with the specified id if the id has found;
+    /// otherwise, null.</returns>
+    public TUser? GetUser(Guid userId) => TryGetUser(userId, out TUser? user) ? user : default;
+
+    /// <summary>
+    /// Attempts to get the <typeparamref name="TUser"/> associated with the specified id.
+    /// </summary>
+    /// <param name="userId">User id to get.</param>
+    /// <param name="user">If the operation completed returns the user associated with the specified id,
+    /// or null if the operaton failed.
+    /// </param>
+    /// <returns>True if the user id has found; otherwise, false.</returns>
+    public bool TryGetUser(Guid userId, out TUser? user) => _connectedUsers.TryGetValue(userId, out user);
+
+    /// <summary>
+    /// Starts to listening and accept users asynchronously.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> that completes when the <see cref="LiteServer{TUser}"/> starts.</returns>
+    public async Task StartAsync() => await StartAsync(CancellationToken.None).ConfigureAwait(false);
+
+    /// <summary>
+    /// Starts to listening and accept users asynchronously with the specified <see cref="CancellationToken"/>.
+    /// </summary>
+    /// <param name="cancellationToken">Used to indicate when stop should no longer be successfully.</param>
+    /// <returns>A <see cref="Task"/> that completes when the <see cref="LiteServer{TUser}"/> starts.</returns>
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        if (IsRunning)
+        {
+            throw new InvalidOperationException("Server is already running.");
+        }
+
+        OnBeforeStart();
+
+        IPEndPoint localEndPoint = await LiteNetworkHelpers.CreateIpEndPointAsync(Options.Host, Options.Port).ConfigureAwait(false);
+        _socket.Bind(localEndPoint);
+        _socket.Listen(Options.Backlog);
+        _acceptor.StartAccept();
+        IsRunning = true;
+
+        OnAfterStart();
+    }
+
+    /// <summary>
+    /// Attempt to stop the server asynchronously.
+    /// </summary>
+    /// <returns>A <see cref="Task"/> that completes when the <see cref="LiteServer{TUser}"/> stops.</returns>
+    public Task StopAsync()
+    {
+        if (!IsRunning)
+        {
+            throw new InvalidOperationException("Server is not running.");
+        }
+
+        StopServer();
+        
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public void DisconnectUser(Guid userId)
+    {
+        if (!_connectedUsers.TryRemove(userId, out TUser? user))
+        {
+            _logger?.LogError($"Cannot find user with id '{userId}'.");
+            return;
+        }
+
+        _logger?.LogTrace($"User with id '{userId}' disconnected.");
+        user.OnDisconnected();
+        user.Dispose();
+    }
+
+    /// <inheritdoc/>
+    public void DisconnectUser(LiteConnection connection)
+    {
+        DisconnectUser(connection.Id);
+    }
+
+    /// <inheritdoc/>
+    public void SendTo(LiteConnection connection, byte[] packet)
+    {
+        if (connection is null)
+        {
+            throw new ArgumentNullException(nameof(connection));
+        }
+
+        if (packet is null)
+        {
+            throw new ArgumentNullException(nameof(packet));
+        }
+
+        connection.Send(packet);
+    }
+
+    /// <inheritdoc/>
+    public void SendTo(IEnumerable<LiteConnection> connections, byte[] packet)
+    {
+        if (connections is null)
+        {
+            throw new ArgumentNullException(nameof(connections));
+        }
+
+        if (packet is null)
+        {
+            throw new ArgumentNullException(nameof(packet));
+        }
+
+        foreach (LiteConnection connection in connections)
+        {
+            SendTo(connection, packet);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void SendToAll(byte[] packet) => SendTo(_connectedUsers.Values, packet);
+
+    /// <summary>
+    /// Dispose the server resources and disconnects all the connected users.
+    /// </summary>
+    public void Dispose()
+    {
+        if (IsRunning)
+        {
+            StopServer();
+        }
+
+        _socket.Dispose();
+        _acceptor.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Executes the child business logic before starting the server.
+    /// </summary>
+    protected virtual void OnBeforeStart() { }
+
+    /// <summary>
+    /// Executes the child business logic after the server starts.
+    /// </summary>
+    protected virtual void OnAfterStart() { }
+
+    /// <summary>
+    /// Executes the child business logic before stoping the server.
+    /// </summary>
+    protected virtual void OnBeforeStop() { }
+
+    /// <summary>
+    /// Executes the child business logic after the server stops.
+    /// </summary>
+    protected virtual void OnAfterStop() { }
+
+    /// <summary>
+    /// Called when an error occurs on the server.
+    /// </summary>
+    /// <param name="connection">Connection where the error occured.</param>
+    /// <param name="exception">Error exception.</param>
+    protected virtual void OnError(TUser? connection, Exception exception)
+    {
+        if (connection is null)
+        {
+            _logger?.LogError(exception, $"An error has occured.");
+        }
+        else
+        {
+            _logger?.LogError(exception, $"An error has occured for user '{connection.Id}'.");
+        }
+    }
+
+    private void OnClientAccepted(object? sender, SocketAsyncEventArgs e)
+    {
+        TUser user = _serviceProvider != null ? ActivatorUtilities.CreateInstance<TUser>(_serviceProvider) : Activator.CreateInstance<TUser>();
+
+        if (!_connectedUsers.TryAdd(user.Id, user))
+        {
+            throw new LiteNetworkException($"Failed to add user with id: '{user.Id}'. An user with same id already exists.");
+        }
+
+        if (e.AcceptSocket is null)
+        {
+            throw new LiteNetworkException($"The accepted socket is null.");
+        }
+
+        user.Socket = e.AcceptSocket;
+        user.Context = new LiteServerContext(this);
+        user.InitializeSender(Options.PacketProcessor);
+        _logger?.LogInformation($"New user connected from '{user.Socket.RemoteEndPoint}' with id '{user.Id}'.");
+        user.OnConnected();
+        _receiver.StartReceiving(user);
+    }
+
+    private void OnAcceptorError(object? sender, Exception e)
+    {
+        OnError(sender as TUser, e);
+    }
+
+    private void OnReceiverError(object? sender, Exception e)
+    {
+        OnError(sender as TUser, e);
+    }
+
+    private void OnDisconnected(object? _, LiteConnection e)
+    {
+        DisconnectUser(e.Id);
+    }
+
+    private void DisconnectAllUsers()
+    {
+        foreach (var connectedUser in _connectedUsers)
+        {
+            DisconnectUser(connectedUser.Key);
+        }
+
+        _connectedUsers.Clear();
+    }
+
+    private void StopServer()
+    {
+        OnBeforeStop();
+        DisconnectAllUsers();
+        IsRunning = false;
+        OnAfterStop();
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/LiteServerContext.cs
+================================================
+癤퓎sing LiteNetwork.Server.Abstractions;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace LiteNetwork.Server;
+
+/// <summary>
+/// Provides a server context.
+/// </summary>
+public sealed class LiteServerContext
+{
+    private readonly ILiteServer _server;
+
+    /// <summary>
+    /// Gets the server options.
+    /// </summary>
+    public LiteServerOptions Options => _server.Options;
+
+    /// <summary>
+    /// Gets the connected users.
+    /// </summary>
+    public IEnumerable<LiteConnection> Users => _server.Users;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteServerContext"/>.
+    /// </summary>
+    /// <param name="server">Parent server.</param>
+    internal LiteServerContext(ILiteServer server)
+    {
+        _server = server;
+    }
+
+    /// <summary>
+    /// Send a packet to the given <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connection">Target connection.</param>
+    /// <param name="packetBuffer">Packet buffer to send.</param>
+    public void SendTo(LiteConnection connection, byte[] packetBuffer)
+    {
+        _server.SendTo(connection, packetBuffer);
+    }
+
+    /// <summary>
+    /// Send a packet to a given collection of <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connections">Collection of <see cref="LiteConnection"/>.</param>
+    /// <param name="packetBuffer">Packet buffer to send.</param>
+    public void SendTo(IEnumerable<LiteConnection> connections, byte[] packetBuffer)
+    {
+        _server.SendTo(connections, packetBuffer);
+    }
+
+    /// <summary>
+    /// Send a packet to all connected users.
+    /// </summary>
+    /// <param name="packetBuffer">Packet buffer to send.</param>
+    public void SendToAll(byte[] packetBuffer)
+    {
+        _server.SendToAll(packetBuffer);
+    }
+
+    /// <summary>
+    /// Send a packet to all connected users except the given users.
+    /// </summary>
+    /// <param name="packetBuffer">Packet buffer to send.</param>
+    /// <param name="excludedConnections">User connection to exclude from broadcast.</param>
+    public void SendToAll(byte[] packetBuffer, params LiteConnection[] excludedConnections)
+    {
+        _server.SendTo(_server.Users.Except(excludedConnections), packetBuffer);
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/LiteServerOptions.cs
+================================================
+癤퓎sing LiteNetwork.Protocol;
+using LiteNetwork.Protocol.Abstractions;
+
+namespace LiteNetwork.Server;
+
+/// <summary>
+/// Builder options to use with host builder.
+/// </summary>
+public class LiteServerOptions
+{
+    /// <summary>
+    /// Gets the default maximum of connections in accept queue.
+    /// </summary>
+    public const int DefaultBacklog = 50;
+
+    /// <summary>
+    /// Gets the default client buffer allocated size.
+    /// </summary>
+    public const int DefaultClientBufferSize = 128;
+
+    /// <summary>
+    /// Gets or sets the server's listening host.
+    /// </summary>
+    public string Host { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the server's listening port.
+    /// </summary>
+    public int Port { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum of pending connections queue.
+    /// </summary>
+    public int Backlog { get; set; } = DefaultBacklog;
+
+    /// <summary>
+    /// Gets or sets the handled client buffer size.
+    /// </summary>
+    public int ClientBufferSize { get; set; } = DefaultClientBufferSize;
+
+    /// <summary>
+    /// Gets or sets the receive strategy type.
+    /// </summary>
+    public ReceiveStrategyType ReceiveStrategy { get; set; }
+
+    /// <summary>
+    /// Gets the default server packet processor.
+    /// </summary>
+    public ILitePacketProcessor PacketProcessor { get; set; }
+
+    /// <summary>
+    /// Creates and initializes a new <see cref="LiteServerOptions"/> instance
+    /// with a default <see cref="LitePacketProcessor"/>.
+    /// </summary>
+    public LiteServerOptions()
+    {
+        PacketProcessor = new LitePacketProcessor();
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/LiteServerUser.cs
+================================================
+癤퓎sing System.Threading.Tasks;
+
+namespace LiteNetwork.Server;
+
+/// <summary>
+/// Provides a basic user implementation that can be used for a <see cref="LiteServer{TUser}"/>.
+/// </summary>
+public class LiteServerUser : LiteConnection
+{
+    /// <summary>
+    /// Gets the server context.
+    /// </summary>
+    protected internal LiteServerContext? Context { get; internal set; }
+
+    /// <summary>
+    /// Creates a new <see cref="LiteServerUser"/> instance.
+    /// </summary>
+    protected LiteServerUser()
+    {
+    }
+
+    /// <summary>
+    /// Called when this user has been Connected.
+    /// </summary>
+    protected internal virtual void OnConnected()
+    {
+    }
+
+    /// <summary>
+    /// Called when this user has been Disconnected.
+    /// </summary>
+    protected internal virtual void OnDisconnected()
+    {
+    }
+
+    /// <inheritdoc/>
+    public override Task HandleMessageAsync(byte[] packetBuffer) => Task.CompletedTask;
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/Abstractions/ILiteServer.cs
+================================================
+癤퓎sing System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Server.Abstractions;
+
+/// <summary>
+/// Provides a basic abstraction to manage a TCP server.
+/// </summary>
+public interface ILiteServer : IDisposable
+{
+    /// <summary>
+    /// Gets a boolean value that indicates if the server is running.
+    /// </summary>
+    bool IsRunning { get; }
+
+    /// <summary>
+    /// Gets the server options.
+    /// </summary>
+    LiteServerOptions Options { get; }
+    
+    /// <summary>
+    /// Gets all the connected users.
+    /// </summary>
+    IEnumerable<LiteConnection> Users { get; }
+
+    /// <summary>
+    /// Starts the server.
+    /// </summary>
+    /// <returns></returns>
+    Task StartAsync();
+
+    /// <summary>
+    /// Starts the server with a cancellation token.
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    Task StartAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stops the server.
+    /// </summary>
+    /// <returns></returns>
+    Task StopAsync();
+
+    /// <summary>
+    /// Disconnects a user connection with the specified user id.
+    /// </summary>
+    /// <param name="userId">User id to disconnect.</param>
+    void DisconnectUser(Guid userId);
+
+    /// <summary>
+    /// Disconnects the given <see cref="LiteConnection"/> instance.
+    /// </summary>
+    /// <param name="connection"></param>
+    void DisconnectUser(LiteConnection connection);
+
+    /// <summary>
+    /// Send a packet to the given <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connection">Target connection.</param>
+    /// <param name="packet">Packet message to send.</param>
+    void SendTo(LiteConnection connection, byte[] packet);
+
+    /// <summary>
+    /// Send a packet to a given collection of <see cref="LiteConnection"/>.
+    /// </summary>
+    /// <param name="connections">Collection of <see cref="LiteConnection"/>.</param>
+    /// <param name="packet">Packet message to send.</param>
+    void SendTo(IEnumerable<LiteConnection> connections, byte[] packet);
+
+    /// <summary>
+    /// Send a packet to all connected users.
+    /// </summary>
+    /// <param name="packet">Packet message to send.</param>
+    void SendToAll(byte[] packet);
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/Hosting/LiteServerBuilderExtensions.cs
+================================================
+癤퓎sing LiteNetwork.Hosting;
+using LiteNetwork.Server.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System;
+
+namespace LiteNetwork.Server.Hosting;
+
+/// <summary>
+/// Provides extensions methods for the <see cref="ILiteBuilder"/> interface.
+/// </summary>
+public static class LiteServerBuilderExtensions
+{
+    /// <summary>
+    /// Registers and initializes a <typeparamref name="TLiteServer"/> instance.
+    /// </summary>
+    /// <typeparam name="TLiteServer">Server type.</typeparam>
+    /// <param name="builder">A <see cref="ILiteBuilder"/> to add server.</param>
+    /// <param name="configure">Delegate to configure a <see cref="LiteServerOptions"/>.</param>
+    /// <returns>The <see cref="ILiteBuilder"/>.</returns>
+    public static ILiteBuilder AddLiteServer<TLiteServer>(this ILiteBuilder builder, Action<LiteServerOptions> configure)
+        where TLiteServer : class, ILiteServer
+    {
+        if (builder is null)
+        {
+            throw new ArgumentNullException(nameof(builder));
+        }
+
+        builder.Services.AddSingleton<TLiteServer>(serviceProvider => ConfigureServer<TLiteServer>(serviceProvider, configure));
+        builder.Services.AddLiteServerHostedService<TLiteServer>();
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Registers and initializes a <typeparamref name="TLiteServerImplementation"/> instance.
+    /// </summary>
+    /// <typeparam name="TLiteServer">LiteServer abstraction.</typeparam>
+    /// <typeparam name="TLiteServerImplementation">LiteServer implementation.</typeparam>
+    /// <param name="builder">A <see cref="ILiteBuilder"/> to add server.</param>
+    /// <param name="configure">Delegate to configure a <see cref="LiteServerOptions"/>.</param>
+    /// <returns>The <see cref="ILiteBuilder"/>.</returns>
+    public static ILiteBuilder AddLiteServer<TLiteServer, TLiteServerImplementation>(this ILiteBuilder builder, Action<LiteServerOptions> configure)
+        where TLiteServer : class
+        where TLiteServerImplementation : class, TLiteServer, ILiteServer
+    {
+        if (builder is null)
+        {
+            throw new ArgumentNullException(nameof(builder));
+        }
+
+        builder.Services.AddSingleton<TLiteServerImplementation>(serviceProvider => ConfigureServer<TLiteServerImplementation>(serviceProvider, configure));
+        builder.Services.AddSingleton<TLiteServer, TLiteServerImplementation>(serviceProvider => serviceProvider.GetRequiredService<TLiteServerImplementation>());
+        builder.Services.AddLiteServerHostedService<TLiteServerImplementation>();
+
+        return builder;
+    }
+
+    private static TLiteServer ConfigureServer<TLiteServer>(IServiceProvider serviceProvider, Action<LiteServerOptions> configure)
+        where TLiteServer : class, ILiteServer
+    {
+        LiteServerOptions options = new();
+        configure(options);
+
+        return ActivatorUtilities.CreateInstance<TLiteServer>(serviceProvider, options);
+    }
+
+    private static void AddLiteServerHostedService<TLiteServer>(this IServiceCollection services)
+        where TLiteServer : class, ILiteServer
+    {
+        services.AddSingleton<IHostedService>(serviceProvider =>
+        {
+            return new LiteServerHostedService(serviceProvider.GetRequiredService<TLiteServer>());
+        });
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/Hosting/LiteServerHostedService.cs
+================================================
+癤퓎sing LiteNetwork.Server.Abstractions;
+using Microsoft.Extensions.Hosting;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace LiteNetwork.Server.Hosting;
+
+/// <summary>
+/// Define a basic <see cref="IHostedService"/> to use with <see cref="LiteServer{TUser}"/>.
+/// </summary>
+internal class LiteServerHostedService: IHostedService
+{
+    private readonly ILiteServer _server;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteServerHostedService"/> with the given server to host.
+    /// </summary>
+    /// <param name="server">Server to host.</param>
+    public LiteServerHostedService(ILiteServer server)
+    {
+        _server = server ?? throw new ArgumentNullException(nameof(server), $"Failed to inject server.");
+    }
+
+    public async Task StartAsync(CancellationToken cancellationToken) => await _server.StartAsync(cancellationToken);
+
+    public async Task StopAsync(CancellationToken _) => await _server.StopAsync();
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/Internal/LiteServerAcceptor.cs
+================================================
+癤퓎sing System;
+using System.Diagnostics.CodeAnalysis;
+using System.Net.Sockets;
+
+namespace LiteNetwork.Server.Internal;
+
+/// <summary>
+/// Accepts the clients into the server.
+/// </summary>
+internal class LiteServerAcceptor : IDisposable
+{
+    private readonly Socket _listeningSocket;
+    private readonly SocketAsyncEventArgs _socketEvent;
+
+    /// <summary>
+    /// The event used when a client has been accepted.
+    /// </summary>
+    public event EventHandler<SocketAsyncEventArgs>? OnClientAccepted;
+
+    /// <summary>
+    /// The event used when an error has been occurred during the acceptation process.
+    /// </summary>
+    public event EventHandler<Exception>? OnError;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteServerAcceptor"/> instance with the given <see cref="Socket"/>.
+    /// </summary>
+    /// <param name="serverSocket"><see cref="LiteServer{TUser}"/> listening socket.</param>
+    public LiteServerAcceptor(Socket serverSocket)
+    {
+        _listeningSocket = serverSocket;
+        _socketEvent = new SocketAsyncEventArgs();
+        _socketEvent.Completed += OnSocketCompleted;
+    }
+
+    /// <summary>
+    /// Starts accepting clients into the server.
+    /// </summary>
+    public void StartAccept()
+    {
+        if (_socketEvent.AcceptSocket is not null)
+        {
+            _socketEvent.AcceptSocket = null;
+        }
+
+        if (!_listeningSocket.AcceptAsync(_socketEvent))
+        {
+            ProcessAccept(_socketEvent);
+        }
+    }
+
+    /// <summary>
+    /// Process a new connected client.
+    /// </summary>
+    /// <param name="socketAsyncEvent">Socket async event arguments.</param>
+    private void ProcessAccept(SocketAsyncEventArgs socketAsyncEvent)
+    {
+        if (socketAsyncEvent.SocketError == SocketError.Success)
+        {
+            try
+            {
+                OnClientAccepted?.Invoke(this, socketAsyncEvent);
+            }
+            catch (Exception exception)
+            {
+                OnError?.Invoke(this, exception);
+            }
+
+            StartAccept();
+        }
+    }
+
+    /// <summary>
+    /// Fired when a socket operation has completed.
+    /// </summary>
+    /// <param name="sender">Sender.</param>
+    /// <param name="e">Socket async event arguments.</param>
+    [ExcludeFromCodeCoverage]
+    private void OnSocketCompleted(object? sender, SocketAsyncEventArgs e)
+    {
+        try
+        {
+            if (sender is null)
+            {
+                throw new ArgumentNullException(nameof(sender));
+            }
+
+            if (e.LastOperation == SocketAsyncOperation.Accept)
+            {
+                ProcessAccept(e);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Unknown '{e.LastOperation}' socket operation in accecptor.");
+            }
+        }
+        catch (Exception ex)
+        {
+            OnError?.Invoke(this, ex);
+        }
+    }
+
+    /// <summary>
+    /// Dispose the <see cref="LiteServerAcceptor"/> resources.
+    /// </summary>
+    public void Dispose()
+    {
+        _socketEvent.Dispose();
+    }
+}
+
+
+
+================================================
+FILE: src/LiteNetwork/Server/Internal/LiteServerReceiver.cs
+================================================
+癤퓎sing LiteNetwork.Internal;
+using LiteNetwork.Protocol.Abstractions;
+using System.Buffers;
+using System.Net.Sockets;
+
+namespace LiteNetwork.Server.Internal;
+
+/// <summary>
+/// Overrides the basic <see cref="LiteReceiver"/> for the server needs.
+/// </summary>
+internal class LiteServerReceiver : LiteReceiver
+{
+    private readonly ObjectPool<SocketAsyncEventArgs> _readPool = new(() => new SocketAsyncEventArgs());
+    private readonly int _clientBufferSize;
+
+    /// <summary>
+    /// Creates a new <see cref="LiteServerReceiver"/> instance with the given <see cref="ILitePacketProcessor"/>
+    /// and a client buffer size.
+    /// </summary>
+    /// <param name="packetProcessor">Current packet processor used in the server.</param>
+    /// <param name="receiveStrategy">The receive strategy type for every received message.</param>
+    /// <param name="clientBufferSize">Client buffer size defined in server configuration.</param>
+    public LiteServerReceiver(ILitePacketProcessor packetProcessor, ReceiveStrategyType receiveStrategy, int clientBufferSize) 
+        : base(packetProcessor, receiveStrategy)
+    {
+        _clientBufferSize = clientBufferSize;
+    }
+
+    protected override void ClearSocketEvent(SocketAsyncEventArgs socketAsyncEvent)
+    {
+        if (socketAsyncEvent.Buffer != null)
+        {
+            ArrayPool<byte>.Shared.Return(socketAsyncEvent.Buffer, true);
+        }
+
+        socketAsyncEvent.SetBuffer(null, 0, 0);
+        socketAsyncEvent.UserToken = null;
+        socketAsyncEvent.Completed -= OnCompleted;
+
+        _readPool.Return(socketAsyncEvent);
+    }
+
+    protected override SocketAsyncEventArgs GetSocketEvent()
+    {
+        SocketAsyncEventArgs socketAsyncEvent = _readPool.Get();
+
+        socketAsyncEvent.SetBuffer(ArrayPool<byte>.Shared.Rent(_clientBufferSize), 0, _clientBufferSize);
+        socketAsyncEvent.Completed += OnCompleted;
+
+        return socketAsyncEvent;
+    }
+}
+
+

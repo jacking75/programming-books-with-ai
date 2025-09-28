@@ -1,0 +1,3699 @@
+Directory structure:
+└── edu_laster40_CSharpNetworkLib/
+    ├── laster40Net/
+    │   ├── Connector.cs
+    │   ├── laster40Net.csproj
+    │   ├── Listener.cs
+    │   ├── Session.cs
+    │   ├── TcpService.cs
+    │   ├── TcpServiceConfig.cs
+    │   ├── Data/
+    │   │   └── DBQueryProcess.cs
+    │   ├── Message/
+    │   │   ├── Message.cs
+    │   │   ├── RawMessage.cs
+    │   │   └── SimpleBinaryMessage.cs
+    │   └── Util/
+    │       ├── AtomicInt.cs
+    │       ├── Binary.cs
+    │       ├── BufferManager.cs
+    │       ├── FastBitConverter.cs
+    │       ├── ILogger.cs
+    │       ├── PooledBufferManager.cs
+    │       └── ProcessMon.cs
+    ├── laster40Net_EchoServer/
+    │   ├── laster40Net_EchoServer.csproj
+    │   ├── Program.cs
+    │   └── SimpleEchoServer.xml
+    └── laster40Net_SimpleChatServer/
+        ├── Chat.cs
+        ├── laster40Net_SimpleChatServer.csproj
+        └── Program.cs
+
+================================================
+FILE: laster40Net/Connector.cs
+================================================
+癤퓎sing System;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Net;
+using System.Net.Sockets;
+
+using laster40Net.Util;
+
+namespace laster40Net
+{
+    internal class Connector
+    {
+        private TcpService _service = null;
+        private Thread _worker;
+        private AtomicInt _cancel = new AtomicInt();
+        private TcpServiceConfig.ClientConfig _config;
+        private Object _token;
+        public System.Net.IPEndPoint EndPoint { get; set; }
+
+        public Connector(TcpService service, TcpServiceConfig.ClientConfig config, Object token)
+        {
+            _service = service;
+            _config = config;
+            _token = token;
+
+            System.Net.IPAddress addr;
+            System.Net.IPAddress.TryParse(_config.ip, out addr);
+            EndPoint = new System.Net.IPEndPoint(addr, _config.port);
+        }
+
+        public bool Start()
+        {
+            _worker = new Thread(ThreadEntry);
+            try
+            {
+                _worker.Start();
+            }
+            catch(Exception )
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public void Stop()
+        {
+            Cancel();
+
+            if (_worker != null)
+            {
+                _worker.Join();
+                _worker = null;
+            }
+        }
+
+        public bool Cancel()
+        {
+            _cancel.On();
+            return true;
+        }
+
+        private Socket ConnectToserver(IPEndPoint endPoint, int timeoutMs)
+        {
+            Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                socket.Blocking = false;
+                socket.Connect(endPoint);
+                return socket;
+            }
+            catch (SocketException socketException)
+            {
+                if (socketException.ErrorCode != 10035)
+                {
+                    socket.Close();
+                    return null;
+                }
+            }
+
+            try
+            {
+                int timeoutMicroseconds = timeoutMs * 1000;
+                if (socket.Poll(timeoutMicroseconds, SelectMode.SelectWrite) == false)
+                {
+                    socket.Close();
+                    return null;
+                }
+
+                socket.Blocking = true;
+            }
+            catch(Exception /*e*/)
+            {
+                return null;
+            }
+
+            return socket;
+        }
+        
+        private void ThreadEntry()
+        {
+            int retryCount = 0;
+            while(!_cancel.IsOn())
+            {
+                if( _config.retry > 0 )
+                {
+                    if( retryCount++ > _config.retry )
+                        break;
+                }
+               
+                Socket socket = ConnectToserver(EndPoint, _config.timeout);
+                if (socket != null)
+                {
+                    if (_cancel.IsOn())
+                    {
+                        socket.Close();
+                        break;
+                    }
+
+                    _service.CompletedConnect(true, EndPoint, socket, _token);
+                    return;
+                }
+
+                Thread.Sleep(50);
+            }
+
+            _service.CompletedConnect(false, EndPoint, null, _token);
+        }
+    }
+}
+
+
+
+================================================
+FILE: laster40Net/laster40Net.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Diagnostics.EventLog" Version="9.0.0" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="9.0.0" />
+  </ItemGroup>
+</Project>
+
+
+================================================
+FILE: laster40Net/Listener.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Net;
+using System.Net.Sockets;
+using laster40Net.Util;
+
+namespace laster40Net
+{
+    internal class Listener : IDisposable
+    {
+        /// <summary>
+        /// 동작중인가?
+        /// </summary>
+        public bool IsRunning { get; private set; }
+
+        /// <summary>
+        /// 중지 중인가?
+        /// </summary>
+        public bool IsStopping { get; private set; }
+
+        private TcpService _service = null;
+        private Thread _thread = null;
+        private Socket _socket = null;
+        private AutoResetEvent _connected = null;
+        private AutoResetEvent _startupFinished = null;
+        private AtomicInt _suspended = new AtomicInt();
+        public IPEndPoint EndPoint { get; private set; }
+        public int Backlog { get; private set; }
+
+
+        public Listener(TcpService service, IPEndPoint endPoint, int backlog)
+        {
+            _service = service;
+            EndPoint = endPoint;
+            Backlog = backlog;
+        }
+
+        #region IDisposable Members
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        public virtual void Dispose(bool disposing)
+        {
+            if( disposing )
+            {
+                if (IsRunning)
+                {
+                    Stop();
+                }
+
+                _connected.Close();
+                _connected = null;
+            }
+
+            _service = null;
+            _thread = null;
+        }
+        #endregion
+
+
+        public bool Start()
+        {
+            IsRunning = false;
+            IsStopping = false;
+
+            try
+            {
+                _connected = new AutoResetEvent(false);
+                _startupFinished = new AutoResetEvent(false);
+                _thread = new Thread(ListenThreadEntry);
+                _thread.Start();
+            }
+            catch (Exception e)
+            {
+                _service.Logger.Log(LogLevel.Error, "listner 시작 실패", e);
+                return false;
+            }
+
+            _startupFinished.WaitOne();
+
+            return IsRunning;
+        }
+
+        public void Suspend(bool suspending)
+        {
+            if( suspending )
+            {
+                _suspended.On();
+            }
+            else
+            {
+                _suspended.Off();
+            }
+        }
+
+        public void Stop()
+        {
+            IsStopping = true;
+
+            if (_socket != null)
+            {
+                _socket.Close();
+                _socket = null;
+            }
+
+            if (_thread != null )
+            {
+                _thread.Join();
+                _thread = null;
+            }
+
+            // waitting for shutdown
+            while (IsRunning)
+            {
+                const int TIMEOUT = 10;
+                Thread.Sleep(TIMEOUT);
+            }
+        }
+                
+        /// <summary>
+        /// listener 을 위한 스레드 1개
+        /// </summary>
+        private void ListenThreadEntry()
+        {
+            try
+            {
+                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _socket.Bind(EndPoint);
+                _socket.Listen(Backlog);
+            }
+            catch (Exception e)
+            {
+                _service.Logger.Log(LogLevel.Error, e);
+
+                // 시작 완료되었어요~ 근데 소켓 생성할때 에러가 있어서 시작을 못했네~
+                _startupFinished.Set();
+
+                return;
+            }
+
+            SocketAsyncEventArgs eventArgs = new SocketAsyncEventArgs();
+            eventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(CompletedAcceptClient);
+
+            IsRunning = true;
+
+            // 시작 완료되었어요~
+            _startupFinished.Set();
+
+            while (!IsStopping)
+            {
+                bool pending = false;
+
+                try
+                {
+                    eventArgs.AcceptSocket = null;
+                    pending = _socket.AcceptAsync(eventArgs);
+                }
+                catch (Exception e)
+                {
+                    _service.Logger.Log(LogLevel.Error, e);
+                    break;
+                }
+
+                if (!pending)
+                {
+                    CompletedAcceptClient(null, eventArgs);
+                }
+
+                //TODO 접속 완료까지 대기 하지 않도록 한다.
+                // 접속이 하나 완료될때까지는 대기~ 완료된후 다시~ 
+                _connected.WaitOne();
+            }
+
+            IsRunning = false;
+        }
+
+        private void CompletedAcceptClient(object obj, SocketAsyncEventArgs e)
+        {
+            if (e.SocketError == SocketError.Success)
+            {
+                Socket client = e.AcceptSocket;
+                _connected.Set();
+
+                if (_suspended.IsOn())
+                {
+                    client.Close();
+                    return;
+                }
+
+                _service.CompletedAccept(false, client);
+            }
+            else
+            {
+                _connected.Set();
+            }
+        }
+    }
+}
+
+
+
+================================================
+FILE: laster40Net/Session.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using laster40Net.Message;
+using laster40Net.Util;
+
+namespace laster40Net
+{
+    //TODO 분리하기
+
+    /// <summary>
+    /// AsyncIO에 필요한 세션IO의 정보
+    /// </summary>
+    internal class SessionIOUserToken
+    {
+        public Socket Socket { get; set; }
+        public Session Session { get; set; }
+
+    }
+    /// <summary>
+    /// 세션의 ID ( 0 값은 존재 하지 않는다.)
+    /// </summary>
+    internal class SessionID
+    {
+        private Int64 _topId = 0;
+        public int INVALID = 0;
+
+        /// <summary>
+        /// 아이디 발급하기
+        /// </summary>
+        /// <returns>
+        /// 발급한 아이디
+        /// </returns>
+        public Int64 Generate()
+        {
+            Int64 value = Interlocked.Increment(ref _topId);
+            // 이런일이 있겠냐 만은...
+            if (value <= 0)
+            {
+                value = Interlocked.Increment(ref _topId);
+            }
+
+            return value;
+        }
+    }
+
+    //TODO IMessageContext을 상속 받지 않도록 한다
+    /// <summary>
+    /// 클라이언트들의 연결
+    /// </summary>
+    internal sealed class Session : IDisposable, IMessageContext
+    {
+        /// <summary>
+        /// 세션간의 고유한 값
+        /// </summary>
+        public Int64 ID              { get; private set; }
+        
+        /// <summary>
+        /// 소켓 클래스
+        /// </summary>
+        public Socket Socket        { get; private set; }
+        
+        /// <summary>
+        /// 접속된 원격의 정보(null일수 있음)
+        /// </summary>
+        public EndPoint RemoteEndPoint{ 
+            get {
+                try
+                {
+                    return Socket.RemoteEndPoint;
+                }
+                catch(Exception)
+                {
+                    return null;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// 버퍼 관리자
+        /// </summary>
+        public IBufferManager BufferManager { get { return Service._pooledBufferManager; } }
+        
+        /// <summary>
+        /// 메세지 빌더
+        /// </summary>
+        public IMessageBuilder MessageBuilder { get { return _messageBuilder; } }
+        
+        /// <summary>
+        /// 메세지 
+        /// </summary>
+        public IMessageResolver MessageResolver { get { return _messageResolver; } }
+        
+        /// <summary>
+        /// 연결이 되어 있나?
+        /// </summary>
+        public bool IsConnected     { get { return !_closing.IsOn(); } }
+
+        private TcpService Service   { get; set; }
+
+
+        // 상태를 관리할 값들
+        /// <summary>
+        /// 받기 중이야?
+        /// </summary>
+        private AtomicInt _receiving = new AtomicInt();
+
+        /// <summary>
+        /// 보내기 중이야?
+        /// </summary>
+        private AtomicInt _sending = new AtomicInt();
+
+        /// <summary>
+        /// 접속 종료 하고 싶은거야?
+        /// </summary>
+        private AtomicInt _closing = new AtomicInt(1);
+
+        /// <summary>
+        /// 모든게 해지된 상태이다.
+        /// </summary>
+        private AtomicInt _disposed = new AtomicInt();
+
+        /// <summary>
+        /// 업데이트 중이야?
+        /// </summary>
+        private AtomicInt _updating = new AtomicInt();
+
+        /// <summary>
+        /// 세션아이디를 관리
+        /// </summary>
+        private static SessionID _sessionId = new SessionID();
+
+        /// <summary>
+        /// 보낼 패킷을 담을 큐
+        /// </summary>
+        private ConcurrentQueue<ArraySegment<byte>> _sendQueue = new ConcurrentQueue<ArraySegment<byte>>();
+
+        /// <summary>
+        /// 현재 보내고 있는 패킷의 리스트( 성능상 List를 계속 생성시키지 않으려고 미리 만들어 둔다 )
+        /// </summary>
+        private List<ArraySegment<byte>> _sendingArraySegmentList = new List<ArraySegment<byte>>();
+
+        /// <summary>
+        /// 세션 Close의 동기화를 위한 오브젝트
+        /// </summary>
+        private readonly object _closeSync = new object();
+
+        /// <summary>
+        /// 세션이 종료된 이유
+        /// </summary>
+        private CloseReason _closeReason;
+
+        /// <summary>
+        /// receive 에 사용되는 EventArgs ( 매번 할당하지 않고 세션이 생성될때 pool에서 꺼내 써고 반납 )
+        /// </summary>
+        private SocketAsyncEventArgs _receiveEventArgs = null;
+
+        /// <summary>
+        /// send 에 사용되는 EventArgs ( 매번 할당하지 않고 세션이 생성될때 pool에서 꺼내 써고 반납 )
+        /// </summary>
+        private SocketAsyncEventArgs _sendEventArgs = null;
+
+        /// <summary>
+        /// 업데이트를 수행하기 위해 사용하는 timer
+        /// </summary>
+        private System.Threading.Timer _updateTimer = null;
+
+        /// <summary>
+        /// 마지막 패킷을 받은 시간
+        /// </summary>
+        private int _lastActivateTime;
+
+        /// <summary>
+        /// 패킷을 보낼때 메세지를 만들어서 보내는 builder
+        /// </summary>
+        private IMessageBuilder _messageBuilder = null;
+
+        /// <summary>
+        /// 패키승ㄹ 받고 메세지를 만들어 주는 resolver
+        /// </summary>
+        private IMessageResolver _messageResolver = null;
+
+        public Session(TcpService service, Socket client, IMessageBuilder msgBuilder, IMessageResolver msgResolver)
+        {
+            this.Socket = client;
+            this.ID = _sessionId.Generate();
+            this.Service = service;
+            this._closeReason = CloseReason.Unknown;
+            this._lastActivateTime = Environment.TickCount;
+
+            this._messageBuilder = msgBuilder;
+            this._messageResolver = msgResolver;
+        }
+
+        /// <summary>
+        /// 세션의 열기 작업 ( 이 작업이 완료된 후에 io stream이 가능해짐 )
+        /// </summary>
+        /// <param name="receiveEventArgs">받기에 필요한 이벤트 args</param>
+        /// <param name="sendEventArgs">보내기에 필요한 이벤트 args</param>
+        public void Open(SocketAsyncEventArgs receiveEventArgs, SocketAsyncEventArgs sendEventArgs)
+        {
+            _lastActivateTime = Environment.TickCount;
+            
+            // SocketAsyncEventArgs 초기화
+            _receiveEventArgs = receiveEventArgs;
+            {
+                var token = _receiveEventArgs.UserToken as SessionIOUserToken;
+                token.Socket = this.Socket;
+                token.Session = this;
+            }
+            _sendEventArgs = sendEventArgs;
+            {
+                var token = _sendEventArgs.UserToken as SessionIOUserToken;
+                token.Socket = this.Socket;
+                token.Session = this;
+            }
+
+            if (_messageBuilder != null)
+            {
+                _messageBuilder.OnOpen(this);
+            }
+
+            if (_messageResolver != null)
+            {
+                _messageResolver.OnOpen(this);
+            }
+
+            // 초기 값이 On 이기 때문에 Off로 셋팅해준다.( 잘못된 참조로 Send/Receive 같은 동작들이 발생할수 있기때문에 )
+            _closing.Off();
+
+            // 받기 시작~
+            PostReceive();
+
+            //TODO: 지정 시간안에 CompletedUpdateTimer 처리를 완료하지 못한 경우에는 기다렸다가 호출하는지 혹은 다른 스레드에서 시간에 맞게 호출하는지 확인 필요.
+            // 타이머 셋팅
+            _updateTimer = new System.Threading.Timer(CompletedUpdateTimer, null, Service.Config.UpdateSessionIntval, Service.Config.UpdateSessionIntval);
+
+            Service.Logger.Log(LogLevel.Debug, string.Format("Session - 생성 - ID:{0}", ID));
+        }
+
+        /// <summary>
+        /// 세션이 실제로 닫힘
+        /// </summary>
+        private void Close()
+        {
+            if (Socket == null)
+            {
+                return;
+            }
+
+            Service.Logger.Log(LogLevel.Debug, string.Format("Session - 닫음 - ID:{0}", ID) );
+
+            Dispose();
+        }
+
+        #region IDisposable Member
+        public void Dispose()
+        {
+            Dispose(_disposed.CasOn());
+        }
+
+        public void Dispose(bool disposing)
+        {
+            if( disposing )
+            {
+                // send queue에 있던놈 메모리 해제 하기
+                ArraySegment<byte> arraySeg;
+                while (_sendQueue.TryDequeue(out arraySeg))
+                {
+                    Service._pooledBufferManager.Return(arraySeg.Array);
+                }
+                
+                // 소켓 닫기
+                try
+                {
+                    Socket.Close();
+                    Socket = null;
+                }
+                catch (Exception e)
+                {
+                    Service.Logger.Log(LogLevel.Debug, "Socket Close 예외 발생", e);
+                }
+
+                // 타이머 종료( Dispose 되어도 비동기적으로 타이머가 호출되기 때문에 Update 가 호출될수 있음 )
+                _updateTimer.Dispose();
+                _updateTimer = null;
+
+                // 닫힘 알리기
+                Service.CloseSession(ID, _closeReason, _receiveEventArgs, _sendEventArgs);
+                Service = null;
+
+                if( _messageResolver != null)
+                {
+                    _messageResolver.OnClose(this);
+                    _messageResolver = null;
+                }
+
+                if (_messageBuilder!= null)
+                {
+                    _messageBuilder.OnClose(this);
+                    _messageResolver = null;
+                }
+            }
+        }
+        #endregion
+
+        /// <summary>
+        /// Async 받기 시작
+        /// </summary>
+        public void PostReceive()
+        {
+            // 접속이 해제 중인 경우 Receive 상태를 On으로 하면 안되니 주의해야한다.
+            if (!IsConnected)
+            {
+                // bugfix: 접속 종료처리가 되지 않는 문제 해결
+                // send 쪽 요청에서 에러가 발생해서 close처리를 시작할때 (postclose) _closing 플래그가 On된 상태로 바꼈으나
+                // _receiving 의 경우 계속 On상태로 남아 있어서 종료처리가 되지 않는 문제 해결함
+                PostClose(CloseReason.LocalClosing);
+                _receiving.Off();
+                return;
+            }
+
+            bool pending = false;
+            try
+            {
+                pending = Socket.ReceiveAsync(_receiveEventArgs);
+                Service.Logger.Log(LogLevel.Debug, string.Format("Session - Receive요청 - ID:{0},pending:{1}", ID, pending));
+            }
+            catch (Exception e)
+            {
+                Service.Logger.Log(LogLevel.Debug, "Post Receive에러", e);
+
+                PostClose(CloseReason.SocketError);
+                _receiving.Off();
+
+                return;
+            }
+
+            // 받기 상태로 On시킴 - Receive 가 에러가 발생하기 전에 Off시키지 않음
+            _receiving.On();
+
+            if( !pending )
+            {
+                CompletedReceive(_receiveEventArgs);
+            }
+        }
+
+        /// <summary>
+        /// Async 보내기 시작
+        /// </summary>
+        /// <param name="buffer">보내기 버퍼</param>
+        /// <param name="offset">버퍼의 시작 Offset</param>
+        /// <param name="length">버퍼의 길이</param>
+        /// <param name="directly">바로 전송 요청할것인지 intval 간격으로 보내기를 할것인지? true는 바로</param>
+        public void PostSend(byte[] buffer, int offset, int length, bool directly)
+        {
+            if (!IsConnected)
+            {
+                return;
+            }
+
+            if (length > Service.Config.SendBuffer)
+            {
+                return;
+            }
+
+            if (_sendQueue.Count + 1 > Service.Config.SendCount)
+            {
+                return;
+            }
+
+            //TODO ArraySegment 사용하지 않아도 될듯
+            // 메모리를 할당 받아서 복사본을 만들어서 sendqueue에 넣음
+            var copy = Service._pooledBufferManager.Take(length);
+            Array.Copy(buffer, offset, copy, 0, length);
+            _sendQueue.Enqueue(new ArraySegment<byte>(copy, 0, length));
+
+            // 바로 보내기 처리
+            if (directly)
+            {
+                UpdateFlushSending();
+            }
+        }        
+        /// <summary>
+        /// 받기 완료
+        /// </summary>
+        /// <param name="e"></param>
+        public void CompletedReceive(SocketAsyncEventArgs e)
+        {
+            Service.Logger.Log(LogLevel.Debug, string.Format("Session - recv완료 - ID:{0},len:{1},offset:{2},error:{3}", ID, e.BytesTransferred, e.Offset, e.SocketError.ToString()));
+
+            if (e.BytesTransferred <= 0 || e.SocketError != SocketError.Success)
+            {
+                PostClose(CloseReason.RemoteClosing);
+                _receiving.Off();
+                return;
+            }
+
+
+            _lastActivateTime = Environment.TickCount;
+
+            bool eventFire = true;
+            if (_messageResolver != null)
+            {
+                if( _messageResolver.OnReceive(this, new ArraySegment<byte>(e.Buffer, e.Offset, e.BytesTransferred) ) )
+                {
+                    eventFire = false;
+                }
+            }
+
+            if (eventFire)
+            {
+                Service.FireReceiveEvent(ID, e.Buffer, e.Offset, e.BytesTransferred);
+            }
+
+            PostReceive();
+        }
+
+        /// <summary>
+        /// 보내기 완료
+        /// </summary>
+        /// <param name="e"></param>
+        public void CompletedSend(SocketAsyncEventArgs e)
+        {
+            Service.Logger.Log(LogLevel.Debug, string.Format("Session - send완료 - ID:{0},len:{1},offset:{2},error:{3}", ID, e.BytesTransferred, e.Offset, e.SocketError.ToString()));
+
+            // 보내기에 사용된 버퍼 반납하기
+            if (e.BufferList != null)
+            {
+                if( e.BufferList.Count != _sendingArraySegmentList.Count )
+                {
+                    Console.WriteLine("보내기 갯수가 안맞넹");
+                }
+
+                foreach (var buf in _sendingArraySegmentList)
+                {
+                    Service._pooledBufferManager.Return(buf.Array);
+
+                    Service.FireSendEvent(ID, buf.Array, buf.Offset, buf.Count);
+                }
+
+                _sendingArraySegmentList.Clear();
+            }
+
+            // 보내기 끝
+            _sending.Off();
+
+            // 에러가 존재하면 끊기
+            if (e.BytesTransferred <= 0 || e.SocketError != SocketError.Success)
+            {
+                PostClose(CloseReason.LocalClosing);
+                return;
+            }
+
+            _lastActivateTime = Environment.TickCount;
+
+            // 남은 다음 패킷은 다음 update에서 flush처리
+            // UpdateFlushSending();
+        }
+
+        public void CompletedUpdateTimer(Object e)
+        {
+            Update();
+        }
+
+        public void CompletedMessage(ArraySegment<byte> message)
+        {
+            Service.FireMessageEvent(ID, message.Array, message.Offset, message.Count);
+        }
+
+        /// <summary>
+        /// 일정 주기적으로 세션 Update 처리( send 패킷 보내고 좀비 처리 하고 닫기 처리... )
+        /// </summary>
+        private void Update()
+        {
+            // 타이머가 dispose되고 난이후에도 호출될수 있기 때문에 이경우 건너 뛴다.
+            if (_disposed.IsOn())
+            {
+                // Console.WriteLine("Session - update - disposed - ID:{0}, tick:{1}", ID, DateTime.Now.Ticks / 10000);
+                return;
+            }
+
+            // Service.Logger.Log(LogLevel.Debug, string.Format("Session - update - ID:{0}, tick:{1}", ID, DateTime.Now.Ticks / 10000));
+
+            if (!_updating.CasOn())
+            {
+                return;
+            }
+
+            // 보내야할 패킷전송
+            UpdateFlushSending();
+
+            // 좀비 처리
+            UpdateZombie();
+
+            // 종료 처리
+            UpdateClosing();
+
+            _updating.Off();
+        }
+
+        /// <summary>
+        /// Send 큐에 있는 데이터를 보내기
+        /// </summary>
+        private void UpdateFlushSending()
+        {
+            if (!IsConnected)
+            {
+                return;
+            }
+
+            if (_sendQueue.Count <= 0)
+            {
+                return;
+            }
+
+            if (!_sending.CasOn())
+            {
+                return;
+            }
+
+            //TODO:  멀티스레드에서 send를 하면 _sendingArraySegmentList가 경쟁 상태에 빠진다. 락 걸어야 하거나 하나의 스레드에서만 호출해야 한다.
+            _sendingArraySegmentList.Clear();
+
+            // 큐에 잇는 리스트를 꺼집어 내서 list를 만들어서 send 시킴
+            ArraySegment<byte> arraySeg;
+            while (_sendQueue.TryDequeue(out arraySeg))
+            {
+                if ( _messageBuilder != null )
+                {
+                    _messageBuilder.OnSend(this, ref _sendingArraySegmentList, arraySeg);
+                }
+                else
+                {
+                    _sendingArraySegmentList.Add(arraySeg);
+                }
+            }
+            _sendEventArgs.BufferList = _sendingArraySegmentList;
+
+            try
+            {
+                bool pending = Socket.SendAsync(_sendEventArgs);
+                if (!pending)
+                {
+                    CompletedSend(_sendEventArgs);
+                }
+            }
+            catch (Exception e)
+            {
+                // 보낼때 에러가 생기면 close
+
+                Service.Logger.Log(LogLevel.Error, "Session - 패킷전송 실패!", e);
+
+                foreach (var buf in _sendEventArgs.BufferList)
+                {
+                    Service._pooledBufferManager.Return(buf.Array);
+                }
+
+                _sending.Off();
+
+                PostClose(CloseReason.SocketError);
+            }
+        }
+
+        /// <summary>
+        /// 좀비 처리 ( 일정시간 응답이 없는 애들 죽이기 )
+        /// </summary>
+        private void UpdateZombie()
+        {
+            if (!IsConnected)
+            {
+                return;
+            }
+
+            if (Service.Config.SessionReceiveTimeout == 0)
+            {
+                return;
+            }
+
+            if (laster40Net.Util.Tick.Gap(_lastActivateTime, Environment.TickCount) > Service.Config.SessionReceiveTimeout)
+            {
+                Service.Logger.Log(LogLevel.Debug, string.Format("Session - updatezombie - find zombie - ID:{0}", ID));
+
+                PostClose(CloseReason.Timeout);
+            }
+        }
+
+        /// <summary>
+        /// Message Builder와 Resolver 의 Close처리
+        /// </summary>
+        public void CloseMessageContext(CloseReason closeReason)
+        {
+            PostClose(closeReason);
+        }
+
+        /// <summary>
+        /// 종료 요청된것에 대한 실제 종료 처리
+        /// </summary>
+        private void UpdateClosing()
+        {
+            if (!_closing.IsOn())
+            {
+                return;
+            }
+
+            // io 요청이 모두 완료되었나 확인
+            if (_receiving.IsOn() || _sending.IsOn())
+            {
+                return;
+            }
+
+            lock (_closeSync)
+            {
+                Close();
+            }
+        }
+
+        /// <summary>
+        /// 종료 요청
+        /// </summary>
+        /// <param name="reason">
+        /// 종료된 이유
+        /// </param>
+        public void PostClose(CloseReason reason)
+        {
+            if (_closing.CasOn())
+            {
+                Service.Logger.Log(LogLevel.Debug, string.Format("Session - PostClose - ID:{0}", ID));
+
+                _closeReason = reason;
+                try
+                {
+                    if (Socket != null)
+                    {
+                        Socket.Shutdown(SocketShutdown.Send);
+                        Socket.Close();
+                    }
+                }
+                catch (Exception e)
+                {
+                    Service.Logger.Log(LogLevel.Debug, "Socket Shutdown 예외 발생", e);
+                }
+            }
+        }      
+
+    } // end Class
+}
+
+
+
+================================================
+FILE: laster40Net/TcpService.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
+using System.Threading;
+using System.IO;
+using System.Xml.Serialization;
+
+using laster40Net.Util;
+
+
+namespace laster40Net;
+
+//TODO 분리하기
+
+/// <summary>
+/// 접속이 끊어진 이유
+/// </summary>
+public enum CloseReason
+{
+    LocalClosing,       // 로컬에서 끊었음
+    RemoteClosing,      // 원격에서 끊어졌음
+    Timeout,            // 응답이 없어서 끊어졌음
+    Shutdown,           // 셧다운 되었음 ( Stop 명령으로 )
+    SocketError,        // 소켓 에러
+    MessageResolveError,// 메세지 resolver, builder 중 에러가 생겼음
+    MessageBuildError,  // 메세지 resolver, builder 중 에러가 생겼음
+    Unknown             // 알수 없음
+}
+
+
+public delegate void SessionConnectionEvent(long session, bool success, EndPoint address, Object token);
+public delegate void SessionCloseEvent(long session, CloseReason reason);
+public delegate void SessionReceiveEvent(long session, byte[] buffer, int offset, int length);
+public delegate void SessionSendEvent(long session, byte[] buffer, int offset, int length);
+public delegate void SessionMessageEvent(long session, byte[] buffer, int offset, int length);
+
+      
+
+/// <summary>
+//// TCP Service ( Facade )
+/// </summary>
+public class TcpService : IDisposable
+{
+    /// <summary>
+    /// 설정
+    /// </summary>
+    internal TcpServiceConfig Config { get; private set; }
+    
+    /// <summary>
+    /// 내부에서 사용할 Logger
+    /// </summary>
+    internal ILogger Logger { get; private set; }
+    
+    /// <summary>
+    /// 생성된 세션들
+    /// </summary>
+    internal ConcurrentDictionary<long, Session> _sessions = new ConcurrentDictionary<long, Session>();
+    
+    /// <summary>
+    /// 받을때 사용하는 버퍼 관리자
+    /// </summary>
+    private BufferManager ReceiveBufferManager = null;
+    
+    /// <summary>
+    /// 버퍼 풀 관리자
+    /// </summary>
+    internal PooledBufferManager _pooledBufferManager = null;
+    
+    /// <summary>
+    /// Receive에 사용하는 AsyncEventArgs 풀
+    /// </summary>
+    internal ConcurrentStack<SocketAsyncEventArgs> ReceiveSockAsyncEventArgsPool = new ConcurrentStack<SocketAsyncEventArgs>();
+    
+    /// <summary>
+    /// Send에 사용하는 AsyncEventArgs 풀
+    /// </summary>
+    internal ConcurrentStack<SocketAsyncEventArgs> SendSockAsyncEventArgsPool = new ConcurrentStack<SocketAsyncEventArgs>();
+    
+    /// <summary>
+    /// 작동중이야?
+    /// </summary>
+    private AtomicInt _running = new AtomicInt();
+    
+    /// <summary>
+    /// 작동중이냐?
+    /// </summary>
+    public bool IsRunning { get { return _running.IsOn(); } }
+    
+    /// <summary>
+    /// 접속한 세션수
+    /// </summary>
+    public int SessionCount { get { return _sessions.Count; } }
+    
+    /// <summary>
+    /// 접속 완료 이벤트
+    /// </summary>
+    public event SessionConnectionEvent ConnectionEvent;
+    
+    /// <summary>
+    /// 접속 종료 이벤트
+    /// </summary>
+    public event SessionCloseEvent CloseEvent;
+    
+    /// <summary>
+    /// 패킷 받기 완료 이벤트 ( 메세지를 받은 경우 패킷 받기는 오지 않음 )
+    /// </summary>
+    public event SessionReceiveEvent ReceiveEvent;
+    
+    /// <summary>
+    /// 패킷 보내기 완료 이벤트
+    /// </summary>
+    public event SessionSendEvent SendEvent;
+    
+    /// <summary>
+    /// 메세지 받기 이벤트
+    /// </summary>
+    public event SessionMessageEvent MessageEvent;        
+    
+    /// <summary>
+    /// Listener 리스트의 Sync Object
+    /// </summary>
+    private Object _syncListener = new Object();
+    
+    /// <summary>
+    /// Listener 리스트
+    /// </summary>
+    private List<Listener> _listeners = new List<Listener>();
+    
+    /// <summary>
+    /// 등록된 커넥터
+    /// </summary>
+    private static ConcurrentDictionary<IPEndPoint, Connector> _connectors = new ConcurrentDictionary<IPEndPoint, Connector>();
+    
+    /// <summary>
+    /// 메세지 Factory
+    /// </summary>
+    private Message.IMessageFactory _messageFactory = null;
+    
+    /// <summary>
+    /// 생성자
+    /// </summary>
+    /// <param name="config">
+    /// tcp service 에 필요한 config
+    /// </param>
+    public TcpService(TcpServiceConfig config)
+    {
+        Setup(config);
+        return;
+    }
+
+    /// <summary>
+    /// xml 설정 파일을 읽어서 설정
+    /// </summary>
+    /// <param name="configFile">설정 파일</param>
+    public TcpService(string configFile)
+    {
+        TcpServiceConfig config;
+        using (StreamReader streamReader = File.OpenText(configFile))
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(TcpServiceConfig));
+            config = serializer.Deserialize(streamReader) as TcpServiceConfig;
+        }
+
+        Setup(config);
+    }
+
+    /// <summary>
+    /// config구조체로 초기화
+    /// </summary>
+    /// <param name="config"></param>
+    private void Setup(TcpServiceConfig config)
+    {
+        // 콘솔 로거 생성
+        if (config.Log != null)
+        {
+            if (config.Log.Equals("console", StringComparison.OrdinalIgnoreCase))
+                this.Logger = new ConsoleLogger();
+            else if (config.Log.Equals("file", StringComparison.OrdinalIgnoreCase))
+                this.Logger = new SimpleFileLogger(@"netservice.log");
+            else
+                this.Logger = new NullLogger();
+        }
+        else
+        {
+            this.Logger = new ConsoleLogger();
+        }
+
+        this.Logger.Level = LogLevel.Error;
+        if (config.LogLevel != null)
+        {
+            this.Logger.Level = (LogLevel)Enum.Parse(typeof(LogLevel), config.LogLevel, true);
+        }
+
+        // 16, 128, 256, 1024, 4096 사이즈의 풀을 생성하는 설정
+        int[] poolSizes = new int[] { 4096, 16, 128, 256, 1024 };
+        this._pooledBufferManager = new PooledBufferManager(poolSizes);
+
+        this.Config = config;
+        if (Config.MessageFactoryTypeName != "")
+        {
+            try
+            {
+                //TODO 테스트 필요
+                Type typeOfClass = Type.GetType("this.Config.MessageFactoryAssemblyName", true);
+                var objHandle = Activator.CreateInstance(typeOfClass);
+                _messageFactory = (laster40Net.Message.IMessageFactory)objHandle;//.Unwrap();
+            }
+            catch (Exception e)
+            {
+                Logger.Log(LogLevel.Error, "메세지 팩토리 생성 실패", e);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// listener 추가
+    /// </summary>
+    /// <param name="ipString">ip</param>
+    /// <param name="port">port</param>
+    /// <param name="backlog">backlog</param>
+    /// <returns>성공, 실패?</returns>
+    public bool StartListener(string ip, int port, int backlog)
+    {
+        // 시작 중이 아니면 동작 시키지 않음
+        if (!IsRunning)
+        {
+            return false;
+        }
+
+        IPAddress.TryParse(ip, out var addr);
+
+        if (addr == null)
+        {
+            addr = IPAddress.Any;
+        }
+
+        IPEndPoint endPoint = new IPEndPoint(addr, port);
+        Listener listener = new Listener(this, endPoint, backlog);
+
+        bool ret = listener.Start();
+
+        if (!ret)
+        {
+            listener.Stop();
+            Logger.Log(LogLevel.Error, "Listener 의 초기화에 실패했습니다.");
+            return false;
+        }
+
+        lock(_syncListener)
+        {
+            _listeners.Add(listener);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 접속 시작
+    /// </summary>
+    /// <param name="ipString">ip</param>
+    /// <param name="port">port</param>
+    /// <param name="timeoutMillSec">미구현</param>
+    /// <param name="token">token</param>
+    /// <returns>성공, 실패?</returns>
+    public bool StartConnect(string ip, int port, int timeout, int retry, Object token)
+    {
+        // 시작 중이 아니면 동작 시키지 않음
+        if (!IsRunning)
+        {
+            return false;
+        }
+
+        Connector connector = new Connector(this, new TcpServiceConfig.ClientConfig(ip, port, timeout, retry), token);
+        if (_connectors.TryAdd(connector.EndPoint, connector))
+        {
+            if (!connector.Start())
+            {
+                Connector tmp;
+                _connectors.TryRemove(connector.EndPoint, out tmp);
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 접속 요청 중지
+    /// </summary>
+    /// <param name="ip"></param>
+    /// <param name="port"></param>
+    /// <returns></returns>
+    public bool StopConnect(string ip, int port)
+    {
+        // 시작 중이 아니면 동작 시키지 않음
+        if (!IsRunning)
+        {
+            return false;
+        }
+
+        System.Net.IPAddress addr;
+        System.Net.IPAddress.TryParse(ip, out addr);
+        System.Net.IPEndPoint endPoint = new System.Net.IPEndPoint(addr, port);
+
+        if (_connectors.TryGetValue(endPoint, out var connector))
+        {
+            if (connector != null)
+            {
+                connector.Stop();
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 서비스 시작
+    /// </summary>
+    /// <returns>
+    /// 성공, 실패?
+    /// </returns>
+    public bool Run()
+    {
+        // 시작 중이면 안시작 시켜야징
+        if (!_running.CasOn())
+        {
+            return false;
+        }
+
+        // 버퍼 초기화 하공
+        ReceiveBufferManager = new BufferManager(Config.ReceviceBuffer * Config.MaxConnectionCount, Config.ReceviceBuffer);
+
+        try
+        {
+            ReceiveBufferManager.InitBuffer();
+        }
+        catch (Exception e)
+        {
+            Logger.Log(LogLevel.Error, "메모리 할당 실패 - 메모리 관리자 초기화 실패", e);
+            return false;
+        }
+
+        // 풀에 하나씩 넣어주고
+        try
+        {
+            for (int i = 0; i < Config.MaxConnectionCount; i++)
+            {
+                {
+                    SocketAsyncEventArgs eventArgs = new SocketAsyncEventArgs();
+                    eventArgs.UserToken = new SessionIOUserToken();
+                    eventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(CompletedReceive);
+                    ReceiveBufferManager.SetBuffer(eventArgs);
+                    ReceiveSockAsyncEventArgsPool.Push(eventArgs);
+                }
+
+                // 보내고 난 후 다음 것을 보내야 한다.
+                {
+                    SocketAsyncEventArgs eventArgs = new SocketAsyncEventArgs();
+                    eventArgs.UserToken = new SessionIOUserToken();
+                    eventArgs.Completed += new EventHandler<SocketAsyncEventArgs>(CompletedSend);
+                    eventArgs.SetBuffer(null, 0, 0);
+                    SendSockAsyncEventArgsPool.Push(eventArgs);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Log(LogLevel.Error, "메모리 할당 실패 - 너무 많은 메모리를 할당했습니다.", e);
+            return false;
+        }
+
+        if (Config.Listeners != null)
+        {
+            foreach (var config in Config.Listeners)
+            {
+                StartListener(config.ip, config.port, config.backlog);
+            }
+        }
+
+        if (Config.Clients != null)
+        {
+            foreach (var client in Config.Clients)
+            {
+                StartConnect(client.ip, client.port, client.timeout, client.retry, null);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 멈춰줘요
+    /// </summary>
+    public void Stop()
+    {
+        if (!IsRunning)
+        {
+            return;
+        }
+
+        _running.Off();
+
+        Dispose(true);
+        GC.SuppressFinalize(true);
+    }
+
+
+  
+    public void Dispose()
+    {
+        this.Dispose(true);
+    }
+
+    public virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // 모든 listener 를 제거한다.
+            lock(_syncListener)
+            {
+                Task[] tasks = new Task[_listeners.Count];
+
+                for (int i = 0; i < _listeners.Count;++i)
+                {
+                    tasks[i] = Task.Factory.StartNew((s) => ((Listener)s).Stop(), _listeners[i]);
+                }
+
+                Task.WaitAll(tasks);
+                _listeners.Clear();
+            }
+
+            
+            var lists = _connectors.ToArray();
+
+            foreach ( var pair in lists )
+            {
+                pair.Value.Stop();
+            }
+
+            // 소켓 닫기
+            var sessions = _sessions.ToArray();
+            if( sessions.Length > 0 )
+            {
+                Task[] tasks = new Task[sessions.Length];
+
+                for (int i=0;i<sessions.Length;++i)
+                {
+                    tasks[i] = Task.Factory.StartNew( (s) => ((Session)s).PostClose(CloseReason.Shutdown), sessions[i].Value);
+                }
+
+                Task.WaitAll(tasks);
+            }
+
+            // session들이 모두 종료될때 까지 대기
+            while (_sessions.Count > 0)
+            {
+                Thread.Sleep(1);
+            }
+
+            _sessions.Clear();
+            ReceiveSockAsyncEventArgsPool.Clear();
+            SendSockAsyncEventArgsPool.Clear();
+            ReceiveBufferManager = null;
+        }
+    }
+  
+    
+    /// <summary>
+    /// 세션의 접속을 끊어주세요
+    /// </summary>
+    /// <param name="id"></param>
+    public void CloseSession(long id)
+    {
+        // TODO 태스크를 만들지말고 이런걸 하는 스레드로 작업을 넘기자
+        if (_sessions.TryGetValue(id, out var session))
+        {
+            Task.Factory.StartNew((s) => ((Session)s).PostClose(CloseReason.LocalClosing), session);
+        }
+    }
+
+    /// <summary>
+    /// 세션에 패킷을 보냄
+    /// </summary>
+    /// <param name="id">보낼놈 세션 id</param>
+    /// <param name="buffer">buffer</param>
+    /// <param name="offset">offset</param>
+    /// <param name="length">length</param>
+    /// <param name="directly">바로? 아님 모아서?</param>
+    public void SendToSession(long id, byte[] buffer, int offset, int length, bool directly)
+    {
+        if (_sessions.TryGetValue(id, out var session))
+        {
+            session.PostSend(buffer, offset, length, directly);
+        }
+    }
+
+    /// <summary>
+    /// 세 클라가 들어왔다~
+    /// </summary>
+    /// <param name="socket"></param>
+    /// <param name="token"></param>
+    /// <returns></returns>
+    internal bool NewClient(Socket socket, Object token)
+    {
+        if (!IsRunning)
+        {
+            return false;
+        }
+
+        if (socket == null)
+        {
+            return false;
+        }
+
+        // 아 이게 제대로 동작 하지 않음
+        if (_sessions.Count + 1 > Config.MaxConnectionCount)
+        {
+            Logger.Log(LogLevel.Error, "Session - 최대 접속자가 제한되어 접속할수 없습니다.");
+            return false;
+        }
+
+        //TODO ReceiveSockAsyncEventArgsPool 풀을 각 세션별로 가지도록 한다
+        SocketAsyncEventArgs receiveEventArgs;
+        if (!ReceiveSockAsyncEventArgsPool.TryPop(out receiveEventArgs))
+        {
+            Logger.Log(LogLevel.Error, "Session - 할당된 충분한 메모리가 존재하지 않음");
+            return false;
+        }
+
+        SocketAsyncEventArgs sendEventArgs;
+        if (!SendSockAsyncEventArgsPool.TryPop(out sendEventArgs))
+        {
+            ReceiveSockAsyncEventArgsPool.Push(receiveEventArgs);
+
+            Logger.Log(LogLevel.Error, "Session - 할당된 충분한 메모리가 존재하지 않음");
+            return false;
+        }
+
+        Message.IMessageBuilder messageBuilder = null;
+        Message.IMessageResolver messageResolver = null;
+
+        if (_messageFactory != null)
+        {
+            messageBuilder = _messageFactory.CreateBuilder();
+            messageResolver = _messageFactory.CreateResolver();
+        }
+
+        // 하나 할당 받아서 리스트에 넣음
+        Session client = new Session(this, socket, messageBuilder, messageResolver);
+        if (!_sessions.TryAdd(client.ID, client))
+        {
+            ReceiveSockAsyncEventArgsPool.Push(receiveEventArgs);
+            SendSockAsyncEventArgsPool.Push(sendEventArgs);
+
+            Logger.Log(LogLevel.Error, "Session - 세션 리스트에 추가 실패");
+            return false;
+        }
+
+        Logger.Log(LogLevel.Debug, string.Format("새 클라이언트 접속 - id:{0},endpoint:{1}", client.ID, client.RemoteEndPoint));
+
+        client.Open(receiveEventArgs, sendEventArgs);
+
+        FireConnectionEvent(client.ID, true, client.RemoteEndPoint, token);
+
+        return true;
+    }
+
+    /// <summary>
+    /// 소켓 끊기( 내부적사용 - 실제로 소켓을 반환함 )
+    /// </summary>
+    /// <param name="Id"></param>
+    /// <param name="reason"></param>
+    /// <param name="readEventArgs"></param>
+    /// <param name="sendEventArgs"></param>
+    internal void CloseSession(long Id, CloseReason reason, SocketAsyncEventArgs readEventArgs, SocketAsyncEventArgs sendEventArgs)
+    {
+        if (_sessions.TryRemove(Id, out Session session))
+        {
+            if (this.CloseEvent != null)
+            {
+                this.CloseEvent(Id, reason);
+            }
+        }
+
+        ReceiveSockAsyncEventArgsPool.Push(readEventArgs);
+        SendSockAsyncEventArgsPool.Push(sendEventArgs);
+    }
+
+    internal void FireReceiveEvent(long Id, byte[] buffer, int offset, int length)
+    {
+        if (this.ReceiveEvent != null)
+        {
+            this.ReceiveEvent(Id, buffer, offset, length);
+        }
+    }
+    internal void FireMessageEvent(long Id, byte[] buffer, int offset, int length)
+    {
+        if (this.MessageEvent != null)
+        {
+            this.MessageEvent(Id, buffer, offset, length);
+        }
+    }
+    internal void FireSendEvent(long Id, byte[] buffer, int offset, int length)
+    {
+        if (this.SendEvent != null)
+        {
+            this.SendEvent(Id, buffer, offset, length);
+        }
+    }
+    internal void FireConnectionEvent(long session, bool success, EndPoint address, Object token)
+    {
+        if (this.ConnectionEvent != null)
+        {
+            this.ConnectionEvent(session, success, address, token);
+        }
+    }
+
+    /// <summary>
+    /// 접속이 완료됨 (listener)
+    /// </summary>
+    /// <param name="success"></param>
+    /// <param name="socket"></param>
+    internal void CompletedAccept(bool success, Socket socket)
+    {
+        if (!IsRunning)
+        {
+            return;
+        }
+
+        if (!NewClient(socket, null))
+        {
+            Logger.Log(LogLevel.Error, "TcpService - Accept된 소켓의 세션 생성에 실패");
+
+            EndPoint endPoint = null;
+
+            try
+            {
+                endPoint = socket.RemoteEndPoint;
+            }
+            catch (Exception)
+            { }
+
+            FireConnectionEvent(0, false, endPoint, null);
+
+            try
+            {
+                socket.Close();
+            }
+            catch (Exception)
+            { }
+        }
+    }
+
+    /// <summary>
+    /// 접속이 완료됨( startconnect )
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <param name="e"></param>
+    internal void CompletedConnect(bool ret, IPEndPoint endPoint, Socket socket, Object token)
+    {
+        Connector connector;
+
+        if (!_connectors.TryRemove(endPoint, out connector))
+        {
+            return;
+        }
+
+        if (ret)
+        {
+            if (!NewClient(socket, token))
+            {
+                Logger.Log(LogLevel.Error, "TcpService - Connect된 소켓의 세션 생성에 실패");
+
+                try
+                {
+                    socket.Close();
+                }
+                catch (Exception)
+                {
+                }
+
+                FireConnectionEvent(0, false, endPoint, token); ;
+            }
+        }
+        else
+        {
+            Logger.Log(LogLevel.Error, string.Format("TcpService - Connect 실패 - address:{0}", endPoint));
+
+            FireConnectionEvent(0, false, endPoint, token);
+        }
+    }
+
+    /// <summary>
+    /// 패킷 수신이완료됨
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    internal void CompletedReceive(object sender, SocketAsyncEventArgs e)
+    {
+        var token = e.UserToken as SessionIOUserToken;
+        var session = token.Session;
+
+        if (session == null)
+        {
+            return;
+        }
+
+        session.CompletedReceive(e);
+    }
+
+    /// <summary>
+    /// 패킷 전송이 완료됨
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    internal void CompletedSend(object sender, SocketAsyncEventArgs e)
+    {
+        var token = e.UserToken as SessionIOUserToken;
+        var session = token.Session;
+
+        if (session == null)
+        {
+            return;
+        }
+
+        session.CompletedSend(e);
+    }
+    
+    /// <summary>
+    /// </summary>
+    /// <returns></returns>
+    public override string ToString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.AppendLine("--------------------------------------------");
+        builder.Append("Session Count : ");
+        builder.Append(_sessions.Count);
+        builder.AppendLine();
+        builder.Append(_pooledBufferManager.ToString());
+        return builder.ToString();
+    }
+
+} // end Class
+
+
+
+================================================
+FILE: laster40Net/TcpServiceConfig.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace laster40Net
+{
+    //TODO 커맨드 라인 인수로 설정 정보를 받는 기능 추가 구현하기
+
+    /// <summary>
+    /// TCP Service 설정
+    /// 
+    /// history
+    /// 2012-12-17 : 커넥션 옵션 추가 ( 재 접속, 재 시도 )
+    /// 2012-12-20 : bugfix
+    ///              Recevie 시도전에 이미 접속 종료 발생시 접속 종료 처리가 되지 않는 버그 수정
+    /// </summary>
+    /// 
+    public class TcpServiceConfig
+    {
+        /// <summary>
+        /// 패킷 받을 버퍼의 사이즈
+        /// </summary>
+        public int ReceviceBuffer;
+        
+        /// <summary>
+        /// 보낼 패킷 버퍼의 사이즈
+        /// </summary>
+        public int SendBuffer;
+        /// <summary>
+        
+        /// 세션당 보낼수 있는 버퍼의 갯수
+        /// </summary>
+        public int SendCount;
+        
+        /// <summary>
+        /// 최대 허용 접속자수
+        /// </summary>
+        public int MaxConnectionCount;
+       
+        /// <summary>    
+         /// 세션 업데이트 Intval
+        /// </summary>
+        public int UpdateSessionIntval;
+
+        /// <summary>
+        /// 세션 Receive Timeout
+        /// </summary>
+        public int SessionReceiveTimeout;
+
+        /// <summary>
+        /// 메세지 팩토리 어셈블리 이름
+        /// </summary>
+        public string MessageFactoryAssemblyName;
+
+        /// <summary>
+        /// 메세지 팩토리 타입이름
+        /// </summary>
+        public string MessageFactoryTypeName;
+
+        /// <summary>
+        /// 로그를 어떤식으로 남길것인지
+        /// </summary>
+        public string Log;
+
+        /// <summary>
+        /// 로그를 어떤식으로 남길것인지
+        /// </summary>
+        public string LogLevel;
+
+        /// <summary>
+        /// 접속을 받을 Listener 설정
+        /// </summary>
+         
+
+
+        public struct ListenerConfig
+        {
+            /// <summary>
+            /// ip
+            /// </summary>
+            public string ip;
+            /// <summary>
+            /// port
+            /// </summary>
+            public int port;
+            /// <summary>
+            /// backlog
+            /// </summary>
+            public int backlog;
+            /// <summary>
+            /// 생성자
+            /// </summary>
+            /// <param name="ip"></param>
+            /// <param name="port"></param>
+            /// <param name="backlog"></param>
+            public ListenerConfig(string ip, int port, int backlog)
+            {
+                this.ip = ip;
+                this.port = port;
+                this.backlog = backlog;
+            }
+        }
+
+
+        /// <summary>
+        /// 리스너 설정
+        /// </summary>
+        [System.Xml.Serialization.XmlArrayItemAttribute("Listener", IsNullable = false)]
+        public ListenerConfig[] Listeners;
+
+
+        /// <summary>
+        /// 접속할 클라이언트 설정
+        /// </summary>
+        public struct ClientConfig
+        {
+            /// <summary>
+            /// ip
+            /// </summary>
+            public string ip;
+            /// <summary>
+            /// port
+            /// </summary>
+            public int port;
+            /// <summary>
+            /// 접속 초과 시간( 이후에 실패! )
+            /// </summary>
+            public int timeout;
+            /// <summary>
+            /// 재시도 횟수, 0이면 무한
+            /// </summary>
+            public int retry;
+            /// <summary>
+            /// 생성자
+            /// </summary>
+            /// <param name="ip"></param>
+            /// <param name="port"></param>
+            /// <param name="timeout"></param>
+            /// <param name="retry"></param>
+            public ClientConfig(string ip, int port, int timeout, int retry)
+            {
+                this.ip = ip;
+                this.port = port;
+                this.timeout = timeout;
+                this.retry = retry;
+            }
+        }
+
+        /// <summary>
+        /// 클라이언트(원격에 접속을 시도할)
+        /// </summary>
+        [System.Xml.Serialization.XmlArrayItemAttribute("Client", IsNullable = false)]
+        public ClientConfig[] Clients;
+    }    
+}
+
+
+
+================================================
+FILE: laster40Net/Data/DBQueryProcess.cs
+================================================
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+using System.Data;
+using System.Threading;
+using System.Threading.Tasks;
+
+using laster40Net;
+using laster40Net.Util;
+
+namespace laster40Net.Data
+{
+    public delegate bool DoDBQuery<TDBConn>(TDBConn conn);
+
+    /// <summary>
+    /// 디비 쿼리 처리기
+    /// - 쿼리를 비동기적으로 처리할수 있도록 해준다.
+    /// - 연결된 DB를 사용한다.
+    /// - 이미 생성된 fixed된 개수의 스레드에서 처리한다.
+    /// </summary>
+    public class DBQueryProcess<TDBConn>
+        where TDBConn : IDbConnection, new()
+    {
+        public int ProcessCount { get; private set; }
+        public string ConnectionString { get; set; }
+        public int QueryCount { get { return _queue.Count; } }
+        public bool IsRunning { get { return _isRunning.IsOn(); } }
+
+        private ConcurrentQueue<DoDBQuery<TDBConn>> _queue = new ConcurrentQueue<DoDBQuery<TDBConn>>();
+        private AutoResetEvent _event = new AutoResetEvent(false);
+        private ILogger Logger { get; set; }
+        private Worker[] _worker = null;
+        private AtomicInt _isRunning = new AtomicInt();
+
+        public DBQueryProcess(int processCount, ILogger logger)
+        {
+            this.ProcessCount = processCount;
+            this.Logger = logger;
+        }
+
+        public bool Start()
+        {
+            if (!_isRunning.CasOn())
+                return false;
+
+            _event.Reset();
+
+            _worker = new Worker[ProcessCount];
+            for (int i = 0; i < ProcessCount; ++i)
+            {
+                _worker[i] = new Worker(this);
+                _worker[i].Start();
+            }
+
+            return true;
+        }
+
+        public void Stop()
+        {
+            if (!IsRunning)
+                return;
+
+            for (int i = 0; i < ProcessCount; ++i)
+            {
+                _worker[i].Stop();
+                _worker[i] = null;
+            }
+            _worker = null;
+
+            _isRunning.Off();
+        }
+
+        public void Enqueue(DoDBQuery<TDBConn> query)
+        {
+            if (!IsRunning)
+                return;
+            _queue.Enqueue(query);
+            _event.Set();
+        }
+
+        public bool Dequeue(out DoDBQuery<TDBConn> query)
+        {
+            query = default(DoDBQuery<TDBConn>);
+            const int Timeout = 100;
+            bool signaled = _event.WaitOne(Timeout);
+            if (signaled)
+            {
+                return _queue.TryDequeue(out query);
+            }
+            return false;
+        }
+
+
+
+        #region Worker
+
+        /// <summary>
+        /// Worker
+        /// </summary>
+        private class Worker
+        {
+            private TDBConn _conn = default(TDBConn);
+            private DBQueryProcess<TDBConn> _owner = null;
+            private Thread _thread = null;
+            private AtomicInt _isStop = new AtomicInt();
+            private AtomicInt _isDBOpen = new AtomicInt();
+
+            public Worker(DBQueryProcess<TDBConn> process)
+            {
+                this._owner = process;
+            }
+
+            public void Start()
+            {
+                _thread = new Thread(ThreadEntry);
+                _thread.Start();
+
+                return;
+            }
+
+            public void Stop()
+            {
+                _isStop.On();
+                _thread.Join();
+            }
+
+            /// <summary>
+            /// 연결을 유지 시켜준다.
+            /// </summary>
+            private void KeepConnection()
+            {
+                if (_isDBOpen.CasOn())
+                {
+                    _owner.Logger.Log(LogLevel.Debug, "DBQueryProcess - DB 접속 시도");
+
+                    try
+                    {
+                        _conn = new TDBConn();
+                        _conn.ConnectionString = _owner.ConnectionString;
+                        _conn.Open();
+
+                        _owner.Logger.Log(LogLevel.Debug, "DBQueryProcess - DB 접속 성공");
+                    }
+                    catch (Exception e)
+                    {
+                        _isDBOpen.Off();
+
+                        _owner.Logger.Log(LogLevel.Error, "DBQueryProcess - DB 접속 실패", e);
+                    }
+                }
+
+                return;
+            }
+            /// <summary>
+            /// 접속을 종료한다.
+            /// </summary>
+            private void CloseConnection()
+            {
+                if( _isDBOpen.IsOn() )
+                {
+                    if( _conn != null )
+                    {
+                        _conn.Close();
+                    }
+                    _isDBOpen.Off();
+                }
+            }
+
+            private void ThreadEntry()
+            {
+                _owner.Logger.Log(LogLevel.Debug, "DBQueryProcess - Worker 시작");
+                for (; ; )
+                {
+                    if (_isStop.IsOn())
+                    {
+                        CloseConnection();
+                        break;
+                    }
+
+                    KeepConnection();
+
+                    if (_isDBOpen.IsOn())
+                    {
+                        DoDBQuery<TDBConn> query;
+                        if (_owner.Dequeue(out query))
+                        {
+                            try
+                            {
+                                if (!query(_conn))
+                                {
+                                    CloseConnection();
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                CloseConnection();
+
+                                _owner.Logger.Log(LogLevel.Error, "DBQueryProcess - db 처리중 에러 발생", e);
+                            }
+                        }
+                    }
+
+                    if (_conn.State == System.Data.ConnectionState.Closed)
+                    {
+                        CloseConnection();
+                        _owner.Logger.Log(LogLevel.Error, "DBQueryProcess - 접속이 종료됨");
+                    }
+                }
+
+                _owner.Logger.Log(LogLevel.Debug, "DBQueryProcess - Worker 종료");
+
+                return;
+            }
+
+        }
+
+        #endregion
+    }
+
+}
+
+
+
+================================================
+FILE: laster40Net/Message/Message.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Net;
+using laster40Net.Util;
+
+namespace laster40Net.Message
+{
+    /// <summary>
+    /// 메세지 Builder와 Resolver에서 사용할수 있는 Context
+    /// </summary>
+    public interface IMessageContext
+    {
+        /// <summary>
+        /// 고유 아이디
+        /// </summary>
+        long ID { get; }
+
+        /// <summary>
+        /// 메모리 관리자
+        /// </summary>
+        IBufferManager BufferManager { get; }
+        
+        /// <summary>
+        /// Remote EndPoint
+        /// </summary>
+        EndPoint RemoteEndPoint { get; }
+
+        /// <summary>
+        /// 메세지 빌더
+        /// </summary>
+        IMessageBuilder MessageBuilder { get; }
+        /// <summary>
+        /// 메세지 Resolver
+        /// </summary>
+        IMessageResolver MessageResolver { get; }
+
+        /// <summary>
+        /// 접속을 해제한다.
+        /// </summary>
+        void CloseMessageContext(CloseReason closeReason);
+
+        /// <summary>
+        /// 메세지가 완료되었음
+        /// </summary>
+        /// <param name="message"></param>
+        void CompletedMessage(ArraySegment<byte> message);
+    }
+
+    public interface IMessageFactory
+    {
+        IMessageBuilder CreateBuilder();
+        IMessageResolver CreateResolver();
+    }
+
+    //TODO ArraySegment<byte>를 Span으로 바꾼다
+
+    /// <summary>
+    /// 메세지를 전송하기 위해서 만들어준다.
+    /// </summary>
+    public interface IMessageBuilder
+    {
+        /// <summary>
+        /// 세션이 오픈 되었다.
+        /// </summary>
+        /// <param name="context">메세지 Context</param>
+        void OnOpen(IMessageContext context);
+        /// <summary>
+        /// 메세지를 만들어야한다.
+        /// </summary>
+        /// <param name="context">메세지 Context</param>
+        /// <param name="lists">만들어진 메세지 버퍼들의 리스트</param>
+        /// <param name="payload">실제로 적재된 데이터</param>
+        void OnSend(IMessageContext context, ref List<ArraySegment<byte>> lists, ArraySegment<byte> payload);
+        /// <summary>
+        /// 세션이 닫혔음
+        /// </summary>
+        void OnClose(IMessageContext context);
+    }
+
+    /// <summary>
+    /// 메세지를 받아서 풀어준다.
+    /// </summary>
+    public interface IMessageResolver
+    {
+        /// <summary>
+        /// 세션이 열였음
+        /// </summary>
+        /// <param name="context"></param>
+        void OnOpen(IMessageContext context);
+        /// <summary>
+        /// 받았으니 패킷을 찢어 봐야함
+        /// </summary>
+        /// <param name="context"></param>
+        /// <param name="arraySegment"></param>
+        /// <returns>
+        /// 패킷을 처리 했으니 따로 Event을 호출하지 않아도 된다.
+        /// </returns>
+        bool OnReceive(IMessageContext context, ArraySegment<byte> arraySegment);
+        /// <summary>
+        /// 세션이 끊어짐
+        /// </summary>
+        /// <param name="context"></param>
+        void OnClose(IMessageContext context);
+    }
+
+    
+
+}
+
+
+
+================================================
+FILE: laster40Net/Message/RawMessage.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace laster40Net.Message
+{
+    public class RawMessageFactory : IMessageFactory
+    {
+        public IMessageBuilder CreateBuilder()
+        {
+            return new RawMessageBuilder();
+        }
+        public IMessageResolver CreateResolver()
+        {
+            return new RawMessageResolver();
+        }
+    }
+
+    /// <summary>
+    /// Raw데이터를 그대로 넘기는 메세지 빌더
+    /// </summary>
+    public class RawMessageBuilder : IMessageBuilder
+    {
+        public void OnOpen(IMessageContext context) { }
+        public void OnSend(IMessageContext context, ref List<ArraySegment<byte>> lists, ArraySegment<byte> payload)
+        {
+            //TODO ArraySegment를 사용하는데 왜 복사를 하나???
+
+            // payload 적재하고
+            byte[] copyPayload = context.BufferManager.Take(payload.Count);
+            Array.Copy(payload.Array, payload.Offset, copyPayload, 0, payload.Count);
+            lists.Add(new ArraySegment<byte>(copyPayload, 0, payload.Count));
+        }
+
+        public void OnClose(IMessageContext context) { }
+    }
+
+    /// <summary>
+    /// Raw 데이터 Resolver (아무것도 안한다-0-)
+    /// </summary>
+    public class RawMessageResolver : IMessageResolver
+    {
+        public void OnOpen(IMessageContext context) { }
+        public bool OnReceive(IMessageContext context, ArraySegment<byte> arraySegment)
+        {
+            return false;
+        }
+        public void OnClose(IMessageContext context) { }
+    }
+}
+
+
+
+================================================
+FILE: laster40Net/Message/SimpleBinaryMessage.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using laster40Net.Util;
+
+namespace laster40Net.Message
+{
+    public static class SimpleBinaryMessageProtocol
+    {
+        public static readonly int HEADERSIZE = 4;
+        public static readonly int MAXPAYLOAD = 4 * 1024;
+        public static readonly int MAXMESSAGE = HEADERSIZE + MAXPAYLOAD;
+    }
+
+    public class SimpleBinaryMessageFactory : IMessageFactory
+    {
+        public IMessageBuilder CreateBuilder()
+        {
+            return new SimpleBinaryMessageBuilder();
+        }
+        public IMessageResolver CreateResolver()
+        {
+            return new SimpleBinaryMessageResolver();
+        }
+    }
+
+    /// <summary>
+    /// 간단한 길이 헤더를 가진 binary 메세지 빌더
+    /// 포멧 - header(4byte) + data
+    ///  - header : data length(int) - 데이터 사이즈
+    ///  - data : 실제 데이터
+    /// </summary>
+    public class SimpleBinaryMessageBuilder : IMessageBuilder
+    {
+        public void OnOpen(IMessageContext context) { }
+        public void OnSend(IMessageContext context, ref List<ArraySegment<byte>> lists, ArraySegment<byte> payload)
+        {
+            // 헤더 만들어 넣고
+            byte[] header = context.BufferManager.Take(SimpleBinaryMessageProtocol.HEADERSIZE);
+            FastBitConverter.GetBytes(payload.Count, header, 0);
+            lists.Add(new ArraySegment<byte>(header, 0, SimpleBinaryMessageProtocol.HEADERSIZE));
+
+            // payload 적재하고
+            byte[] copyPayload = context.BufferManager.Take(payload.Count);
+            Array.Copy(payload.Array, payload.Offset, copyPayload, 0, payload.Count);
+            lists.Add(new ArraySegment<byte>(copyPayload, 0, payload.Count));
+        }
+        public void OnClose(IMessageContext context) { }
+    }
+
+
+    public class SimpleBinaryMessageResolver : IMessageResolver
+    {
+        /// <summary>
+        /// 실제메세지 사이즈
+        /// </summary>
+        private int _messageSize = 0;
+        /// <summary>
+        /// 현재 분석중인 버퍼
+        /// </summary>
+        private byte[] _messageBuffer = new byte[SimpleBinaryMessageProtocol.MAXMESSAGE];
+        /// <summary>
+        /// 현재 분석중인 인덱스 위치
+        /// </summary>
+        private int _messagePos = 0;
+        
+        public void OnOpen(IMessageContext context) {
+            ResetMessageBuffer();
+        }
+        
+        public bool OnReceive(IMessageContext context, ArraySegment<byte> arraySegment)
+        {
+            byte[] srcBuffer = arraySegment.Array;
+            int srcEndIdx = arraySegment.Offset + arraySegment.Count;
+            for (int srcIdx = arraySegment.Offset; srcIdx < srcEndIdx; ++srcIdx)
+            {
+                // 메세지 포인터가 범위를 넘어가면 안된다.
+                if( _messagePos >= SimpleBinaryMessageProtocol.MAXMESSAGE )
+                {
+                    context.CloseMessageContext(CloseReason.MessageResolveError);
+                    return true;
+                }
+
+                // 버퍼에 복사해 넣는다.
+                _messageBuffer[_messagePos] = srcBuffer[srcIdx];
+                ++_messagePos;
+
+                // 메세지 size 를 구한다.
+                if (_messageSize == 0 && _messagePos >= SimpleBinaryMessageProtocol.HEADERSIZE)
+                {
+                    _messageSize = GetPayloadLength() + SimpleBinaryMessageProtocol.HEADERSIZE;
+                    if (_messageSize <= 0 || _messageSize >= SimpleBinaryMessageProtocol.MAXMESSAGE)
+                    {
+                        context.CloseMessageContext(CloseReason.MessageResolveError);
+                        return true;
+                    }
+                }
+
+                // 패킷이 완성되었으면 처리
+                if (_messageSize != 0 && _messagePos == _messageSize)
+                {
+                    context.CompletedMessage(new ArraySegment<byte>(_messageBuffer, SimpleBinaryMessageProtocol.HEADERSIZE, _messageSize - SimpleBinaryMessageProtocol.HEADERSIZE));
+                    ResetMessageBuffer();
+                    continue;
+                }
+            }
+
+            return true;
+        }
+
+        public void OnClose(IMessageContext context) {}
+       
+        private int GetPayloadLength()
+        {
+            int length = 0;
+            length = FastBitConverter.ToInt32( _messageBuffer, 0);
+            return length;
+        }
+
+        private void ResetMessageBuffer()
+        {
+            _messagePos = 0;
+            _messageSize = 0;
+        }
+    }
+}
+
+
+
+================================================
+FILE: laster40Net/Util/AtomicInt.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace laster40Net.Util
+{
+    public static class Tick    
+    {
+        public static int Gap( int start, int end )
+        {
+            start &= int.MaxValue;
+            end &= int.MaxValue;
+            return ( ( ( end ) >= ( start ) ) ? ( ( end ) - ( start ) ) : ( int.MaxValue - ( start ) + ( end ) + 1) );
+        }
+    }
+
+    /// <summary>
+    /// 원자성을 지닌 Int값
+    /// </summary>
+    public class AtomicInt
+    {
+        private int _value = 0;
+        public int Value { get { return _value; } set { Interlocked.Exchange(ref _value, value); } }
+
+        /// <summary>
+        /// 생성자(초기값 0)
+        /// </summary>
+        public AtomicInt()
+        {
+            _value = 0;
+        }
+
+        /// <summary>
+        /// 생성자
+        /// </summary>
+        /// <param name="initValue">초기값</param>
+        public AtomicInt(int initValue)
+        {
+            _value = initValue;
+        }
+
+        /// <summary>
+        /// CAS on
+        /// </summary>
+        /// <returns></returns>
+        public bool CasOn()
+        {
+            return Interlocked.CompareExchange(ref _value, 1, 0) == 0;
+        }
+
+        /// <summary>
+        /// CAS off
+        /// </summary>
+        /// <returns></returns>
+        public bool CasOff()
+        {
+            return Interlocked.CompareExchange(ref _value, 0, 1) == 1;
+        }
+
+        public void On()
+        {
+            Interlocked.Exchange(ref _value, 1);
+        }
+
+        public void Off()
+        {
+            Interlocked.Exchange(ref _value, 0);
+        }
+
+        public bool IsOn()
+        {
+            return _value == 1;
+        }
+
+        public bool Test(int value)
+        {
+            return _value == value;
+        }
+    }
+
+}
+
+
+
+================================================
+FILE: laster40Net/Util/Binary.cs
+================================================
+Error reading file with 'cp949': 'cp949' codec can't decode byte 0xec in position 2165: illegal multibyte sequence
+
+
+================================================
+FILE: laster40Net/Util/BufferManager.cs
+================================================
+癤퓎sing System;
+using System.Collections.Generic;
+using System.Text;
+using System.Net.Sockets;
+using System.Threading;
+using System.Collections.Concurrent;
+
+namespace laster40Net.Util
+{
+    /// <summary>
+    /// This class creates a single large buffer which can be divided up and assigned to SocketAsyncEventArgs objects for use
+    /// with each socket I/O operation.  This enables bufffers to be easily reused and gaurds against fragmenting heap memory.
+    /// 
+    /// The operations exposed on the BufferManager class are not thread safe.
+    /// </summary>
+    internal class BufferManager
+    {
+
+        int m_numBytes;                 // the total number of bytes controlled by the buffer pool
+        byte[] m_buffer;                // the underlying byte array maintained by the Buffer Manager
+        Stack<int> m_freeIndexPool;     // 
+        int m_currentIndex;
+        int m_bufferSize;
+
+        public BufferManager(int totalBytes, int bufferSize)
+        {
+            m_numBytes = totalBytes;
+            m_currentIndex = 0;
+            m_bufferSize = bufferSize;
+            m_freeIndexPool = new Stack<int>();
+        }
+
+        /// <summary>
+        /// Allocates buffer space used by the buffer pool
+        /// </summary>
+        public void InitBuffer()
+        {
+            // create one big large buffer and divide that out to each SocketAsyncEventArg object
+            m_buffer = new byte[m_numBytes];
+        }
+
+        /// <summary>
+        /// Assigns a buffer from the buffer pool to the specified SocketAsyncEventArgs object
+        /// </summary>
+        /// <returns>true if the buffer was successfully set, else false</returns>
+        public bool SetBuffer(SocketAsyncEventArgs args)
+        {
+
+            if (m_freeIndexPool.Count > 0)
+            {
+                args.SetBuffer(m_buffer, m_freeIndexPool.Pop(), m_bufferSize);
+            }
+            else
+            {
+                if ((m_numBytes - m_bufferSize) < m_currentIndex)
+                {
+                    return false;
+                }
+                args.SetBuffer(m_buffer, m_currentIndex, m_bufferSize);
+                m_currentIndex += m_bufferSize;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Removes the buffer from a SocketAsyncEventArg object.  This frees the buffer back to the 
+        /// buffer pool
+        /// </summary>
+        public void FreeBuffer(SocketAsyncEventArgs args)
+        {
+            m_freeIndexPool.Push(args.Offset);
+            args.SetBuffer(null, 0, 0);
+        }
+
+    }
+
+    
+}
+
+
+
+================================================
+FILE: laster40Net/Util/FastBitConverter.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+
+namespace laster40Net.Util
+{
+    /// <summary>
+    /// bit convert 의 성능 개선 버젼
+    /// ( 직접 포인터로 접근해서 값을 set/get 하도록 구현 )
+    /// </summary>
+    public class FastBitConverter
+    {
+        public unsafe static bool ToBoolean(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((bool*)pointer));
+            }
+        }
+        public unsafe static char ToChar(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((char*)pointer));
+            }
+        }
+        public unsafe static Double ToDouble(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((double*)pointer));
+            }
+        }
+        public unsafe static short ToInt16(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((short*)pointer));
+            }
+        }
+        public unsafe static Int32 ToInt32(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((int*)pointer));
+            }
+        }
+        public unsafe static Int64 ToInt64(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((long*)pointer));
+            }
+        }
+        public unsafe static Single ToSingle(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((float*)pointer));
+            }
+        }
+        public unsafe static UInt16 ToUInt16(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((ushort*)pointer));
+            }
+        }
+        public unsafe static UInt32 ToUInt32(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((UInt32*)pointer));
+            }
+        }
+        public unsafe static UInt64 ToUInt64(byte[] value, int startIndex)
+        {
+            fixed (byte* pointer = &(value[startIndex]))
+            {
+                return *(((ulong*)pointer));
+            }
+        }
+        public unsafe static void GetBytes(bool value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((bool*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(char value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((char*)(pointer + startIndex)) = value;
+            }
+        }
+
+        public unsafe static void GetBytes(double value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((double*)(pointer + startIndex)) = value;
+            }
+        }
+
+        public unsafe static void GetBytes(float value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((float*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(int value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((int*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(long value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((long*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(short value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((short*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(uint value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((uint*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(ulong value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((ulong*)(pointer + startIndex)) = value;
+            }
+        }
+        public unsafe static void GetBytes(ushort value, byte[] buffer, int startIndex)
+        {
+            fixed (byte* pointer = buffer)
+            {
+                *((ushort*)(pointer + startIndex)) = value;
+            }
+        }
+
+    }
+
+}
+
+
+
+================================================
+FILE: laster40Net/Util/ILogger.cs
+================================================
+Error reading file with 'cp949': 'cp949' codec can't decode byte 0xed in position 3431: illegal multibyte sequence
+
+
+================================================
+FILE: laster40Net/Util/PooledBufferManager.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace laster40Net.Util
+{
+    public interface IBufferManager
+    {
+        byte[] Take(int size);
+        void Return(byte[] buffer);
+    }
+
+    /// <summary>
+    /// 그냥 버퍼 관리자 (GC)
+    /// </summary>
+    public class GCBufferManager : IBufferManager
+    {
+        public byte[] Take(int size)
+        {
+            return new byte[size];
+        }
+
+        public void Return(byte[] buffer)
+        {
+        }
+    }
+
+    /// <summary>
+    /// 버퍼를 풀링하는 관리자
+    /// 여러사이즈의 버퍼풀을 관리하도록 구현
+    /// 쓰레드 세이프 하다.
+    /// </summary>
+    public class PooledBufferManager : IBufferManager
+    {
+        private class PooledBuffer : IBufferManager
+        {
+            public int _allocSize;
+            public int AllocCount { get { return _allocCount; } }
+            private int _allocCount;
+            private int _hitsCount;
+            private int _missesCount;
+            ConcurrentBag<byte[]> _buffers;
+
+            public PooledBuffer(int size)
+            {
+                _allocCount = 0;
+                _hitsCount = 0;
+                _missesCount = 0;
+                _buffers = new ConcurrentBag<byte[]>();
+
+                _allocSize = size;
+            }
+
+            public byte[] Take(int size)
+            {
+                bool fill = false;
+                byte[] buffer;
+                while (!_buffers.TryTake(out buffer))
+                {
+                    fill = true;
+                    FillBuffer();
+                }
+                if (fill)
+                {
+                    Interlocked.Increment(ref _missesCount);
+                }
+                else
+                {
+                    Interlocked.Increment(ref _hitsCount);
+                }
+                return buffer;
+            }
+
+            public void Return(byte[] buffer)
+            {
+                _buffers.Add(buffer);
+            }
+
+            private void FillBuffer()
+            {
+                try
+                {
+                    _buffers.Add(AllocNewBuffer(_allocSize));
+
+                    Interlocked.Increment(ref _allocCount);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Alloc - size:{0},count:{1}", _allocSize, _allocCount);
+                }
+            }
+
+            public string Dump()
+            {
+                return string.Format("alloc size:{0} - count:{1}, free:{2}, hit:{3}, miss:{4}", _allocSize, _allocCount, _buffers.Count, _hitsCount, _missesCount);
+            }
+
+            public static byte[] AllocNewBuffer(int size)
+            {
+                return new byte[size];
+            }
+        }
+
+        /// <summary>
+        /// 버퍼 풀들
+        /// </summary>
+        private PooledBuffer[] _pools = null;
+
+        /// <summary>
+        /// 생성자 
+        /// </summary>
+        /// <param name="sizeArray">사이즈에 해당하는 풀을 생성함</param>
+        public PooledBufferManager(int[] sizeArray)
+        {
+            Array.Sort(sizeArray);
+
+            _pools = new PooledBuffer[sizeArray.Length];
+            for (int i = 0; i < sizeArray.Length; ++i)
+            {
+                _pools[i] = new PooledBuffer(sizeArray[i]);
+            }
+        }
+
+        /// <summary>
+        /// 메모리 획득하기
+        /// </summary>
+        /// <param name="size">획득할 메모리 사이즈, 만약 풀에 존재하지 않는 값이면 일반 Alloctor로 할당해서 넘김</param>
+        /// <returns>할당한 buffer </returns>
+        public byte[] Take(int size)
+        {
+            PooledBuffer pooled = FindPool(size);
+            if (pooled == null)
+                return PooledBuffer.AllocNewBuffer(size);
+
+            return pooled.Take(size);
+        }
+        /// <summary>
+        /// 메모리 반납하기
+        /// </summary>
+        /// <param name="buffer">반납할 buffer</param>
+        public void Return(byte[] buffer)
+        {
+            PooledBuffer pooled = FindPool(buffer.Length);
+            if (pooled != null)
+            {
+                pooled.Return(buffer);
+            }
+        }
+        /// <summary>
+        /// 현재 메모리풀들의 상태를 string으로 반환해서 넘긴다.
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            StringBuilder builder = new StringBuilder();
+            foreach (var buffer in _pools)
+            {
+                builder.Append(buffer.Dump());
+                builder.Append("\r\n");
+            }
+
+            return builder.ToString();
+        }
+
+        private PooledBuffer FindPool(int size)
+        {
+            foreach (var buffer in _pools)
+            {
+                if (size <= buffer._allocSize)
+                    return buffer;
+            }
+
+            return null;
+        }
+
+
+    }
+}
+
+
+
+================================================
+FILE: laster40Net/Util/ProcessMon.cs
+================================================
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace laster40Net.Util
+{
+    /// <summary>
+    /// 프로세스 정보
+    /// </summary>
+    public struct ProcessInfo
+    {
+        public string name;         // 프로세스 이름
+        public int pid;             // pid
+        public double cpu;          // cpu 점유률
+        public double mem;          // 메모리 사용량
+        public int threadCount;     // 스레드수
+        public string filePath;     // 파일 경로
+        public TimeSpan totalProcessorTime; // 전체 프로세서 시간(cpu usage 계산에 사용)
+        public DateTime startTime;  //시작 시간
+        public int handleCount;     // 핸들 카운터
+    }
+
+    public delegate void ProcessMonEvent(ProcessInfo pi);
+    public delegate void ProcessMonPostUpdate();
+    public delegate void ProcessMonIdleEvent();
+
+    /// <summary>
+    /// 프로세스 모니터링
+    /// </summary>
+    public class ProcessMon
+    {
+        private DateTime _lastUpdated;
+        private ProcessInfo[] _lists = null;
+        private int _listIdx = 0;
+
+        public event ProcessMonEvent NewProcessEvent;
+        public event ProcessMonEvent UpdateProcessEvent;
+        public event ProcessMonEvent CloseProcessEvent;
+        public event ProcessMonPostUpdate PostUpdateEvent;
+        public event ProcessMonIdleEvent IdleEvent;
+        
+
+        private Thread _thread;
+        private int _updateIntval;
+        private AtomicInt _isStop = new AtomicInt();
+        private AtomicInt _isRunning = new AtomicInt();
+
+        private Object _syncSnapShotProcessInfo = new Object();
+        private ProcessInfo[] _snapShotProcessInfo = null;
+
+        public ProcessMon(int updateIntval)
+        {
+            this._updateIntval = updateIntval;
+        }
+
+        public bool Start()
+        {
+            if (!_isRunning.CasOn())
+                return false;
+
+            _snapShotProcessInfo = null;
+
+            try
+            {
+                _thread = new Thread(ThreadEntry);
+                _thread.Start();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public void Stop()
+        {
+            _isStop.On();
+            _thread.Join();
+        }
+
+        private void ThreadEntry()
+        {
+            int tick = Environment.TickCount;
+            while (!_isStop.IsOn())
+            {
+                int cur = Environment.TickCount;
+                if (cur - tick > _updateIntval)
+                {
+                    Update();
+                    tick = Environment.TickCount;
+                }
+                else
+                {
+                    // 좀 쉬어줘~
+                    Thread.Sleep(50);
+                    if (IdleEvent != null)
+                        IdleEvent();
+                }
+            }
+        }
+
+        private double GetProcessCpuUsage(TimeSpan current, TimeSpan last)
+        {
+            TimeSpan procTime = last;
+            double cpuDiff = current.TotalMilliseconds - procTime.TotalMilliseconds;
+            TimeSpan timeDiff = DateTime.Now - _lastUpdated;
+            double cpuUsage = cpuDiff / timeDiff.TotalMilliseconds * 100 / Environment.ProcessorCount;
+            return cpuUsage;
+        }
+
+        public void Update()
+        {
+            System.Diagnostics.Process[] currentProcesses = System.Diagnostics.Process.GetProcesses();
+
+            UpdateOldProcesses(currentProcesses);
+            UpdateNewProcesses(currentProcesses);
+
+            MakeShapShotProcessInfo();
+
+            _lastUpdated = DateTime.Now;
+
+            // 업데이트 이후에 작업처리
+            if (PostUpdateEvent!=null)
+                PostUpdateEvent();
+        }
+
+        public ProcessInfo[] GetShapShotProcessInfo()
+        {
+            ProcessInfo[] snapShot = null;
+            // 스냅샷 만들어 놓기
+            lock (_syncSnapShotProcessInfo)
+            {
+                if (_snapShotProcessInfo == null)
+                    return null;
+                snapShot = new ProcessInfo[_snapShotProcessInfo.Length];
+                Array.Copy(_snapShotProcessInfo, snapShot, _snapShotProcessInfo.Length);
+            }
+            return snapShot;
+        }
+
+        private void MakeShapShotProcessInfo()
+        {    
+            // 스냅샷 만들어 놓기
+            lock (_syncSnapShotProcessInfo)
+            {
+                if (_lists != null)
+                {
+                    _snapShotProcessInfo = new ProcessInfo[_lists.Length];
+                    Array.Copy(_lists, _snapShotProcessInfo, _lists.Length);
+                }
+            }
+        }
+
+        private System.Diagnostics.Process GetProcessByPid(System.Diagnostics.Process[] processes, int pid)
+        {
+            System.Diagnostics.Process match = System.Array.Find(processes, (System.Diagnostics.Process prc) => prc.Id == pid);
+            return match;
+        }
+
+        private void UpdateOldProcesses(System.Diagnostics.Process[] currentProcesses)
+        {
+            if (_lists == null)
+            {
+                _lists = new ProcessInfo[currentProcesses.Length];
+                return;
+            }
+
+            ProcessInfo[] currentProcessInfo = new ProcessInfo[currentProcesses.Length];
+            _listIdx = 0;
+
+            foreach (var prc in _lists)
+            {
+                System.Diagnostics.Process exist = GetProcessByPid(currentProcesses, prc.pid);
+                if (exist != null)
+                {
+                    if (UpdateProcessInfo(ref currentProcessInfo[_listIdx], exist, prc))
+                    {
+                        if (UpdateProcessEvent != null)
+                            UpdateProcessEvent(currentProcessInfo[_listIdx]);
+                        ++_listIdx;
+                    }
+                }
+                else
+                {
+                    if (CloseProcessEvent!=null)
+                        CloseProcessEvent(prc);
+                }
+            }
+
+            _lists = currentProcessInfo;
+        }
+
+        private void UpdateNewProcesses(System.Diagnostics.Process[] currentProcesses)
+        {
+            foreach (System.Diagnostics.Process prc in currentProcesses)
+            {
+                if (prc.Id == 0)
+                    continue;
+                ProcessInfo pi = Array.Find(_lists, (ProcessInfo p) => prc.Id == p.pid);
+
+                if (pi.pid == 0)
+                {
+                    if (UpdateProcessInfo(ref _lists[_listIdx], prc, default(ProcessInfo)))
+                    {
+                        if (NewProcessEvent != null)
+                            NewProcessEvent(_lists[_listIdx]);
+                        ++_listIdx;
+                    }
+                }
+            }
+        }
+
+        private bool UpdateProcessInfo(ref ProcessInfo pi, System.Diagnostics.Process prc, ProcessInfo old)
+        {
+            try
+            {
+                pi.name = prc.ProcessName;
+                pi.pid = prc.Id;
+                pi.mem = prc.WorkingSet64 / 1024;
+                pi.cpu = (int)GetProcessCpuUsage(prc.TotalProcessorTime, old.totalProcessorTime);
+                pi.threadCount = prc.Threads.Count;
+                pi.filePath = prc.MainModule.FileName;
+                pi.totalProcessorTime = prc.TotalProcessorTime;
+                pi.startTime = prc.StartTime;
+                pi.handleCount = prc.HandleCount;
+
+                return true;
+
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+}
+
+
+
+================================================
+FILE: laster40Net_EchoServer/laster40Net_EchoServer.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\laster40Net\laster40Net.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="SimpleEchoServer.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>
+
+
+================================================
+FILE: laster40Net_EchoServer/Program.cs
+================================================
+﻿using laster40Net;
+using System;
+using System.Threading;
+
+namespace laster40Net_EchoServer
+{
+    class Program
+    {
+        public const string IPString = "";
+        public const int Port = 10000;
+        public const int ReceiveBuffer = 4 * 1024;
+        public const int MaxConnectionCount = 10000;
+        public const int Backlog = 100;
+        public static TcpService service = null;
+
+        static void ConnectionCallback(long session, bool success, System.Net.EndPoint address, Object token)
+        {
+            if (success)
+            {
+                Console.WriteLine("[{0}]접속 완료 - id:{1}, remote:{2}", Thread.CurrentThread.GetHashCode(), session, address);
+            }
+            else
+            {
+                Console.WriteLine("[{0}]접속 실패 - id:{1}, remote:{2}", Thread.CurrentThread.GetHashCode(), session, address);
+            }
+        }
+
+        static void CloseCallback(long session, CloseReason reason)
+        {
+            Console.WriteLine("[{0}]접속 종료 - remote:{1},id:{2}", Thread.CurrentThread.GetHashCode(), session, reason.ToString());
+        }
+
+        static void ReceiveCallback(long session, byte[] buffer, int offset, int length)
+        {
+            service.SendToSession(session, buffer, offset, length, true);
+        }
+
+        static void MesssageCallback(long session, byte[] buffer, int offset, int length)
+        {
+            for (int i = 0; i < length; ++i)
+            {
+                if (buffer[offset + i] != (byte)i)
+                    Console.WriteLine("이상하넹");
+            }
+            Console.WriteLine("[{0}]메세지 받음 - id:{1}, offset:{2}, length:{3}", Thread.CurrentThread.GetHashCode(), session, offset, length);
+            service.SendToSession(session, buffer, offset, length, true);
+        }
+
+        static void Main(string[] args)
+        {
+            service = new TcpService("SimpleEchoServer.xml");
+            service.ConnectionEvent += new SessionConnectionEvent(ConnectionCallback);
+            service.CloseEvent += new SessionCloseEvent(CloseCallback);
+            service.ReceiveEvent += new SessionReceiveEvent(ReceiveCallback);
+            service.MessageEvent += new SessionMessageEvent(MesssageCallback);
+            service.Run();
+
+            Console.WriteLine("starting server!");
+
+            int update = Environment.TickCount;
+            while (true)
+            {
+                System.Threading.Thread.Sleep(50);
+
+                if (Console.KeyAvailable)
+                {
+                    ConsoleKeyInfo key = Console.ReadKey(true);
+                    if (key.KeyChar == '1')
+                    {
+                        service.Stop();
+                    }
+                    else if (key.KeyChar == '2')
+                    {
+                        service.Run();
+                    }
+                    else if (key.KeyChar == '3')
+                    {
+                    }
+                    else if (key.KeyChar == '4')
+                    {
+                        service.StartConnect("127.0.0.1", Port, 1000, 0, null);
+                    }
+                    else if (key.KeyChar == 'q')
+                    {
+                        break;
+                    }
+                }
+
+                if (Environment.TickCount - update > 5000)
+                {
+                    Console.WriteLine(service.ToString());
+                    update = Environment.TickCount;
+                }
+            }
+
+            service.Stop();
+        }
+    }
+}
+
+
+
+================================================
+FILE: laster40Net_EchoServer/SimpleEchoServer.xml
+================================================
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcpServiceConfig xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ReceviceBuffer>41000</ReceviceBuffer>
+  <SendBuffer>41000</SendBuffer>
+  <SendCount>100</SendCount>
+  <MaxConnectionCount>10</MaxConnectionCount>
+  <UpdateSessionIntval>50</UpdateSessionIntval>
+  <SessionReceiveTimeout>30000</SessionReceiveTimeout>
+  <MessageFactoryAssemblyName>NetService</MessageFactoryAssemblyName>
+  <MessageFactoryTypeName>NetService.Message.SimpleBinaryMessageFactory</MessageFactoryTypeName>
+  <Log>file</Log>
+  <LogLevel>Info</LogLevel>
+  <Listeners>
+    <Listener>
+      <port>11110</port>
+      <backlog>128</backlog>
+    </Listener>
+  </Listeners>
+</TcpServiceConfig>
+
+
+================================================
+FILE: laster40Net_SimpleChatServer/Chat.cs
+================================================
+癤퓎sing laster40Net;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+
+namespace laster40Net_SimpleChatServer
+{
+    public class ChatClient
+    {
+        public long ID { get; set; }
+        public string Account { get; set; }
+
+        private MemoryStream _stream = new MemoryStream();
+        private Object _sycStream = new Object();
+       // private ProtoBuf.Meta.TypeModel _model = ProtoBuf.Meta.RuntimeTypeModel.Default;
+        private TcpService Service { get; set; }
+        public ChatClient(TcpService service)
+        {
+            this.Service = service;
+        }
+
+        public void SendObject(int id, Object obj)
+        {
+            lock (_sycStream)
+            {
+                _stream.Seek(0, SeekOrigin.Begin);
+
+                //ProtoBuf.Serializer.SerializeWithLengthPrefix<int>(_stream, (int)id, ProtoBuf.PrefixStyle.Fixed32);
+                //_model.Serialize(_stream, obj);
+                //Service.SendToSession(ID, _stream.GetBuffer(), 0, (int)_stream.Position, false);
+            }
+        }
+    }
+
+    public class ChatServer
+    {
+        private ConcurrentDictionary<long, ChatClient> _clients = new ConcurrentDictionary<long, ChatClient>();
+        //private ProtoBuf.Meta.TypeModel _model = ProtoBuf.Meta.RuntimeTypeModel.Default;
+        private TcpService Service { get; set; }
+        public ChatServer(TcpService service)
+        {
+            this.Service = service;
+        }
+        void SendMessage(long sessionId, int id, Object obj)
+        {
+            ChatClient client = null;
+            _clients.TryGetValue(sessionId, out client);
+
+            if (client != null)
+            {
+                client.SendObject(id, obj);
+            }
+        }
+
+        public void HandleNewClient(long session)
+        {
+            ChatClient client = new ChatClient(Service);
+            client.ID = session;
+            _clients.TryAdd(session, client);
+        }
+
+        public void HandleRemoveClient(long session)
+        {
+            ChatClient client = null;
+            _clients.TryRemove(session, out client);
+        }
+
+        public void HandleMessage(long sessionId, byte[] buffer, int offset, int length)
+        {
+            using (MemoryStream stream = new MemoryStream(buffer, offset, length))
+            {
+                try
+                {
+                    //SimpleChat.MESSAGE_ID id = (SimpleChat.MESSAGE_ID)ProtoBuf.Serializer.DeserializeWithLengthPrefix<int>(stream, ProtoBuf.PrefixStyle.Fixed32);
+                    //switch (id)
+                    //{
+                    //    case SimpleChat.MESSAGE_ID.CMSG_HELLO:
+                    //        HandleMessage(sessionId, (SimpleChat.CMsgHello)_model.Deserialize(stream, null, typeof(SimpleChat.CMsgHello)));
+                    //        break;
+                    //    case SimpleChat.MESSAGE_ID.CMSG_CHAT:
+                    //        HandleMessage(sessionId, (SimpleChat.CMsgChat)_model.Deserialize(stream, null, typeof(SimpleChat.CMsgChat)));
+                    //        break;
+                    //    case SimpleChat.MESSAGE_ID.CMSG_BYE:
+                    //        HandleMessage(sessionId, (SimpleChat.CMsgBye)_model.Deserialize(stream, null, typeof(SimpleChat.CMsgBye)));
+                    //        break;
+                    //}
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        //private void HandleMessage(long sessionId, SimpleChat.CMsgHello req)
+        //{
+        //    ChatClient client = null;
+        //    _clients.TryGetValue(sessionId, out client);
+        //    SimpleChat.SMsgHello ack = new SimpleChat.SMsgHello();
+        //    if (client != null)
+        //    {
+        //        client.Account = req.account;
+        //        ack.returnValue = SimpleChat.SMsgHello.RET.OK;
+        //    }
+        //    else
+        //    {
+        //        ack.returnValue = SimpleChat.SMsgHello.RET.FAILED;
+        //    }
+
+        //    SendMessage(sessionId, SimpleChat.MESSAGE_ID.SMSG_HELLO, ack);
+        //}
+
+        //private void HandleMessage(long sessionId, SimpleChat.CMsgChat req)
+        //{
+        //    ChatClient client = null;
+        //    _clients.TryGetValue(sessionId, out client);
+        //    SimpleChat.SMsgChat ack = new SimpleChat.SMsgChat();
+
+        //    if (client != null)
+        //    {
+        //        ack.sender = client.Account;
+        //        ack.chatMsg = req.chatMsg;
+
+        //        Parallel.ForEach(_clients, (KeyValuePair<long, ChatClient> s) => s.Value.SendObject(SimpleChat.MESSAGE_ID.SMSG_CHAT, ack));
+        //    }
+        //}
+
+        //private void HandleMessage(long sessionId, SimpleChat.CMsgBye req)
+        //{
+        //    SimpleChat.SMsgBye ack = new SimpleChat.SMsgBye();
+        //    SendMessage(sessionId, SimpleChat.MESSAGE_ID.SMSG_BYE, ack);
+        //}
+
+
+    } // end Class
+}
+
+
+
+================================================
+FILE: laster40Net_SimpleChatServer/laster40Net_SimpleChatServer.csproj
+================================================
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\laster40Net\laster40Net.csproj" />
+  </ItemGroup>
+</Project>
+
+
+================================================
+FILE: laster40Net_SimpleChatServer/Program.cs
+================================================
+﻿using laster40Net;
+using System;
+
+namespace laster40Net_SimpleChatServer
+{
+    class Program
+    {
+        public const string IPString = "";
+        public const int Port = 10000;
+        public const int ReceiveBuffer = 4 * 1024;
+        public const int MaxConnectionCount = 10000;
+        public const int Backlog = 100;
+        public static TcpService service = null;
+        public static ChatServer server = null;
+
+        static void ConnectionCallback(long session, bool success, System.Net.EndPoint address, Object token)
+        {
+            if (success)
+            {
+                Console.WriteLine("[{0}]접속 완료 - id:{1}, remote:{2}", System.Threading.Thread.CurrentThread.ManagedThreadId, session, address);
+                server.HandleNewClient(session);
+            }
+            else
+            {
+                Console.WriteLine("[{0}]접속 실패 - id:{1}, remote:{2}", System.Threading.Thread.CurrentThread.ManagedThreadId, session, address);
+            }
+        }
+
+        static void CloseCallback(long session, CloseReason reason)
+        {
+            server.HandleRemoveClient(session);
+            Console.WriteLine("[{0}]접속 종료 - remote:{1},id:{2}", System.Threading.Thread.CurrentThread.ManagedThreadId, session, reason.ToString());
+        }
+
+        static void ReceiveCallback(long session, byte[] buffer, int offset, int length)
+        {
+        }
+
+        static void MesssageCallback(long session, byte[] buffer, int offset, int length)
+        {
+            server.HandleMessage(session, buffer, offset, length);
+        }
+
+
+        static void Main(string[] args)
+        {
+            TcpServiceConfig config = new TcpServiceConfig();
+            config.ReceviceBuffer = ReceiveBuffer;
+            config.SendBuffer = ReceiveBuffer;
+            config.SendCount = 10;
+            config.MaxConnectionCount = MaxConnectionCount;
+            config.UpdateSessionIntval = 50;
+            config.SessionReceiveTimeout = 0;// 30 * 1000;
+
+            config.MessageFactoryAssemblyName = "NetService";
+            config.MessageFactoryTypeName = "NetService.Message.SimpleBinaryMessageFactory";
+
+            service = new TcpService(config);
+
+            service.ConnectionEvent += new SessionConnectionEvent(ConnectionCallback);
+            service.CloseEvent += new SessionCloseEvent(CloseCallback);
+            service.ReceiveEvent += new SessionReceiveEvent(ReceiveCallback);
+            service.MessageEvent += new SessionMessageEvent(MesssageCallback);
+
+            server = new ChatServer(service);
+
+            service.Run();
+            service.StartListener(IPString, Port, Backlog);
+
+            Console.WriteLine("starting server!");
+
+            int update = Environment.TickCount;
+            while (true)
+            {
+                System.Threading.Thread.Sleep(50);
+                ConsoleKeyInfo key = Console.ReadKey(true);
+                if (key.KeyChar == 'q')
+                {
+                    break;
+                }
+                if (Environment.TickCount - update > 5000)
+                {
+                    Console.WriteLine(service.ToString());
+                    update = Environment.TickCount;
+                }
+            }
+
+            service.Stop();
+        }
+
+
+    } // end Class
+}
+
+
