@@ -1,4 +1,5 @@
 # FastSocketLite 분석
+[원본 저장소](https://github.com/ihaoqihao/FastSocket.Net )  
 이 라이브러리의 코드는 최신 C# 코드는 아니므로 코드를 분석한 후 최신 코드로 리팩토링을 하는 것을 추천한다.       
     
 # FastSocketLite 네트워크 라이브러리 완전 분석
