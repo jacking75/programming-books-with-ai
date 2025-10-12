@@ -10,6 +10,8 @@ LLM AI를 사용하여 만든 프로그래밍 책을 모아 놓은 저장소이�
 - SuperSocketLite를 이용한 C# 게임 서버 프로그래밍
 - 게임 서버 개발를 위한 C# Socket 프로그래밍  
 - OpenSiv3D를 이용한 C++ 프로그래밍 학습
-- ASP.NET Core Web API로 만드는 게임 서버
+- ASP.NET Core Web API로 만드는 게임 서버  
+  
 - 학습을 위한 C# 네트워크 라이브러리 분석 (진행 중)
 - C++ Boost.Asio로 만드는 온라인 게임 서버 (진행 중)
+- 모던 C++로 시작하는 안전하고 쉬운 C++ 프로그래밍 (진행 중)
