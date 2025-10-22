@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="redis_asio">
+      <UniqueIdentifier>{90838e21-f12d-4c21-b7d0-2d6c8cbc331d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="redis_asio\response_parser.cpp">
+      <Filter>redis_asio</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="redis_asio\one-shot-client.h">
+      <Filter>redis_asio</Filter>
+    </ClInclude>
+    <ClInclude Include="redis_asio\input_composer.h">
+      <Filter>redis_asio</Filter>
+    </ClInclude>
+    <ClInclude Include="redis_asio\multi-thread-client.h">
+      <Filter>redis_asio</Filter>
+    </ClInclude>
+    <ClInclude Include="redis_asio\response_parser.h">
+      <Filter>redis_asio</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
