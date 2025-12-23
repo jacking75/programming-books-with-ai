@@ -50,7 +50,7 @@
 ### OSI 7계층 개요  
 OSI(Open Systems Interconnection) 모델은 컴퓨터 네트워크 프로토콜 설계와 통신을 7개의 계층으로 나누어 표준화한 것입니다.   
   
-![](./images/001.png)  
+![OSI 7계층](./images/001.png)  
   
   
 ### 각 계층별 설명 및 예제
