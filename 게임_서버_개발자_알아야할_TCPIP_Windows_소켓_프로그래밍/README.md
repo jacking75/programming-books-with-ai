@@ -6,6 +6,7 @@
 - Windows 11
 - Visual Studio 2022 이상
   
+[인포그래픽](./infographic/README.md )  
 
 -----  
 # Chapter 01. 네트워크와 소켓 프로그래밍
