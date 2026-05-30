@@ -1,0 +1,22 @@
+{"event_id":1,"type":"LOGIN","player_id":1001,"player_name":"DragonSlayer","timestamp":"2026-03-01T09:00:00","ip":"192.168.1.101","server_id":"SV01"}
+{"event_id":2,"type":"LOGIN","player_id":1002,"player_name":"IceWizard","timestamp":"2026-03-01T09:00:05","ip":"192.168.1.102","server_id":"SV01"}
+{"event_id":3,"type":"LOGIN","player_id":1003,"player_name":"ShadowRogue","timestamp":"2026-03-01T09:01:10","ip":"10.0.0.103","server_id":"SV02"}
+{"event_id":4,"type":"BATTLE","player_id":1001,"player_name":"DragonSlayer","timestamp":"2026-03-01T09:01:23","ip":"192.168.1.101","server_id":"SV01","extra":{"zone_id":"Z01","result":"WIN","damage":320}}
+{"event_id":5,"type":"BATTLE","player_id":1002,"player_name":"IceWizard","timestamp":"2026-03-01T09:02:11","ip":"192.168.1.102","server_id":"SV01","extra":{"zone_id":"Z01","result":"WIN","damage":185}}
+{"event_id":6,"type":"ITEM","player_id":1001,"player_name":"DragonSlayer","timestamp":"2026-03-01T09:15:00","ip":"192.168.1.101","server_id":"SV01","extra":{"item_id":3001,"item_name":"Iron Sword","grade":"Rare"}}
+{"event_id":7,"type":"LOGIN","player_id":1004,"player_name":"HolyPaladin","timestamp":"2026-03-01T09:05:55","ip":"10.0.0.104","server_id":"SV02"}
+{"event_id":8,"type":"BATTLE","player_id":1003,"player_name":"ShadowRogue","timestamp":"2026-03-01T09:03:45","ip":"10.0.0.103","server_id":"SV02","extra":{"zone_id":"Z02","result":"WIN","damage":410}}
+{"event_id":9,"type":"ITEM","player_id":1002,"player_name":"IceWizard","timestamp":"2026-03-01T09:18:30","ip":"192.168.1.102","server_id":"SV01","extra":{"item_id":3002,"item_name":"Magic Staff","grade":"Epic"}}
+{"event_id":10,"type":"LOGIN","player_id":1005,"player_name":"BerserkerKing","timestamp":"2026-03-01T09:08:00","ip":"192.168.1.105","server_id":"SV01"}
+{"event_id":11,"type":"BATTLE","player_id":1005,"player_name":"BerserkerKing","timestamp":"2026-03-01T09:09:10","ip":"192.168.1.105","server_id":"SV01","extra":{"zone_id":"Z02","result":"WIN","damage":580}}
+{"event_id":12,"type":"LOGOUT","player_id":1004,"player_name":"HolyPaladin","timestamp":"2026-03-01T10:00:00","ip":"10.0.0.104","server_id":"SV02"}
+{"event_id":13,"type":"ITEM","player_id":1003,"player_name":"ShadowRogue","timestamp":"2026-03-01T09:22:45","ip":"10.0.0.103","server_id":"SV02","extra":{"item_id":3003,"item_name":"Shadow Dagger","grade":"Legendary"}}
+{"event_id":14,"type":"BATTLE","player_id":1001,"player_name":"DragonSlayer","timestamp":"2026-03-01T09:20:11","ip":"192.168.1.101","server_id":"SV01","extra":{"zone_id":"Z02","result":"WIN","damage":380}}
+{"event_id":15,"type":"LOGOUT","player_id":1002,"player_name":"IceWizard","timestamp":"2026-03-01T10:30:00","ip":"192.168.1.102","server_id":"SV01"}
+{"event_id":16,"type":"LOGIN","player_id":1006,"player_name":"ArrowMaster","timestamp":"2026-03-01T09:17:00","ip":"10.0.0.106","server_id":"SV02"}
+{"event_id":17,"type":"BATTLE","player_id":1006,"player_name":"ArrowMaster","timestamp":"2026-03-01T09:18:33","ip":"10.0.0.106","server_id":"SV02","extra":{"zone_id":"Z01","result":"WIN","damage":275}}
+{"event_id":18,"type":"ITEM","player_id":1005,"player_name":"BerserkerKing","timestamp":"2026-03-01T09:48:00","ip":"192.168.1.105","server_id":"SV01","extra":{"item_id":3005,"item_name":"Rage Axe","grade":"Legendary"}}
+{"event_id":19,"type":"LOGOUT","player_id":1001,"player_name":"DragonSlayer","timestamp":"2026-03-01T11:45:00","ip":"192.168.1.101","server_id":"SV01"}
+{"event_id":20,"type":"LOGOUT","player_id":1005,"player_name":"BerserkerKing","timestamp":"2026-03-01T12:00:00","ip":"192.168.1.105","server_id":"SV01"}
+{"event_id":21,"type":"LOGOUT","player_id":1003,"player_name":"ShadowRogue","timestamp":"2026-03-01T12:15:30","ip":"10.0.0.103","server_id":"SV02"}
+{"event_id":22,"type":"LOGOUT","player_id":1006,"player_name":"ArrowMaster","timestamp":"2026-03-01T12:30:00","ip":"10.0.0.106","server_id":"SV02"}

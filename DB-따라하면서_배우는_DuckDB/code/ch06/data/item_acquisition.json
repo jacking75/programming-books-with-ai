@@ -1,0 +1,278 @@
+[
+  {
+    "event_id": 1,
+    "timestamp": "2026-03-01T09:15:00",
+    "player": {
+      "id": 1001,
+      "name": "DragonSlayer",
+      "level": 25,
+      "class": "Warrior"
+    },
+    "item": {
+      "id": 3001,
+      "name": "Iron Sword",
+      "grade": "Rare",
+      "type": "Weapon",
+      "stats": { "attack": 85, "durability": 100 }
+    },
+    "location": {
+      "zone_id": "Z02",
+      "x": 234.5,
+      "y": 178.2
+    },
+    "source": "MONSTER_DROP"
+  },
+  {
+    "event_id": 2,
+    "timestamp": "2026-03-01T09:18:30",
+    "player": {
+      "id": 1002,
+      "name": "IceWizard",
+      "level": 22,
+      "class": "Mage"
+    },
+    "item": {
+      "id": 3002,
+      "name": "Magic Staff",
+      "grade": "Epic",
+      "type": "Weapon",
+      "stats": { "magic_attack": 130, "mana": 50 }
+    },
+    "location": {
+      "zone_id": "Z03",
+      "x": 512.0,
+      "y": 300.1
+    },
+    "source": "QUEST_REWARD"
+  },
+  {
+    "event_id": 3,
+    "timestamp": "2026-03-01T09:22:45",
+    "player": {
+      "id": 1003,
+      "name": "ShadowRogue",
+      "level": 28,
+      "class": "Rogue"
+    },
+    "item": {
+      "id": 3003,
+      "name": "Shadow Dagger",
+      "grade": "Legendary",
+      "type": "Weapon",
+      "stats": { "attack": 200, "critical": 45 }
+    },
+    "location": {
+      "zone_id": "Z03",
+      "x": 488.3,
+      "y": 295.7
+    },
+    "source": "MONSTER_DROP"
+  },
+  {
+    "event_id": 4,
+    "timestamp": "2026-03-01T09:35:10",
+    "player": {
+      "id": 1004,
+      "name": "HolyPaladin",
+      "level": 15,
+      "class": "Paladin"
+    },
+    "item": {
+      "id": 3004,
+      "name": "Sacred Shield",
+      "grade": "Rare",
+      "type": "Armor",
+      "stats": { "defense": 75, "hp": 200 }
+    },
+    "location": {
+      "zone_id": "Z01",
+      "x": 120.0,
+      "y": 88.5
+    },
+    "source": "QUEST_REWARD"
+  },
+  {
+    "event_id": 5,
+    "timestamp": "2026-03-01T09:48:00",
+    "player": {
+      "id": 1005,
+      "name": "BerserkerKing",
+      "level": 35,
+      "class": "Berserker"
+    },
+    "item": {
+      "id": 3005,
+      "name": "Rage Axe",
+      "grade": "Legendary",
+      "type": "Weapon",
+      "stats": { "attack": 310, "attack_speed": 15 }
+    },
+    "location": {
+      "zone_id": "Z02",
+      "x": 340.8,
+      "y": 210.3
+    },
+    "source": "MONSTER_DROP"
+  },
+  {
+    "event_id": 6,
+    "timestamp": "2026-03-01T10:05:22",
+    "player": {
+      "id": 1006,
+      "name": "ArrowMaster",
+      "level": 20,
+      "class": "Archer"
+    },
+    "item": {
+      "id": 3006,
+      "name": "Swift Bow",
+      "grade": "Epic",
+      "type": "Weapon",
+      "stats": { "attack": 110, "range": 30 }
+    },
+    "location": {
+      "zone_id": "Z01",
+      "x": 95.2,
+      "y": 65.0
+    },
+    "source": "SHOP_PURCHASE"
+  },
+  {
+    "event_id": 7,
+    "timestamp": "2026-03-01T10:18:55",
+    "player": {
+      "id": 1001,
+      "name": "DragonSlayer",
+      "level": 25,
+      "class": "Warrior"
+    },
+    "item": {
+      "id": 3007,
+      "name": "Dragon Scale Armor",
+      "grade": "Epic",
+      "type": "Armor",
+      "stats": { "defense": 150, "fire_resistance": 40 }
+    },
+    "location": {
+      "zone_id": "Z02",
+      "x": 278.1,
+      "y": 190.4
+    },
+    "source": "MONSTER_DROP"
+  },
+  {
+    "event_id": 8,
+    "timestamp": "2026-03-01T10:32:40",
+    "player": {
+      "id": 1002,
+      "name": "IceWizard",
+      "level": 22,
+      "class": "Mage"
+    },
+    "item": {
+      "id": 3008,
+      "name": "Frost Ring",
+      "grade": "Rare",
+      "type": "Accessory",
+      "stats": { "magic_attack": 45, "cooldown_reduction": 10 }
+    },
+    "location": {
+      "zone_id": "Z03",
+      "x": 530.6,
+      "y": 315.9
+    },
+    "source": "DUNGEON_CLEAR"
+  },
+  {
+    "event_id": 9,
+    "timestamp": "2026-03-01T10:45:15",
+    "player": {
+      "id": 1003,
+      "name": "ShadowRogue",
+      "level": 28,
+      "class": "Rogue"
+    },
+    "item": {
+      "id": 3009,
+      "name": "Poison Vial",
+      "grade": "Common",
+      "type": "Consumable",
+      "stats": { "poison_damage": 30, "duration": 5 }
+    },
+    "location": {
+      "zone_id": "Z03",
+      "x": 502.7,
+      "y": 289.2
+    },
+    "source": "SHOP_PURCHASE"
+  },
+  {
+    "event_id": 10,
+    "timestamp": "2026-03-01T11:00:00",
+    "player": {
+      "id": 1004,
+      "name": "HolyPaladin",
+      "level": 15,
+      "class": "Paladin"
+    },
+    "item": {
+      "id": 3010,
+      "name": "Holy Mace",
+      "grade": "Epic",
+      "type": "Weapon",
+      "stats": { "attack": 95, "holy_damage": 60 }
+    },
+    "location": {
+      "zone_id": "Z01",
+      "x": 105.5,
+      "y": 72.3
+    },
+    "source": "DUNGEON_CLEAR"
+  },
+  {
+    "event_id": 11,
+    "timestamp": "2026-03-01T11:15:30",
+    "player": {
+      "id": 1005,
+      "name": "BerserkerKing",
+      "level": 35,
+      "class": "Berserker"
+    },
+    "item": {
+      "id": 3011,
+      "name": "Blood Pendant",
+      "grade": "Legendary",
+      "type": "Accessory",
+      "stats": { "hp": 500, "lifesteal": 8 }
+    },
+    "location": {
+      "zone_id": "Z02",
+      "x": 362.4,
+      "y": 224.8
+    },
+    "source": "MONSTER_DROP"
+  },
+  {
+    "event_id": 12,
+    "timestamp": "2026-03-01T11:28:45",
+    "player": {
+      "id": 1006,
+      "name": "ArrowMaster",
+      "level": 20,
+      "class": "Archer"
+    },
+    "item": {
+      "id": 3012,
+      "name": "Eagle Eye Goggles",
+      "grade": "Rare",
+      "type": "Armor",
+      "stats": { "accuracy": 25, "range": 15 }
+    },
+    "location": {
+      "zone_id": "Z01",
+      "x": 88.9,
+      "y": 59.1
+    },
+    "source": "QUEST_REWARD"
+  }
+]
