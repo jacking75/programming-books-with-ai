@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FPS 게임 매칭 시스템 쉽게 이해하기</title>
+  <style>
+    :root {
+      --ink: #15202b;
+      --muted: #566475;
+      --paper: #f7f8fb;
+      --panel: #ffffff;
+      --line: #d9e0ea;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --green: #16a34a;
+      --orange: #f97316;
+      --red: #dc2626;
+      --violet: #7c3aed;
+      --shadow: 0 18px 45px rgba(20, 31, 48, .12);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      line-height: 1.65;
+    }
+
+    header {
+      min-height: 92vh;
+      display: grid;
+      align-items: center;
+      padding: 48px 22px 28px;
+      color: white;
+      background:
+        linear-gradient(90deg, rgba(10, 18, 32, .88), rgba(10, 18, 32, .58)),
+        radial-gradient(circle at 75% 30%, rgba(8, 145, 178, .55), transparent 26%),
+        linear-gradient(135deg, #111827 0%, #1d4ed8 52%, #0f766e 100%);
+      overflow: hidden;
+      position: relative;
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 18vh;
+      background: linear-gradient(transparent, rgba(247, 248, 251, .95));
+      pointer-events: none;
+    }
+
+    .hero {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .hero h1 {
+      margin: 0 0 18px;
+      font-size: clamp(40px, 8vw, 82px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 640px;
+      margin: 0 0 28px;
+      font-size: clamp(17px, 2vw, 21px);
+      color: rgba(255, 255, 255, .9);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, .24);
+      color: white;
+      background: rgba(255, 255, 255, .13);
+      text-decoration: none;
+      font-weight: 700;
+      backdrop-filter: blur(8px);
+    }
+
+    .match-visual {
+      position: relative;
+      min-height: 360px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 8px;
+      background: rgba(5, 10, 20, .34);
+      box-shadow: 0 26px 80px rgba(0, 0, 0, .22);
+      overflow: hidden;
+    }
+
+    .radar {
+      position: absolute;
+      inset: 38px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .2);
+    }
+
+    .radar::before, .radar::after {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .radar::after {
+      inset: 36%;
+    }
+
+    .sweep {
+      position: absolute;
+      width: 50%;
+      height: 2px;
+      top: 50%;
+      left: 50%;
+      transform-origin: left center;
+      background: linear-gradient(90deg, rgba(34, 211, 238, .9), transparent);
+      animation: spin 5s linear infinite;
+    }
+
+    .player-dot {
+      position: absolute;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 20px rgba(34, 197, 94, .75);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    .p1 { left: 20%; top: 22%; animation-delay: .1s; }
+    .p2 { left: 68%; top: 29%; animation-delay: .35s; background: #38bdf8; }
+    .p3 { left: 47%; top: 18%; animation-delay: .6s; background: #facc15; }
+    .p4 { left: 30%; top: 70%; animation-delay: .9s; background: #fb7185; }
+    .p5 { left: 76%; top: 68%; animation-delay: 1.2s; background: #a78bfa; }
+
+    .hero-label {
+      position: absolute;
+      left: 22px;
+      bottom: 22px;
+      right: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, .9);
+    }
+
+    .hero-label span {
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .12);
+      border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    main {
+      width: min(1120px, calc(100% - 34px));
+      margin: 0 auto;
+    }
+
+    section {
+      padding: 58px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: clamp(28px, 4vw, 44px);
+      letter-spacing: 0;
+      line-height: 1.16;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin: 0 0 26px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #075985;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      align-items: stretch;
+      margin-top: 26px;
+    }
+
+    .flow-step {
+      min-height: 116px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      right: -12px;
+      bottom: -12px;
+      background: currentColor;
+      opacity: .14;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .animated-queue {
+      position: relative;
+      min-height: 220px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, white, #eef6ff);
+      overflow: hidden;
+      margin-top: 18px;
+    }
+
+    .queue-line {
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 50%;
+      height: 8px;
+      border-radius: 999px;
+      background: #dbeafe;
+    }
+
+    .queue-node {
+      position: absolute;
+      top: calc(50% - 15px);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 800;
+      animation: travel 7s ease-in-out infinite;
+    }
+
+    .q1 { background: var(--blue); animation-delay: 0s; }
+    .q2 { background: var(--green); animation-delay: .55s; }
+    .q3 { background: var(--orange); animation-delay: 1.1s; }
+    .q4 { background: var(--violet); animation-delay: 1.65s; }
+    .q5 { background: var(--cyan); animation-delay: 2.2s; }
+
+    .queue-box {
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(330px, 84%);
+      padding: 12px;
+      border: 2px solid #2563eb;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .9);
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .time-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 16px;
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+      margin: 10px 0 0;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--green), var(--orange));
+      animation: widen 3s ease-in-out infinite alternate;
+    }
+
+    .teams {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .team {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: white;
+    }
+
+    .team h3 {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .player-row {
+      display: grid;
+      grid-template-columns: 56px 1fr 52px;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .rating-bar {
+      height: 12px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+
+    .rating-bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+      animation: settle 2.8s ease-in-out infinite alternate;
+    }
+
+    .rating-bar.green span { background: var(--green); }
+
+    .architecture {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .stack-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 16px;
+      position: relative;
+    }
+
+    .stack-item::before {
+      content: "";
+      position: absolute;
+      left: 18px;
+      bottom: -13px;
+      width: 2px;
+      height: 13px;
+      background: var(--line);
+    }
+
+    .stack-item:last-child::before { display: none; }
+
+    .formula {
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: #eff6ff;
+      padding: 18px;
+      font-family: Consolas, "Courier New", monospace;
+      overflow-x: auto;
+      white-space: nowrap;
+      color: #1e3a8a;
+      font-weight: 700;
+    }
+
+    .demo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+      margin-top: 18px;
+    }
+
+    .control {
+      display: grid;
+      gap: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: white;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .result {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #111827;
+      color: white;
+      padding: 18px;
+      display: grid;
+      align-content: center;
+      gap: 12px;
+    }
+
+    .big-number {
+      font-size: clamp(34px, 6vw, 58px);
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .metric-wheel {
+      min-height: 330px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wheel-center {
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      background: #111827;
+      color: white;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-weight: 900;
+      z-index: 1;
+    }
+
+    .metric {
+      position: absolute;
+      min-width: 104px;
+      text-align: center;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #ecfeff;
+      border: 1px solid #bae6fd;
+      font-weight: 800;
+      animation: floaty 3.8s ease-in-out infinite;
+    }
+
+    .m1 { top: 36px; left: 50%; transform: translateX(-50%); }
+    .m2 { top: 112px; right: 55px; animation-delay: .4s; }
+    .m3 { bottom: 54px; right: 78px; animation-delay: .8s; }
+    .m4 { bottom: 54px; left: 78px; animation-delay: 1.2s; }
+    .m5 { top: 112px; left: 55px; animation-delay: 1.6s; }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .check {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 16px;
+    }
+
+    footer {
+      padding: 38px 18px 58px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: .78; }
+      50% { transform: scale(1.35); opacity: 1; }
+    }
+
+    @keyframes travel {
+      0% { left: 7%; transform: scale(.85); opacity: .35; }
+      35% { opacity: 1; }
+      62% { left: calc(50% - 15px); transform: scale(1.15); }
+      100% { left: calc(93% - 30px); transform: scale(.85); opacity: .45; }
+    }
+
+    @keyframes widen {
+      from { width: 38%; }
+      to { width: 92%; }
+    }
+
+    @keyframes settle {
+      from { filter: saturate(.7); transform: translateX(-6px); }
+      to { filter: saturate(1.15); transform: translateX(0); }
+    }
+
+    @keyframes floaty {
+      0%, 100% { margin-top: 0; }
+      50% { margin-top: -10px; }
+    }
+
+    @media (max-width: 860px) {
+      .hero, .architecture, .demo, .teams { grid-template-columns: 1fr; }
+      .grid, .flow, .timeline, .compare, .checklist { grid-template-columns: 1fr; }
+      header { min-height: auto; }
+      .match-visual { min-height: 310px; }
+      .hero-label { grid-template-columns: 1fr; }
+      section { padding: 42px 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div>
+        <h1>FPS 게임 매칭 시스템 쉽게 이해하기</h1>
+        <p>플레이어를 아무렇게나 묶는 것이 아니라, 실력·핑·역할·대기 시간·서버 상태를 함께 보고 가장 덜 불공평한 게임을 빠르게 만드는 과정입니다.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#flow">매칭 흐름 보기</a>
+          <a class="btn" href="#rating">ELO/MMR 이해하기</a>
+          <a class="btn" href="#architecture">서버 구조 보기</a>
+        </div>
+      </div>
+      <div class="match-visual" aria-label="매칭 탐색 애니메이션">
+        <div class="radar"><div class="sweep"></div></div>
+        <span class="player-dot p1"></span>
+        <span class="player-dot p2"></span>
+        <span class="player-dot p3"></span>
+        <span class="player-dot p4"></span>
+        <span class="player-dot p5"></span>
+        <div class="hero-label">
+          <span>실력: 비슷한 MMR</span>
+          <span>네트워크: 낮은 핑</span>
+          <span>시간: 너무 오래 기다리지 않기</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="overview">
+      <h2>매칭 시스템은 무엇을 해결할까?</h2>
+      <p class="lead">좋은 매칭은 완벽한 상대를 찾는 일이 아니라, 제한 시간 안에서 공정함과 쾌적함을 최대한 맞추는 일입니다. 문서의 핵심은 세 가지 기준으로 압축할 수 있습니다.</p>
+      <div class="grid">
+        <article class="card">
+          <span class="tag">Fair</span>
+          <h3>실력 균형</h3>
+          <p>양 팀의 평균 MMR 차이를 줄이고, 팀 내부의 실력 편차도 너무 커지지 않게 조정합니다.</p>
+        </article>
+        <article class="card">
+          <span class="tag">Fast</span>
+          <h3>대기 시간</h3>
+          <p>30초에서 2분 사이에 게임이 시작되도록, 기다린 시간이 길수록 조건을 조금씩 완화합니다.</p>
+        </article>
+        <article class="card">
+          <span class="tag">Stable</span>
+          <h3>낮은 지연</h3>
+          <p>FPS에서는 50ms 차이도 체감됩니다. 그래서 지역과 서버 거리, 핑 범위를 매칭 조건에 넣습니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2>플레이어가 게임에 들어가기까지</h2>
+      <p class="lead">매칭은 버튼 하나로 보이지만 내부에서는 여러 필터와 계산이 순서대로 지나갑니다.</p>
+      <div class="flow">
+        <div class="flow-step" style="color: var(--blue)">
+          <strong>1. 큐 입장</strong>
+          플레이어의 MMR, 지역, 역할, 파티 정보를 대기열에 넣습니다.
+        </div>
+        <div class="flow-step" style="color: var(--cyan)">
+          <strong>2. 후보 검색</strong>
+          Redis Sorted Set처럼 빠른 저장소에서 비슷한 MMR 구간을 찾습니다.
+        </div>
+        <div class="flow-step" style="color: var(--green)">
+          <strong>3. 조건 확인</strong>
+          핑, 파티 크기, 역할 구성, 치터 의심 여부를 함께 검사합니다.
+        </div>
+        <div class="flow-step" style="color: var(--orange)">
+          <strong>4. 팀 분배</strong>
+          양 팀의 평균과 편차가 비슷해지도록 플레이어를 나눕니다.
+        </div>
+        <div class="flow-step" style="color: var(--violet)">
+          <strong>5. 세션 배정</strong>
+          게임 서버를 잡고, 매칭 완료 이벤트를 각 클라이언트에 보냅니다.
+        </div>
+      </div>
+
+      <div class="animated-queue">
+        <div class="queue-box">조건에 맞는 플레이어들이 모이면 한 게임으로 묶입니다</div>
+        <div class="queue-line"></div>
+        <div class="queue-node q1">A</div>
+        <div class="queue-node q2">B</div>
+        <div class="queue-node q3">C</div>
+        <div class="queue-node q4">D</div>
+        <div class="queue-node q5">E</div>
+      </div>
+    </section>
+
+    <section id="latency">
+      <h2>왜 대기 시간이 길어질수록 조건을 넓힐까?</h2>
+      <p class="lead">처음에는 아주 좋은 조건만 허용합니다. 하지만 플레이어를 너무 오래 기다리게 하면 게임을 떠나므로, 시간이 지날수록 허용 범위를 단계적으로 넓힙니다.</p>
+      <div class="timeline">
+        <div class="time-card">
+          <h3>0~30초</h3>
+          <p>핑 50ms 이하, MMR 차이 작음, 같은 지역 우선.</p>
+          <div class="bar"><span style="width: 38%"></span></div>
+        </div>
+        <div class="time-card">
+          <h3>30~60초</h3>
+          <p>핑 80ms까지 허용, MMR 범위를 조금 확대.</p>
+          <div class="bar"><span style="width: 64%"></span></div>
+        </div>
+        <div class="time-card">
+          <h3>60초 이후</h3>
+          <p>핑 120ms까지 허용, 빠른 시작을 더 중시.</p>
+          <div class="bar"><span style="width: 92%"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="teams">
+      <h2>팀 밸런싱은 평균만 맞추면 끝일까?</h2>
+      <p class="lead">아닙니다. 평균 MMR이 같아도 한 팀 안에 초보와 고수가 과하게 섞이면 체감 품질은 나빠집니다. 그래서 평균과 편차를 함께 봅니다.</p>
+      <div class="teams">
+        <div class="team">
+          <h3>Team A <span>평균 1500</span></h3>
+          <div class="player-row"><b>A1</b><div class="rating-bar"><span style="width: 52%"></span></div><span>1500</span></div>
+          <div class="player-row"><b>A2</b><div class="rating-bar"><span style="width: 49%"></span></div><span>1450</span></div>
+          <div class="player-row"><b>A3</b><div class="rating-bar"><span style="width: 56%"></span></div><span>1550</span></div>
+          <div class="player-row"><b>A4</b><div class="rating-bar"><span style="width: 51%"></span></div><span>1490</span></div>
+          <div class="player-row"><b>A5</b><div class="rating-bar"><span style="width: 55%"></span></div><span>1510</span></div>
+        </div>
+        <div class="team">
+          <h3>Team B <span>평균 1500</span></h3>
+          <div class="player-row"><b>B1</b><div class="rating-bar green"><span style="width: 78%"></span></div><span>2000</span></div>
+          <div class="player-row"><b>B2</b><div class="rating-bar green"><span style="width: 31%"></span></div><span>1000</span></div>
+          <div class="player-row"><b>B3</b><div class="rating-bar green"><span style="width: 56%"></span></div><span>1500</span></div>
+          <div class="player-row"><b>B4</b><div class="rating-bar green"><span style="width: 56%"></span></div><span>1500</span></div>
+          <div class="player-row"><b>B5</b><div class="rating-bar green"><span style="width: 56%"></span></div><span>1500</span></div>
+        </div>
+      </div>
+      <p class="lead" style="margin-top: 20px">두 팀의 평균은 같지만 Team B는 내부 편차가 큽니다. 실제 게임에서는 B1이 압도하거나 B2가 계속 당할 수 있어 만족도가 떨어집니다.</p>
+    </section>
+
+    <section id="architecture">
+      <h2>10만 명이 동시에 눌러도 버티는 구조</h2>
+      <p class="lead">대규모 매칭은 단일 서버가 아니라 여러 서버와 공유 저장소, 메시지 큐가 함께 움직이는 분산 시스템입니다.</p>
+      <div class="architecture">
+        <div class="stack">
+          <div class="stack-item"><h3>클라이언트</h3><p>매칭 찾기 버튼을 누르고 현재 상태를 받습니다.</p></div>
+          <div class="stack-item"><h3>API / 로드 밸런서</h3><p>요청을 여러 매칭 서버로 분산합니다.</p></div>
+          <div class="stack-item"><h3>매칭 서버</h3><p>MMR 범위 검색, 핑 검사, 팀 조합 계산을 수행합니다.</p></div>
+          <div class="stack-item"><h3>Redis</h3><p>대기열, 플레이어 상태, Sorted Set, Pub/Sub 이벤트를 빠르게 관리합니다.</p></div>
+          <div class="stack-item"><h3>DB / 메시지 큐</h3><p>MMR 히스토리와 게임 결과를 저장하고 비동기로 처리합니다.</p></div>
+        </div>
+        <div class="card">
+          <h3>장애가 나면?</h3>
+          <p>분산 시스템에서는 네트워크 파티셔닝이 발생할 수 있습니다. 매칭 시스템은 보통 가용성을 우선하고, 짧은 불일치는 최종 일관성으로 수렴시킵니다.</p>
+          <div class="pill-list">
+            <span class="pill">분산 락</span>
+            <span class="pill">헬스 체크</span>
+            <span class="pill">서킷 브레이커</span>
+            <span class="pill">수평 확장</span>
+            <span class="pill">Stateless 서버</span>
+            <span class="pill">Kafka/RabbitMQ</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="rating">
+      <h2>ELO는 “예상과 실제의 차이”를 점수로 바꾼다</h2>
+      <p class="lead">ELO는 상대와의 레이팅 차이로 기대 승률을 계산하고, 실제 결과가 기대와 얼마나 달랐는지에 따라 점수를 조정합니다.</p>
+      <div class="formula">E_A = 1 / (1 + 10^((R_B - R_A) / 400))</div>
+      <div class="formula" style="margin-top: 10px">R'_A = R_A + K × (S_A - E_A)</div>
+
+      <div class="demo">
+        <div class="control">
+          <label>플레이어 A 레이팅 <span id="raLabel">1600</span>
+            <input id="ra" type="range" min="800" max="2400" value="1600" step="10">
+          </label>
+          <label>플레이어 B 레이팅 <span id="rbLabel">1400</span>
+            <input id="rb" type="range" min="800" max="2400" value="1400" step="10">
+          </label>
+          <label>K-팩터 <span id="kLabel">32</span>
+            <input id="k" type="range" min="8" max="64" value="32" step="1">
+          </label>
+        </div>
+        <div class="result">
+          <div>플레이어 A 기대 승률</div>
+          <div class="big-number" id="expected">76%</div>
+          <div id="winText">A가 이기면 +8점, 지면 -24점</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="mmr">
+      <h2>MMR은 ELO보다 더 많은 맥락을 담는다</h2>
+      <p class="lead">ELO가 하나의 점수라면, 현대 MMR은 “실력 추정치”와 “확신도”를 함께 다룹니다. 신규 플레이어는 불확실성이 높아 점수가 빠르게 움직이고, 오래 플레이한 계정은 더 안정적으로 변합니다.</p>
+      <div class="compare">
+        <article class="card">
+          <span class="tag">ELO</span>
+          <h3>단순하고 빠름</h3>
+          <p>승패 기반 계산이 명확합니다. 팀 게임에서는 개인 기여도 반영이 약합니다.</p>
+        </article>
+        <article class="card">
+          <span class="tag">Glicko-2</span>
+          <h3>불확실성 관리</h3>
+          <p>RD와 변동성을 사용합니다. 오랜만에 돌아온 플레이어의 실력 변화도 더 잘 반영합니다.</p>
+        </article>
+        <article class="card">
+          <span class="tag">TrueSkill</span>
+          <h3>팀 게임 친화적</h3>
+          <p>여러 명이 함께 하는 게임에 강합니다. 다만 계산이 복잡하고 별도 서버 처리가 좋습니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="multi">
+      <h2>승패만 보면 FPS 실력을 놓친다</h2>
+      <p class="lead">FPS에서는 킬/데스, 헤드샷률, 목표 기여도, 어시스트, 생존 시간처럼 승패를 설명하는 보조 지표가 많습니다. 멀티 팩터 레이팅은 이 지표들을 정규화해서 합칩니다.</p>
+      <div class="metric-wheel">
+        <div class="wheel-center">멀티 팩터<br>레이팅</div>
+        <div class="metric m1">승패</div>
+        <div class="metric m2">K/D</div>
+        <div class="metric m3">목표 기여</div>
+        <div class="metric m4">어시스트</div>
+        <div class="metric m5">헤드샷률</div>
+      </div>
+      <div class="checklist">
+        <div class="check"><b>팀 데스매치</b><br>K/D와 대미지 비중을 높입니다.</div>
+        <div class="check"><b>폭탄 설치/해체</b><br>목표 달성 기여도를 킬보다 크게 볼 수 있습니다.</div>
+        <div class="check"><b>랭크 게임</b><br>승패 비중을 높여 경쟁 공정성을 우선합니다.</div>
+        <div class="check"><b>캐주얼 게임</b><br>개인 성적과 빠른 매칭을 조금 더 중시합니다.</div>
+      </div>
+    </section>
+
+    <section id="summary">
+      <h2>한 장으로 정리</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>좋은 매칭</h3>
+          <p>MMR 차이가 작고, 핑이 낮고, 역할과 파티 구성이 자연스럽고, 대기 시간이 길지 않은 게임입니다.</p>
+        </article>
+        <article class="card">
+          <h3>좋은 서버 구조</h3>
+          <p>매칭 서버는 Stateless로 늘리고, Redis로 실시간 상태를 공유하며, DB와 메시지 큐로 결과를 안정적으로 처리합니다.</p>
+        </article>
+        <article class="card">
+          <h3>좋은 레이팅</h3>
+          <p>ELO처럼 이해하기 쉬운 모델에서 시작하되, FPS 팀 게임에는 불확실성·개인 기여도·역할별 지표를 함께 반영합니다.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    원문: FPS 게임 매칭 시스템 만들기 1장, 2장 내용을 바탕으로 시각 설명용 HTML로 재구성했습니다.
+  </footer>
+
+  <script>
+    const ra = document.querySelector("#ra");
+    const rb = document.querySelector("#rb");
+    const k = document.querySelector("#k");
+    const raLabel = document.querySelector("#raLabel");
+    const rbLabel = document.querySelector("#rbLabel");
+    const kLabel = document.querySelector("#kLabel");
+    const expected = document.querySelector("#expected");
+    const winText = document.querySelector("#winText");
+
+    function updateElo() {
+      const ratingA = Number(ra.value);
+      const ratingB = Number(rb.value);
+      const kFactor = Number(k.value);
+      const exp = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+      const win = kFactor * (1 - exp);
+      const lose = kFactor * (0 - exp);
+      raLabel.textContent = ratingA;
+      rbLabel.textContent = ratingB;
+      kLabel.textContent = kFactor;
+      expected.textContent = `${Math.round(exp * 100)}%`;
+      winText.textContent = `A가 이기면 +${win.toFixed(1)}점, 지면 ${lose.toFixed(1)}점`;
+    }
+
+    [ra, rb, k].forEach((el) => el.addEventListener("input", updateElo));
+    updateElo();
+  </script>
+</body>
+</html>

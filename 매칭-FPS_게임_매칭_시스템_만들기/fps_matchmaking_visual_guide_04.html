@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FPS 게임 매칭 시스템 아키텍처 쉽게 이해하기</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --ink: #1d2433;
+      --muted: #667085;
+      --line: #d8deea;
+      --panel: #ffffff;
+      --panel-2: #eef3f8;
+      --blue: #2b6fd6;
+      --green: #19956f;
+      --yellow: #c88313;
+      --red: #d14f5a;
+      --violet: #6f58c9;
+      --cyan: #188aa2;
+      --shadow: 0 18px 45px rgba(29, 36, 51, .10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
+      line-height: 1.65;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, #eef3f8 0, var(--bg) 460px),
+        var(--bg);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    header {
+      min-height: 92vh;
+      display: grid;
+      align-items: center;
+      padding: 44px 22px 24px;
+      color: #fff;
+      background:
+        linear-gradient(rgba(8, 20, 35, .72), rgba(8, 20, 35, .62)),
+        url("data:image/svg+xml,%3Csvg width='1600' height='980' viewBox='0 0 1600 980' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1600' height='980' fill='%23121f30'/%3E%3Cg opacity='.9'%3E%3Cpath d='M0 690 C220 570 350 650 540 540 C790 396 940 530 1160 380 C1320 270 1460 260 1600 210 L1600 980 L0 980Z' fill='%232b6fd6'/%3E%3Cpath d='M0 760 C260 640 420 750 650 620 C850 506 970 610 1220 490 C1400 405 1510 420 1600 390 L1600 980 L0 980Z' fill='%2319956f'/%3E%3C/g%3E%3Cg stroke='%23ffffff' stroke-width='3' opacity='.22' fill='none'%3E%3Cpath d='M135 214 H390 L510 318 H760 L900 205 H1180 L1320 310 H1480'/%3E%3Cpath d='M180 430 H360 L480 510 H710 L855 425 H1110 L1240 515 H1450'/%3E%3Cpath d='M260 116 L390 214 M760 318 L855 425 M1180 205 L1240 515'/%3E%3C/g%3E%3Cg fill='%23ffffff' opacity='.84'%3E%3Ccircle cx='135' cy='214' r='12'/%3E%3Ccircle cx='390' cy='214' r='12'/%3E%3Ccircle cx='510' cy='318' r='12'/%3E%3Ccircle cx='760' cy='318' r='12'/%3E%3Ccircle cx='900' cy='205' r='12'/%3E%3Ccircle cx='1180' cy='205' r='12'/%3E%3Ccircle cx='1320' cy='310' r='12'/%3E%3Ccircle cx='1480' cy='310' r='12'/%3E%3C/g%3E%3Cg font-family='Segoe UI, Arial' font-size='28' fill='%23fff' opacity='.78'%3E%3Ctext x='120' y='635'%3EMMR%3C/text%3E%3Ctext x='750' y='708'%3EQueue%3C/text%3E%3Ctext x='1260' y='620'%3EShard%3C/text%3E%3C/g%3E%3C/svg%3E")
+        center / cover;
+    }
+
+    .hero {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(330px, .95fr);
+      gap: 34px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #bdebd7;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 920px;
+      font-size: clamp(40px, 6vw, 76px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 720px;
+      margin: 22px 0 0;
+      font-size: 20px;
+      color: rgba(255, 255, 255, .88);
+    }
+
+    .hero-board {
+      position: relative;
+      min-height: 440px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      background: rgba(10, 22, 36, .55);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .28);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-stage {
+      position: absolute;
+      inset: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .hero-node {
+      display: grid;
+      place-items: center;
+      min-height: 86px;
+      border: 1px solid rgba(255, 255, 255, .24);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+      font-weight: 800;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .hero-node.main {
+      background: rgba(43, 111, 214, .7);
+    }
+
+    .hero-dot {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #f3d376;
+      box-shadow: 0 0 0 7px rgba(243, 211, 118, .18);
+      offset-path: path("M 62 88 C 170 60, 220 130, 260 190 S 405 270, 470 128 S 570 142, 610 280");
+      animation: heroFlow 4.5s linear infinite;
+    }
+
+    .hero-dot:nth-child(2) {
+      animation-delay: -1.4s;
+      background: #81e5c4;
+      box-shadow: 0 0 0 7px rgba(129, 229, 196, .18);
+    }
+
+    .hero-dot:nth-child(3) {
+      animation-delay: -2.8s;
+      background: #8bc7ff;
+      box-shadow: 0 0 0 7px rgba(139, 199, 255, .18);
+    }
+
+    @keyframes heroFlow {
+      to { offset-distance: 100%; }
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .92);
+      backdrop-filter: blur(14px);
+    }
+
+    .nav-inner {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px 0;
+    }
+
+    .nav-inner a {
+      flex: 0 0 auto;
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: #344054;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .nav-inner a:hover {
+      background: var(--panel-2);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 46px 0 80px;
+    }
+
+    section {
+      margin: 0 0 58px;
+      padding-top: 8px;
+    }
+
+    .section-head {
+      max-width: 880px;
+      margin-bottom: 22px;
+    }
+
+    .kicker {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(28px, 3vw, 42px);
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 21px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    .explain {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(360px, 1.08fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card,
+    .diagram {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .card {
+      padding: 20px;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .summary-list div {
+      border-left: 4px solid var(--blue);
+      padding: 9px 0 9px 13px;
+      background: #f8fafc;
+    }
+
+    .summary-list strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .diagram {
+      position: relative;
+      min-height: 420px;
+      overflow: hidden;
+      padding: 20px;
+    }
+
+    .caption {
+      position: absolute;
+      left: 18px;
+      bottom: 14px;
+      max-width: calc(100% - 36px);
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .9);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .flow {
+      height: 100%;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(88px, 1fr));
+      gap: 12px;
+      align-items: center;
+    }
+
+    .flow-box {
+      position: relative;
+      z-index: 1;
+      min-height: 98px;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .flow-box:nth-child(2) {
+      background: #eaf2ff;
+      border-color: #b7cdf5;
+    }
+
+    .flow-box:nth-child(4) {
+      background: #e9f8f2;
+      border-color: #b3dbc9;
+    }
+
+    .flow-box::after {
+      content: "";
+      position: absolute;
+      right: -13px;
+      top: calc(50% - 1px);
+      width: 14px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .flow-box:last-child::after {
+      display: none;
+    }
+
+    .packet {
+      position: absolute;
+      top: 50%;
+      left: 30px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--yellow);
+      box-shadow: 0 0 0 8px rgba(200, 131, 19, .16);
+      transform: translateY(-50%);
+      animation: packetMove 5s ease-in-out infinite;
+      z-index: 2;
+    }
+
+    @keyframes packetMove {
+      0% { left: 35px; }
+      18% { left: 21%; }
+      38% { left: 41%; }
+      58% { left: 61%; }
+      80%, 100% { left: 83%; }
+    }
+
+    .services {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(3, 96px);
+      gap: 12px;
+      min-height: 360px;
+    }
+
+    .svc {
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      text-align: center;
+      font-weight: 800;
+      padding: 12px;
+    }
+
+    .svc.gateway {
+      grid-column: 1 / 2;
+      grid-row: 2;
+      background: #eaf2ff;
+      border-color: #b7cdf5;
+    }
+
+    .svc.engine {
+      grid-column: 3 / 4;
+      grid-row: 2;
+      background: #e9f8f2;
+      border-color: #b3dbc9;
+    }
+
+    .svc.profile {
+      grid-column: 2 / 3;
+      grid-row: 1;
+    }
+
+    .svc.mmr {
+      grid-column: 2 / 3;
+      grid-row: 3;
+    }
+
+    .svc.manager {
+      grid-column: 5 / 6;
+      grid-row: 2;
+      background: #fff7e8;
+      border-color: #ecc982;
+    }
+
+    .service-line {
+      position: absolute;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--blue), transparent);
+      transform-origin: left center;
+      animation: pulseLine 2.8s ease-in-out infinite;
+    }
+
+    @keyframes pulseLine {
+      0%, 100% { opacity: .25; }
+      50% { opacity: 1; }
+    }
+
+    .hash-ring {
+      display: grid;
+      place-items: center;
+      min-height: 420px;
+    }
+
+    .ring {
+      position: relative;
+      width: min(340px, 82vw);
+      aspect-ratio: 1;
+      border: 9px solid #d8e6f7;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 0 44%, #f8fbff 45% 100%);
+    }
+
+    .ring-node,
+    .ring-key {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .ring-node {
+      background: var(--blue);
+    }
+
+    .ring-node.n2 { background: var(--green); }
+    .ring-node.n3 { background: var(--yellow); }
+    .ring-node.n4 { background: var(--violet); }
+
+    .ring-key {
+      width: 34px;
+      height: 34px;
+      background: var(--red);
+      font-size: 12px;
+      offset-path: circle(143px at 170px 170px);
+      animation: spinKey 6s linear infinite;
+    }
+
+    @keyframes spinKey {
+      to { offset-distance: 100%; }
+    }
+
+    .node-top { left: calc(50% - 29px); top: -29px; }
+    .node-right { right: -29px; top: calc(50% - 29px); }
+    .node-bottom { left: calc(50% - 29px); bottom: -29px; }
+    .node-left { left: -29px; top: calc(50% - 29px); }
+
+    .redis-demo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: center;
+      min-height: 420px;
+    }
+
+    .queue {
+      display: grid;
+      gap: 10px;
+    }
+
+    .queue-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 64px;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      animation: rowGlow 4s ease-in-out infinite;
+    }
+
+    .queue-row:nth-child(2) { animation-delay: .4s; }
+    .queue-row:nth-child(3) { animation-delay: .8s; }
+    .queue-row:nth-child(4) { animation-delay: 1.2s; }
+    .queue-row:nth-child(5) { animation-delay: 1.6s; }
+
+    @keyframes rowGlow {
+      0%, 100% { border-color: var(--line); transform: translateX(0); }
+      45% { border-color: #8fb6ef; transform: translateX(7px); }
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: #dce8f8;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      background: var(--blue);
+    }
+
+    .grid-demo {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      grid-template-rows: repeat(5, 1fr);
+      gap: 6px;
+      min-height: 300px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .cell {
+      min-height: 42px;
+      border-radius: 6px;
+      background: #e5ebf3;
+      position: relative;
+    }
+
+    .cell.hot {
+      background: #cfe1fa;
+      animation: hotCell 2.5s ease-in-out infinite;
+    }
+
+    .cell::after {
+      content: "";
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      opacity: .85;
+    }
+
+    .cell.empty::after {
+      display: none;
+    }
+
+    @keyframes hotCell {
+      0%, 100% { outline: 0 solid rgba(43, 111, 214, 0); }
+      50% { outline: 5px solid rgba(43, 111, 214, .22); }
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      min-height: 320px;
+    }
+
+    .mini {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .mini h3 {
+      font-size: 18px;
+    }
+
+    .queue-strip {
+      height: 126px;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    .moving-line {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      background: #e7edf5;
+      overflow: hidden;
+    }
+
+    .moving-line span {
+      position: absolute;
+      top: 0;
+      width: 34%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+      animation: slideLine 2.2s ease-in-out infinite;
+    }
+
+    .moving-line:nth-child(2) span { animation-delay: .3s; }
+    .moving-line:nth-child(3) span { animation-delay: .6s; }
+
+    @keyframes slideLine {
+      0% { left: -35%; }
+      100% { left: 100%; }
+    }
+
+    .partition-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      height: 126px;
+      align-content: center;
+    }
+
+    .partition {
+      min-height: 52px;
+      border-radius: 6px;
+      background: #edf2f7;
+      border: 1px solid var(--line);
+    }
+
+    .partition:nth-child(2),
+    .partition:nth-child(5) {
+      background: #dcecff;
+      animation: hotCell 2.2s ease-in-out infinite;
+    }
+
+    .async-timeline {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      min-height: 280px;
+      align-items: center;
+    }
+
+    .async-step {
+      position: relative;
+      z-index: 1;
+      min-height: 118px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      text-align: center;
+    }
+
+    .async-step strong {
+      display: block;
+    }
+
+    .async-step small {
+      color: var(--muted);
+    }
+
+    .async-pulse {
+      position: absolute;
+      left: 5%;
+      top: calc(50% - 11px);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 0 9px rgba(24, 138, 162, .16);
+      animation: asyncMove 5.6s ease-in-out infinite;
+      z-index: 2;
+    }
+
+    @keyframes asyncMove {
+      0% { left: 4%; }
+      22% { left: 24%; }
+      44% { left: 44%; }
+      66% { left: 64%; }
+      88%, 100% { left: 84%; }
+    }
+
+    .scaling-area {
+      display: grid;
+      grid-template-columns: .85fr 1.15fr;
+      gap: 18px;
+      align-items: center;
+      min-height: 420px;
+    }
+
+    .load-bars {
+      display: grid;
+      gap: 13px;
+    }
+
+    .load {
+      display: grid;
+      grid-template-columns: 80px 1fr 44px;
+      gap: 10px;
+      align-items: center;
+      font-weight: 700;
+    }
+
+    .load meter {
+      width: 100%;
+      height: 18px;
+    }
+
+    .servers {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .server {
+      min-height: 88px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-weight: 900;
+      animation: serverBreath 3s ease-in-out infinite;
+    }
+
+    .server:nth-child(2) { animation-delay: .3s; }
+    .server:nth-child(3) { animation-delay: .6s; }
+    .server:nth-child(4) { animation-delay: .9s; }
+    .server:nth-child(5) { animation-delay: 1.2s; }
+    .server:nth-child(6) { animation-delay: 1.5s; }
+
+    @keyframes serverBreath {
+      0%, 100% { transform: translateY(0); border-color: var(--line); }
+      50% { transform: translateY(-5px); border-color: #8fb6ef; }
+    }
+
+    .takeaway {
+      margin-top: 20px;
+      padding: 18px 20px;
+      border: 1px solid #b7cdf5;
+      border-radius: 8px;
+      background: #eaf2ff;
+    }
+
+    .takeaway strong {
+      color: #184f9c;
+    }
+
+    .code-note {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #1f2937;
+      color: #d8e1ee;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 0;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 9px 12px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:hover,
+    button.active {
+      border-color: #8fb6ef;
+      background: #eaf2ff;
+    }
+
+    footer {
+      padding: 28px 14px 46px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      text-align: center;
+      background: #fff;
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .grid-2,
+      .redis-demo,
+      .scaling-area {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-board {
+        min-height: 360px;
+      }
+
+      .grid-3,
+      .compare,
+      .async-timeline {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-box::after {
+        right: calc(50% - 1px);
+        top: auto;
+        bottom: -13px;
+        width: 2px;
+        height: 14px;
+      }
+
+      .packet {
+        display: none;
+      }
+
+      .services {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+
+      .svc,
+      .svc.gateway,
+      .svc.engine,
+      .svc.profile,
+      .svc.mmr,
+      .svc.manager {
+        grid-column: auto;
+        grid-row: auto;
+      }
+
+      .async-pulse {
+        display: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Chapter 4 Visual Guide</p>
+        <h1>FPS 게임 매칭 시스템 아키텍처 쉽게 이해하기</h1>
+        <p class="lead">10만 명이 동시에 “매칭 시작”을 눌러도 서버가 버티려면, 플레이어를 모으는 일과 실제 게임을 실행하는 일을 분리하고 큐, 캐시, 샤딩, 비동기 처리를 함께 설계해야 합니다.</p>
+      </div>
+      <div class="hero-board" aria-label="매칭 시스템 흐름 애니메이션">
+        <span class="hero-dot"></span>
+        <span class="hero-dot"></span>
+        <span class="hero-dot"></span>
+        <div class="hero-stage">
+          <div class="hero-node">Client</div>
+          <div class="hero-node main">Gateway</div>
+          <div class="hero-node">Profile</div>
+          <div class="hero-node">MMR</div>
+          <div class="hero-node main">Matching Engine</div>
+          <div class="hero-node">Redis Queue</div>
+          <div class="hero-node">Shard</div>
+          <div class="hero-node main">Game Server</div>
+          <div class="hero-node">WebSocket</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner" aria-label="문서 섹션 이동">
+      <a href="#split">서버 분리</a>
+      <a href="#micro">마이크로서비스</a>
+      <a href="#balance">로드 밸런싱</a>
+      <a href="#redis">Redis와 검색</a>
+      <a href="#locks">락 최소화</a>
+      <a href="#scale">확장과 비동기</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="split">
+      <div class="section-head">
+        <p class="kicker">1. 매칭 서버 vs 게임 서버</p>
+        <h2>대기실을 운영하는 서버와 경기를 여는 서버는 분리한다</h2>
+        <p class="explain">매칭 서버는 “누가 기다리고 있는지”라는 상태를 계속 들고 있습니다. 게임 서버는 매칭이 끝난 뒤 필요한 순간에 만들어지고, 경기가 끝나면 사라질 수 있습니다.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>쉽게 말하면</h3>
+          <p>매칭 서버는 경기장 앞 접수 데스크입니다. 사람들의 실력, 지역, 핑을 보고 팀을 짭니다.</p>
+          <p>게임 서버는 실제 경기장입니다. 팀 구성이 끝난 다음에 배정되며, 경기가 끝나면 다음 경기용으로 재사용되거나 종료됩니다.</p>
+          <div class="summary-list">
+            <div><strong>매칭 서버</strong>큐 관리, 후보 검색, 팀 구성, 대기 상태 알림</div>
+            <div><strong>게임 서버</strong>실제 FPS 세션 실행, 월드 상태, 총격/충돌/승패 처리</div>
+            <div><strong>오케스트레이터</strong>남는 게임 서버를 찾거나 Kubernetes Pod를 새로 생성</div>
+          </div>
+          <div class="code-note">ProcessMatchRequest:
+1. 세션 등록
+2. 매칭 큐에 추가
+3. 매칭 완료 대기
+4. 게임 서버 할당
+5. 접속 정보 전달</div>
+        </div>
+        <div class="diagram">
+          <div class="packet" aria-hidden="true"></div>
+          <div class="flow">
+            <div class="flow-box">플레이어<br>요청</div>
+            <div class="flow-box">매칭<br>큐</div>
+            <div class="flow-box">팀<br>구성</div>
+            <div class="flow-box">게임 서버<br>할당</div>
+            <div class="flow-box">접속 정보<br>전달</div>
+          </div>
+          <p class="caption">노란 점은 하나의 매칭 요청입니다. 요청은 큐에 들어가고, 조건이 맞으면 팀이 만들어진 뒤 게임 서버로 이동합니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="micro">
+      <div class="section-head">
+        <p class="kicker">2. 마이크로서비스 아키텍처</p>
+        <h2>역할을 작게 나누면 각각 따로 확장할 수 있다</h2>
+        <p class="explain">모든 기능을 한 서버에 넣으면 병목이 생겼을 때 전체를 키워야 합니다. 서비스를 나누면 MMR 조회만 바쁜 날, 매칭 엔진만 바쁜 날에 맞춰 필요한 부분만 늘릴 수 있습니다.</p>
+      </div>
+      <div class="grid-2">
+        <div class="diagram">
+          <div class="service-line" style="left:18%;top:50%;width:28%;"></div>
+          <div class="service-line" style="left:34%;top:31%;width:22%;transform:rotate(36deg);"></div>
+          <div class="service-line" style="left:34%;top:69%;width:22%;transform:rotate(-36deg);"></div>
+          <div class="service-line" style="left:56%;top:50%;width:30%;"></div>
+          <div class="services">
+            <div class="svc gateway">Matchmaking<br>Gateway</div>
+            <div class="svc profile">Player Profile<br>Service</div>
+            <div class="svc mmr">MMR<br>Service</div>
+            <div class="svc engine">Matching<br>Engine</div>
+            <div class="svc manager">Game Server<br>Manager</div>
+          </div>
+          <p class="caption">Gateway가 요청을 받고, Profile과 MMR을 조회한 뒤 적절한 Matching Engine으로 넘깁니다.</p>
+        </div>
+        <div class="card">
+          <h3>각 서비스의 책임</h3>
+          <div class="summary-list">
+            <div><strong>Gateway</strong>클라이언트 요청을 받고 인증, 기본 검증, 라우팅을 담당합니다.</div>
+            <div><strong>Profile Service</strong>지역, 선호 모드, 파티 정보 같은 플레이어 속성을 제공합니다.</div>
+            <div><strong>MMR Service</strong>실력 점수를 계산하고 최신 값을 제공합니다.</div>
+            <div><strong>Matching Engine</strong>큐를 보고 후보를 찾아 실제 매치를 만듭니다.</div>
+            <div><strong>Game Server Manager</strong>경기를 실행할 서버를 준비하고 접속 주소를 반환합니다.</div>
+          </div>
+          <p class="takeaway"><strong>핵심:</strong> 요청은 REST/gRPC로 처리하고, 매칭 완료나 게임 완료 같은 사건은 Kafka/RabbitMQ 같은 메시지 버스로 비동기 전파하면 시스템이 덜 막힙니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="balance">
+      <div class="section-head">
+        <p class="kicker">3. 로드 밸런싱 전략</p>
+        <h2>아무 서버에나 보내지 말고, 비슷한 플레이어가 모이는 곳으로 보낸다</h2>
+        <p class="explain">매칭은 상태가 있는 작업입니다. 같은 지역과 비슷한 MMR 플레이어가 같은 노드에 모이면 후보 검색이 빨라집니다. 그래서 단순 라운드 로빈보다 consistent hashing이 잘 맞습니다.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Consistent Hashing을 쓰는 이유</h3>
+          <p>라우팅 키를 <strong>지역 + MMR 구간</strong>으로 만들고 해시 링 위에 올립니다. 같은 키는 대체로 같은 매칭 노드로 갑니다.</p>
+          <p>노드가 추가되거나 빠져도 전체 플레이어를 다시 섞지 않고 일부 구간만 이동합니다. 대규모 대기열에서는 이 안정성이 중요합니다.</p>
+          <div class="control-bar" aria-label="로드 상태 예시">
+            <button class="active" data-load="normal">정상</button>
+            <button data-load="busy">과부하</button>
+            <button data-load="failover">대체 노드</button>
+          </div>
+          <p id="loadText" class="takeaway"><strong>정상:</strong> 해시 결과가 가리키는 주 노드로 요청을 보냅니다.</p>
+        </div>
+        <div class="diagram hash-ring">
+          <div class="ring" aria-label="consistent hashing ring">
+            <div class="ring-node node-top">A</div>
+            <div class="ring-node n2 node-right">B</div>
+            <div class="ring-node n3 node-bottom">C</div>
+            <div class="ring-node n4 node-left">D</div>
+            <div class="ring-key">KR<br>22</div>
+          </div>
+          <p class="caption">빨간 키는 “KR 지역, MMR 2200대” 같은 라우팅 키입니다. 링을 돌다가 만나는 노드가 담당 노드가 됩니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="redis">
+      <div class="section-head">
+        <p class="kicker">4. Redis 큐와 검색 최적화</p>
+        <h2>빠른 조회를 위해 대기열을 점수순으로 정리한다</h2>
+        <p class="explain">매칭 서버가 매번 10만 명 전체를 훑으면 느립니다. Redis Sorted Set은 MMR을 점수처럼 저장해 “1800에서 2000 사이 후보”를 빠르게 꺼낼 수 있습니다.</p>
+      </div>
+      <div class="grid-2">
+        <div class="diagram">
+          <div class="redis-demo">
+            <div class="queue" aria-label="Redis sorted set example">
+              <div class="queue-row"><strong>P-102</strong><div class="bar"><span style="width:48%"></span></div><span>1680</span></div>
+              <div class="queue-row"><strong>P-219</strong><div class="bar"><span style="width:53%"></span></div><span>1840</span></div>
+              <div class="queue-row"><strong>P-455</strong><div class="bar"><span style="width:55%"></span></div><span>1910</span></div>
+              <div class="queue-row"><strong>P-631</strong><div class="bar"><span style="width:60%"></span></div><span>2070</span></div>
+              <div class="queue-row"><strong>P-808</strong><div class="bar"><span style="width:68%"></span></div><span>2380</span></div>
+            </div>
+            <div>
+              <div class="grid-demo" aria-label="MMR and ping spatial grid">
+                <div class="cell empty"></div><div class="cell"></div><div class="cell"></div><div class="cell empty"></div><div class="cell"></div><div class="cell empty"></div>
+                <div class="cell"></div><div class="cell hot"></div><div class="cell hot"></div><div class="cell"></div><div class="cell empty"></div><div class="cell"></div>
+                <div class="cell empty"></div><div class="cell hot"></div><div class="cell hot"></div><div class="cell hot"></div><div class="cell"></div><div class="cell empty"></div>
+                <div class="cell"></div><div class="cell empty"></div><div class="cell hot"></div><div class="cell"></div><div class="cell"></div><div class="cell empty"></div>
+                <div class="cell empty"></div><div class="cell"></div><div class="cell empty"></div><div class="cell"></div><div class="cell empty"></div><div class="cell"></div>
+              </div>
+            </div>
+          </div>
+          <p class="caption">왼쪽은 MMR 기준 Sorted Set, 오른쪽은 MMR과 Ping을 2D 셀로 나눈 검색 공간입니다.</p>
+        </div>
+        <div class="card">
+          <h3>두 가지 빠른 찾기 방법</h3>
+          <div class="summary-list">
+            <div><strong>Redis Sorted Set</strong>MMR을 score로 넣어두면 범위 검색이 간단합니다. 예: 1900 ± 100.</div>
+            <div><strong>Hash 상세 정보</strong>requestId를 키로 플레이어 ID, 핑, 지역, 제출 시간을 저장합니다.</div>
+            <div><strong>Lua Script</strong>여러 플레이어를 큐에서 동시에 제거할 때 원자적으로 처리해 중복 매칭을 막습니다.</div>
+            <div><strong>Spatial Partitioning</strong>MMR과 Ping을 격자로 나누면 주변 셀만 확인하면 됩니다.</div>
+          </div>
+          <div class="code-note">Redis 구조:
+matching:queue:KR = Sorted Set(score: MMR)
+matching:request:{id} = Hash(playerId, ping, region)
+
+검색:
+ZRangeByScore(targetMMR - range, targetMMR + range)</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="locks">
+      <div class="section-head">
+        <p class="kicker">5. 락 최소화 전략</p>
+        <h2>많은 스레드가 한 줄에 서지 않게 만든다</h2>
+        <p class="explain">고성능 시스템에서 락은 병목이 되기 쉽습니다. 가능하면 lock-free 자료구조를 쓰고, 충돌이 날 때만 재시도하거나, 데이터를 파티션으로 나눠 경쟁 범위를 줄입니다.</p>
+      </div>
+      <div class="diagram">
+        <div class="compare">
+          <div class="mini">
+            <h3>Lock-free Queue</h3>
+            <p>ConcurrentQueue와 Interlocked로 짧고 빠르게 큐 크기를 갱신합니다.</p>
+            <div class="queue-strip">
+              <div class="moving-line"><span></span></div>
+              <div class="moving-line"><span></span></div>
+              <div class="moving-line"><span></span></div>
+            </div>
+          </div>
+          <div class="mini">
+            <h3>Optimistic Control</h3>
+            <p>먼저 될 거라고 보고 진행합니다. 누가 먼저 가져갔다면 실패 처리 후 다시 시도합니다.</p>
+            <div class="queue-strip">
+              <div class="moving-line"><span style="background:var(--yellow)"></span></div>
+              <div class="moving-line"><span style="background:var(--red)"></span></div>
+              <div class="moving-line"><span style="background:var(--green)"></span></div>
+            </div>
+          </div>
+          <div class="mini">
+            <h3>Partitioning</h3>
+            <p>MMR 구간별로 큐를 쪼갭니다. 각 파티션은 자기 구간의 경쟁만 처리합니다.</p>
+            <div class="partition-grid">
+              <div class="partition"></div><div class="partition"></div><div class="partition"></div><div class="partition"></div>
+              <div class="partition"></div><div class="partition"></div><div class="partition"></div><div class="partition"></div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">목표는 “모든 요청이 하나의 거대한 락 앞에서 기다리는 상황”을 피하는 것입니다.</p>
+      </div>
+      <div class="takeaway"><strong>읽는 법:</strong> 락을 없앤다는 말은 무질서하게 만든다는 뜻이 아닙니다. 작은 원자 연산, 실패 시 재시도, 파티션 단위 격리로 질서를 더 잘게 나누는 뜻입니다.</div>
+    </section>
+
+    <section id="scale">
+      <div class="section-head">
+        <p class="kicker">6. 확장성 확보와 비동기 처리</p>
+        <h2>서버를 더 붙일 수 있고, 사용자는 기다리는 동안 상태를 받는다</h2>
+        <p class="explain">수평 확장은 서버를 여러 대로 늘리는 전략입니다. 샤딩은 어떤 요청을 어느 서버가 맡을지 나누는 기준입니다. 비동기 처리는 매칭이 끝날 때까지 스레드를 붙잡아두지 않는 방식입니다.</p>
+      </div>
+      <div class="grid-2">
+        <div class="diagram">
+          <div class="scaling-area">
+            <div class="load-bars">
+              <div class="load"><span>Node A</span><meter min="0" max="100" value="86"></meter><span>86%</span></div>
+              <div class="load"><span>Node B</span><meter min="0" max="100" value="44"></meter><span>44%</span></div>
+              <div class="load"><span>Node C</span><meter min="0" max="100" value="37"></meter><span>37%</span></div>
+              <div class="load"><span>Node D</span><meter min="0" max="100" value="52"></meter><span>52%</span></div>
+            </div>
+            <div class="servers">
+              <div class="server">KR<br>0-1000</div>
+              <div class="server">KR<br>1000-2000</div>
+              <div class="server">KR<br>2000-3000</div>
+              <div class="server">JP<br>1000-2000</div>
+              <div class="server">US<br>2000-3000</div>
+              <div class="server">EU<br>3000+</div>
+            </div>
+          </div>
+          <p class="caption">서버를 늘리는 것과 요청을 나누는 기준을 함께 설계해야 실제 확장이 됩니다.</p>
+        </div>
+        <div class="card">
+          <h3>샤딩 기준의 선택</h3>
+          <div class="summary-list">
+            <div><strong>MMR 기반 샤딩</strong>비슷한 실력끼리 모여 검색 효율이 좋아집니다. 최상위/최하위 구간은 사람이 적어 불균형이 생길 수 있습니다.</div>
+            <div><strong>지역 기반 샤딩</strong>네트워크 지연을 줄입니다. 같은 지역 안에서 매칭이 끝나는 경우가 많습니다.</div>
+            <div><strong>혼합 전략</strong>지역을 먼저 나누고, 그 안에서 MMR 구간을 나누면 실전에서 균형이 좋습니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head" style="margin-top:38px">
+        <h2>비동기 매칭은 “기다림”을 시스템 친화적으로 바꾼다</h2>
+        <p class="explain">클라이언트는 요청 ID를 받고 대기합니다. 서버는 백그라운드 루프에서 매칭을 처리하고, 완료/진행/타임아웃을 SignalR이나 WebSocket으로 알려줍니다.</p>
+      </div>
+      <div class="diagram">
+        <div class="async-pulse" aria-hidden="true"></div>
+        <div class="async-timeline">
+          <div class="async-step"><strong>요청</strong><small>StartMatchmaking</small></div>
+          <div class="async-step"><strong>대기 등록</strong><small>TaskCompletionSource</small></div>
+          <div class="async-step"><strong>백그라운드 검색</strong><small>100ms cycle</small></div>
+          <div class="async-step"><strong>진행 알림</strong><small>2초마다 상태 전송</small></div>
+          <div class="async-step"><strong>완료 또는 타임아웃</strong><small>MatchFound / Timeout</small></div>
+        </div>
+        <p class="caption">파란 점은 매칭 요청의 생명주기입니다. 사용자는 대기하지만 서버 스레드는 계속 묶여 있지 않습니다.</p>
+      </div>
+
+      <div class="takeaway">
+        <strong>전체 요약:</strong> 고성능 매칭 시스템은 “분리, 캐싱, 빠른 검색, 락 최소화, 샤딩, 비동기 알림”을 조합한 구조입니다. 한 가지 기술이 모든 문제를 푸는 것이 아니라, 각 병목을 작게 나눠서 처리합니다.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    원문: FPS 게임 매칭 시스템 만들기 4장, 고성능 매칭 시스템 아키텍처. 이 HTML은 학습용 시각 설명 문서입니다.
+  </footer>
+
+  <script>
+    const loadMessages = {
+      normal: "<strong>정상:</strong> 해시 결과가 가리키는 주 노드로 요청을 보냅니다.",
+      busy: "<strong>과부하:</strong> 주 노드의 큐가 너무 길거나 CPU가 높으면 건강 상태를 확인합니다.",
+      failover: "<strong>대체 노드:</strong> 비슷한 MMR/지역을 처리할 수 있고 부하가 낮은 노드로 우회합니다."
+    };
+
+    document.querySelectorAll("[data-load]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-load]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById("loadText").innerHTML = loadMessages[button.dataset.load];
+      });
+    });
+  </script>
+</body>
+</html>

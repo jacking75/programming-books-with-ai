@@ -1,0 +1,1470 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FPS 게임 매칭 시스템 6.1-6.4 상세 시각 해설</title>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --paper: #fff;
+      --ink: #172033;
+      --muted: #59677c;
+      --line: #d8dfeb;
+      --blue: #246fd3;
+      --cyan: #1499a3;
+      --green: #3f8f4c;
+      --amber: #c67a13;
+      --red: #c64c4c;
+      --violet: #7059bf;
+      --slate: #33445b;
+      --shadow: 0 14px 32px rgba(31, 45, 65, .09);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, #e6eef9 0, rgba(230, 238, 249, 0) 520px),
+        var(--bg);
+      font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+      line-height: 1.68;
+    }
+    a { color: inherit; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    h1, h2, h3, h4 { margin: 0; letter-spacing: 0; line-height: 1.16; }
+    h1 { font-size: clamp(36px, 5.5vw, 70px); max-width: 850px; }
+    h2 { font-size: clamp(30px, 3.2vw, 46px); }
+    h3 { font-size: 23px; }
+    h4 { font-size: 18px; }
+    code, pre { font-family: Consolas, "Courier New", monospace; }
+
+    header {
+      min-height: 86vh;
+      padding: 44px 22px 28px;
+      display: grid;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(36, 111, 211, .18), transparent 34%),
+        radial-gradient(circle at 80% 20%, rgba(20, 153, 163, .16), transparent 30%);
+    }
+    .hero {
+      width: min(1220px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 540px);
+      gap: 36px;
+      align-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      padding: 6px 11px;
+      border: 1px solid #c5d2e5;
+      border-radius: 999px;
+      background: rgba(255,255,255,.76);
+      color: #354b67;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .lead {
+      max-width: 790px;
+      margin-top: 18px;
+      font-size: 19px;
+      color: #35445a;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 26px;
+    }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid #bac7da;
+      border-radius: 6px;
+      background: #fff;
+      color: #22324a;
+      text-decoration: none;
+      font-weight: 900;
+    }
+    .button.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    .overview-stage {
+      position: relative;
+      min-height: 430px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: rgba(255,255,255,.86);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      padding: 18px;
+    }
+    .stage-label {
+      display: flex;
+      justify-content: space-between;
+      color: #344761;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .track {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      height: 62px;
+      border: 1px dashed #b8c5d6;
+      border-radius: 8px;
+      background: rgba(248, 251, 255, .82);
+    }
+    .t1 { top: 70px; }
+    .t2 { top: 154px; }
+    .t3 { top: 238px; }
+    .t4 { top: 322px; }
+    .track span {
+      position: absolute;
+      left: 12px;
+      top: 7px;
+      color: #59677c;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .avatar {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      font-size: 11px;
+      font-weight: 900;
+      box-shadow: 0 8px 18px rgba(33, 45, 63, .18);
+      animation: moveToServer 7.2s ease-in-out infinite;
+    }
+    .a1 { left: 48px; top: 100px; background: var(--blue); animation-delay: 0s; }
+    .a2 { left: 102px; top: 100px; background: var(--cyan); animation-delay: -.25s; }
+    .a3 { left: 156px; top: 184px; background: var(--green); animation-delay: -.6s; }
+    .a4 { left: 88px; top: 184px; background: var(--amber); animation-delay: -.95s; }
+    .a5 { left: 124px; top: 268px; background: var(--violet); animation-delay: -1.35s; }
+    .a6 { left: 68px; top: 268px; background: var(--red); animation-delay: -1.75s; }
+    .a7 { left: 148px; top: 352px; background: var(--slate); animation-delay: -2.1s; }
+    .a8 { left: 96px; top: 352px; background: #237766; animation-delay: -2.45s; }
+    .core-server {
+      position: absolute;
+      right: 34px;
+      top: 152px;
+      width: 132px;
+      min-height: 112px;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+      border: 2px solid #30435a;
+      border-radius: 8px;
+      background: white;
+      color: #24364e;
+      text-align: center;
+      font-weight: 900;
+      box-shadow: 0 12px 26px rgba(31, 45, 65, .12);
+    }
+    .match-output {
+      position: absolute;
+      right: 26px;
+      bottom: 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 190px;
+      animation: teamGlow 2.8s ease-in-out infinite;
+    }
+    .match-output div {
+      padding: 9px;
+      border-radius: 6px;
+      color: white;
+      font-weight: 900;
+      text-align: center;
+      font-size: 13px;
+    }
+    .match-output div:first-child { background: var(--blue); }
+    .match-output div:last-child { background: var(--red); }
+
+    main {
+      width: min(1220px, 100%);
+      margin: 0 auto;
+      padding: 44px 22px 82px;
+    }
+    section { margin: 0 0 70px; }
+    .chapter {
+      padding-top: 8px;
+      border-top: 3px solid #c8d5e6;
+    }
+    .section-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 22px;
+    }
+    .source {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 10px;
+      border: 1px solid #cbd8e8;
+      border-radius: 6px;
+      background: #fff;
+      color: #3d506b;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .section-head p { max-width: 880px; margin-top: 12px; font-size: 17px; }
+    .grid { display: grid; gap: 16px; }
+    .two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 10px 24px rgba(31,45,65,.07);
+      padding: 18px;
+    }
+    .card h3, .card h4 { margin-bottom: 9px; }
+    .mini-source {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef4fb;
+      color: #35506d;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .callout {
+      padding: 16px;
+      border: 1px solid #cbd8e8;
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      background: #fff;
+      color: #32445d;
+      font-weight: 800;
+    }
+
+    .model-map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+    .model {
+      position: relative;
+      min-height: 190px;
+      padding: 16px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: white;
+      overflow: hidden;
+    }
+    .model::before {
+      content: "";
+      position: absolute;
+      inset: auto 16px 14px 16px;
+      height: 6px;
+      border-radius: 999px;
+      background: #e1e8f2;
+    }
+    .model strong { display: block; margin-bottom: 9px; font-size: 18px; }
+    .field {
+      display: inline-flex;
+      margin: 4px 3px 0 0;
+      padding: 4px 7px;
+      border-radius: 5px;
+      background: #eef4fb;
+      color: #344964;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .model .pulse {
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+    .pipe-step {
+      position: relative;
+      min-height: 128px;
+      padding: 14px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .pipe-step::after {
+      content: "";
+      position: absolute;
+      right: -7px;
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      border-top: 2px solid #9aaabd;
+      border-right: 2px solid #9aaabd;
+      transform: translateY(-50%) rotate(45deg);
+      background: white;
+    }
+    .pipe-step:last-child::after { display: none; }
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      background: #e8f1ff;
+      color: var(--blue);
+      font-weight: 900;
+    }
+    .pipe-step p { font-size: 14px; }
+
+    .tick-lab {
+      display: grid;
+      grid-template-columns: minmax(360px, 1fr) minmax(360px, 1.05fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .code-timeline {
+      position: relative;
+      min-height: 560px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #172133;
+      color: #dce9ff;
+      overflow: hidden;
+    }
+    .code-timeline h4 {
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .code-line {
+      position: relative;
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 7px 8px;
+      border-radius: 6px;
+      color: #cbd8eb;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      animation: codeFocus 12s linear infinite;
+    }
+    .code-line .ln {
+      color: #6f829e;
+      text-align: right;
+    }
+    .code-line b {
+      color: #8bd5ff;
+      font-weight: 900;
+    }
+    .code-line i {
+      color: #ffd28b;
+      font-style: normal;
+    }
+    .code-line.c1 { animation-delay: 0s; }
+    .code-line.c2 { animation-delay: -10s; }
+    .code-line.c3 { animation-delay: -8s; }
+    .code-line.c4 { animation-delay: -6s; }
+    .code-line.c5 { animation-delay: -4s; }
+    .code-line.c6 { animation-delay: -2s; }
+    .code-note {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      padding: 12px;
+      border: 1px solid rgba(220, 233, 255, .2);
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      color: #dce9ff;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .tick-stage {
+      position: relative;
+      min-height: 560px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+      padding: 16px;
+    }
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .state-box {
+      min-height: 100px;
+      padding: 12px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+    .state-box strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #30425a;
+    }
+    .state-token {
+      display: inline-grid;
+      place-items: center;
+      width: 54px;
+      height: 30px;
+      margin: 3px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .moving-req {
+      position: absolute;
+      left: 30px;
+      top: 158px;
+      width: 62px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: 0 12px 22px rgba(31,45,65,.18);
+      animation: requestPath 12s linear infinite;
+      z-index: 3;
+    }
+    .moving-req.r2 { background: var(--cyan); animation-delay: -1.2s; }
+    .moving-req.r3 { background: var(--green); animation-delay: -2.4s; }
+    .moving-req.r4 { background: var(--violet); animation-delay: -3.6s; }
+    .flow-rail {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      top: 176px;
+      height: 4px;
+      border-radius: 999px;
+      background: #d2dbea;
+    }
+    .flow-node {
+      position: absolute;
+      top: 138px;
+      width: 104px;
+      min-height: 74px;
+      display: grid;
+      place-items: center;
+      padding: 8px;
+      border: 2px solid #cbd8e8;
+      border-radius: 8px;
+      background: #fff;
+      color: #31445e;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .fn1 { left: 18px; }
+    .fn2 { left: 27%; }
+    .fn3 { left: 52%; }
+    .fn4 { right: 18px; }
+    .decision-board {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .decision {
+      min-height: 116px;
+      padding: 12px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: #f8fbff;
+      color: #3b4e67;
+    }
+    .decision strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #26384f;
+    }
+    .decision.good { border-left: 5px solid var(--green); }
+    .decision.warn { border-left: 5px solid var(--amber); }
+    .decision.bad { border-left: 5px solid var(--red); }
+    .mini-arrow {
+      display: inline-block;
+      color: var(--blue);
+      font-weight: 900;
+      animation: arrowBlink 1.6s ease-in-out infinite;
+    }
+
+    .race {
+      position: relative;
+      min-height: 330px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+      padding: 20px;
+    }
+    .worker {
+      position: absolute;
+      top: 34px;
+      width: 128px;
+      padding: 12px;
+      border-radius: 8px;
+      color: #fff;
+      text-align: center;
+      font-weight: 900;
+    }
+    .wA { left: 28px; background: var(--blue); }
+    .wB { right: 28px; background: var(--red); }
+    .queue-box {
+      position: absolute;
+      left: 50%;
+      top: 104px;
+      transform: translateX(-50%);
+      width: min(560px, calc(100% - 40px));
+      min-height: 76px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      border: 2px solid #3d506b;
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 12px;
+    }
+    .qtoken {
+      width: 58px;
+      min-height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      animation: tokenFloat 3.4s ease-in-out infinite;
+    }
+    .ownership {
+      position: absolute;
+      left: 50%;
+      bottom: 26px;
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      width: min(880px, calc(100% - 38px));
+    }
+    .ownership div {
+      padding: 12px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: #f9fbff;
+      color: #34445c;
+      text-align: center;
+      font-weight: 900;
+      font-size: 14px;
+    }
+
+    .formula-stack { display: grid; gap: 12px; }
+    .formula {
+      padding: 15px;
+      border-left: 5px solid var(--cyan);
+      border-radius: 8px;
+      background: #effafa;
+      color: #25434a;
+      font-weight: 900;
+    }
+    .formula code {
+      display: block;
+      margin-top: 6px;
+      color: #0f5f62;
+      white-space: normal;
+    }
+    .rating-stage {
+      position: relative;
+      min-height: 330px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+      padding: 22px;
+    }
+    .mmr-axis {
+      position: absolute;
+      left: 40px;
+      right: 40px;
+      top: 145px;
+      height: 5px;
+      border-radius: 999px;
+      background: #cfd8e6;
+    }
+    .mmr-band {
+      position: absolute;
+      top: 122px;
+      left: 43%;
+      width: 16%;
+      height: 50px;
+      border: 2px solid var(--blue);
+      border-radius: 999px;
+      background: rgba(36,111,211,.12);
+      animation: expandBand 6s ease-in-out infinite;
+    }
+    .mmr-player {
+      position: absolute;
+      top: 112px;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      z-index: 2;
+    }
+    .mp0 { left: calc(50% - 21px); background: var(--blue); }
+    .mp1 { left: 34%; background: var(--green); }
+    .mp2 { left: 40%; background: var(--cyan); }
+    .mp3 { left: 60%; background: var(--violet); }
+    .mp4 { left: 70%; background: var(--amber); }
+    .mmr-caption {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      bottom: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .mmr-caption div {
+      padding: 10px;
+      border-radius: 8px;
+      background: #f6f9fd;
+      color: #40536d;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .bad-queue, .bucket-board {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .queue-row {
+      display: grid;
+      grid-template-columns: 135px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    .label {
+      color: #35475f;
+      font-weight: 900;
+    }
+    .tokens {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 42px;
+      align-items: center;
+    }
+    .token {
+      width: 74px;
+      min-height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      font-weight: 900;
+      animation: tokenFloat 3.6s ease-in-out infinite;
+    }
+    .low { background: var(--green); }
+    .mid { background: var(--blue); }
+    .high { background: var(--violet); }
+    .hot { background: var(--red); }
+    .wait { background: var(--amber); }
+    .bucket {
+      display: grid;
+      grid-template-columns: 140px 1fr 110px;
+      gap: 12px;
+      align-items: center;
+      min-height: 66px;
+      padding: 12px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .bucket-meter {
+      height: 10px;
+      border-radius: 999px;
+      background: #e4ebf4;
+      overflow: hidden;
+    }
+    .bucket-meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+      animation: meterFill 5s ease-in-out infinite;
+    }
+    .score-board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .score-card {
+      position: relative;
+      min-height: 180px;
+      padding: 16px;
+      border: 1px solid #cbd8e8;
+      border-radius: 8px;
+      background: white;
+      overflow: hidden;
+    }
+    .score-card::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      bottom: 18px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--blue);
+      animation: scoreGrow 4.2s ease-in-out infinite;
+    }
+    .s1::after { width: 54%; background: var(--amber); }
+    .s2::after { width: 82%; background: var(--green); }
+    .s3::after { width: 66%; background: var(--cyan); }
+
+    .redis-stage {
+      position: relative;
+      min-height: 430px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(36,111,211,.05) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(36,111,211,.05) 1px, transparent 1px),
+        #fff;
+      background-size: 36px 36px;
+      overflow: hidden;
+      padding: 20px;
+    }
+    .redis-node {
+      position: absolute;
+      left: 50%;
+      top: 138px;
+      transform: translateX(-50%);
+      width: 180px;
+      min-height: 110px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #34465e;
+      border-radius: 8px;
+      background: white;
+      color: #26364a;
+      text-align: center;
+      font-weight: 900;
+      z-index: 2;
+    }
+    .dist-server {
+      position: absolute;
+      top: 46px;
+      width: 136px;
+      padding: 13px 10px;
+      border-radius: 8px;
+      color: white;
+      text-align: center;
+      font-weight: 900;
+    }
+    .dsA { left: 42px; background: var(--blue); }
+    .dsB { right: 42px; background: var(--red); }
+    .lock-line {
+      position: absolute;
+      top: 112px;
+      height: 3px;
+      width: 300px;
+      background: #9faec0;
+      transform-origin: left center;
+      animation: lockPulse 4s ease-in-out infinite;
+    }
+    .llA { left: 160px; transform: rotate(17deg); }
+    .llB { right: 160px; transform: rotate(163deg); animation-delay: 1s; }
+    .sorted-set {
+      position: absolute;
+      left: 40px;
+      right: 40px;
+      bottom: 30px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .set-item {
+      padding: 10px 8px;
+      border-radius: 7px;
+      background: #f8fbff;
+      border: 1px solid #cbd8e8;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+      color: #34445c;
+    }
+    .set-item span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: white;
+    }
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eef4fb; color: #31445e; font-size: 14px; }
+    tr:last-child td { border-bottom: 0; }
+    .code {
+      margin: 0;
+      padding: 15px;
+      border-radius: 8px;
+      background: #172133;
+      color: #dce9ff;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    footer {
+      padding: 24px 22px 42px;
+      border-top: 1px solid var(--line);
+      background: white;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @keyframes moveToServer {
+      0%, 100% { transform: translateX(0) scale(1); }
+      42% { transform: translateX(210px) scale(.96); }
+      70% { transform: translateX(320px) scale(1.05); }
+    }
+    @keyframes teamGlow {
+      0%, 100% { opacity: .82; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-5px); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(.75); opacity: .55; }
+      50% { transform: scale(1.25); opacity: 1; }
+    }
+    @keyframes tokenFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    @keyframes expandBand {
+      0%, 100% { left: 43%; width: 16%; }
+      45% { left: 36%; width: 30%; }
+      78% { left: 29%; width: 44%; }
+    }
+    @keyframes meterFill {
+      0%, 100% { width: 36%; }
+      55% { width: 86%; }
+    }
+    @keyframes scoreGrow {
+      0%, 100% { transform: scaleX(.75); transform-origin: left; }
+      55% { transform: scaleX(1); transform-origin: left; }
+    }
+    @keyframes lockPulse {
+      0%, 100% { opacity: .22; background: #9faec0; }
+      45% { opacity: 1; background: var(--green); }
+      72% { opacity: .65; background: var(--red); }
+    }
+    @keyframes codeFocus {
+      0%, 16% {
+        background: rgba(36, 111, 211, .22);
+        color: #fff;
+        box-shadow: inset 4px 0 0 #8bd5ff;
+      }
+      17%, 100% {
+        background: transparent;
+        color: #cbd8eb;
+        box-shadow: none;
+      }
+    }
+    @keyframes requestPath {
+      0% { left: 36px; top: 158px; transform: scale(1); opacity: 1; }
+      18% { left: 28%; top: 158px; transform: scale(.96); opacity: 1; }
+      36% { left: 53%; top: 158px; transform: scale(1.02); opacity: 1; }
+      55% { left: calc(100% - 112px); top: 158px; transform: scale(1); opacity: 1; }
+      72% { left: calc(100% - 112px); top: 290px; transform: scale(.96); opacity: .88; }
+      86% { left: 52px; top: 290px; transform: scale(.92); opacity: .7; }
+      100% { left: 36px; top: 158px; transform: scale(1); opacity: 1; }
+    }
+    @keyframes arrowBlink {
+      0%, 100% { transform: translateX(0); opacity: .65; }
+      50% { transform: translateX(5px); opacity: 1; }
+    }
+
+    @media (max-width: 980px) {
+      .hero, .two, .three, .four, .model-map, .pipeline, .score-board, .ownership, .sorted-set, .tick-lab {
+        grid-template-columns: 1fr;
+      }
+      header { min-height: auto; }
+      .section-head { grid-template-columns: 1fr; }
+      .source { justify-self: start; white-space: normal; }
+      .pipe-step::after { display: none; }
+      .bucket, .queue-row { grid-template-columns: 1fr; }
+      .overview-stage { min-height: 400px; }
+      .sorted-set { position: static; margin-top: 260px; }
+      .redis-stage { min-height: auto; }
+      .redis-node, .dist-server { position: static; transform: none; margin: 10px auto; }
+      .lock-line { display: none; }
+      .tick-stage { min-height: 640px; }
+      .decision-board { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      main { padding-left: 16px; padding-right: 16px; }
+      .avatar { width: 35px; height: 35px; }
+      .core-server { right: 16px; width: 112px; }
+      .match-output { right: 16px; width: 160px; }
+      .qtoken, .token { width: 62px; }
+      .mmr-caption { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div>
+        <span class="eyebrow">원문 06.md / 6.1~6.4 상세 시각 해설</span>
+        <h1>FPS 게임 매칭 시스템을 그림으로 끝까지 따라가기</h1>
+        <p class="lead">
+          이 문서는 첨부 문서의 6.1부터 6.4까지를 각각 나누어 설명한다.
+          각 설명에는 원문 위치를 붙였고, 큐 이동, 후보 선택, MMR 범위 확장, Redis 분산 락을 애니메이션으로 표현했다.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#s61">6.1 기본 매칭</a>
+          <a class="button" href="#s62">6.2 MMR 계산</a>
+          <a class="button" href="#s63">6.3 개선 구조</a>
+          <a class="button" href="#s64">6.4 분산 큐</a>
+        </div>
+      </div>
+      <div class="overview-stage" aria-label="FPS 매칭 시스템 전체 흐름">
+        <div class="stage-label"><span>매칭 요청</span><span>조건 검사와 팀 생성</span></div>
+        <div class="track t1"><span>TeamDeathmatch</span></div>
+        <div class="track t2"><span>CaptureTheFlag</span></div>
+        <div class="track t3"><span>Domination</span></div>
+        <div class="track t4"><span>SearchAndDestroy</span></div>
+        <div class="avatar a1">1450</div><div class="avatar a2">1510</div>
+        <div class="avatar a3">1690</div><div class="avatar a4">1720</div>
+        <div class="avatar a5">2050</div><div class="avatar a6">2120</div>
+        <div class="avatar a7">1280</div><div class="avatar a8">1310</div>
+        <div class="core-server">Matchmaking<br>Worker<br><small>MMR + Ping + Lock</small></div>
+        <div class="match-output"><div>Team 1</div><div>Team 2</div></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>읽는 순서</h2>
+          <p>원문은 점점 현실적인 시스템으로 확장된다. 먼저 단일 서버 큐를 만들고, MMR 계산을 붙이고, 큐 구조의 한계를 개선한 뒤, 마지막으로 Redis로 여러 서버가 함께 일할 수 있게 만든다.</p>
+        </div>
+        <span class="source">원문 전체 흐름: 6.1 → 6.2 → 6.3 → 6.4</span>
+      </div>
+      <div class="grid four">
+        <div class="card"><span class="mini-source">6.1</span><h3>기본 매칭 시스템</h3><p>플레이어 요청을 큐에 넣고, 워커가 후보를 꺼내 매치를 만든다.</p></div>
+        <div class="card"><span class="mini-source">6.2</span><h3>MMR 계산</h3><p>승패, 기대 승률, K-Factor, 개인 성과로 실력 점수를 갱신한다.</p></div>
+        <div class="card"><span class="mini-source">6.3</span><h3>앞 구현의 문제와 개선</h3><p>단순 FIFO 큐의 실패를 MMR 버킷과 능동 탐색으로 줄인다.</p></div>
+        <div class="card"><span class="mini-source">6.4</span><h3>분산 매칭 큐</h3><p>Redis Sorted Set과 SET NX 락으로 여러 서버의 중복 매칭을 막는다.</p></div>
+      </div>
+    </section>
+
+    <section id="s61" class="chapter">
+      <div class="section-head">
+        <div>
+          <h2>6.1 기본 매칭 시스템 구현</h2>
+          <p>이 절은 “매칭 시스템의 뼈대”를 만든다. 데이터 모델을 정의하고, 플레이어를 큐에 넣고, 여러 워커가 큐를 처리하며, 조건을 만족하면 매치를 생성한다.</p>
+        </div>
+        <span class="source">원문 위치: 6.1 / 11행부터, 중복 매칭 설명 81행부터</span>
+      </div>
+
+      <div class="model-map">
+        <div class="model">
+          <span class="mini-source">원문: Player 클래스</span>
+          <strong>Player</strong>
+          <p>매칭 대상 플레이어의 현재 상태다.</p>
+          <span class="field">PlayerId</span><span class="field">MMR</span><span class="field">Ping</span><span class="field">Region</span><span class="field">Preferences</span>
+          <span class="pulse"></span>
+        </div>
+        <div class="model">
+          <span class="mini-source">원문: PlayerPreferences</span>
+          <strong>Preferences</strong>
+          <p>플레이어가 허용하는 조건이다.</p>
+          <span class="field">MaxPing</span><span class="field">MaxWaitTime</span><span class="field">GameMode</span>
+          <span class="pulse"></span>
+        </div>
+        <div class="model">
+          <span class="mini-source">원문: MatchRequest</span>
+          <strong>MatchRequest</strong>
+          <p>큐에 들어가는 단위다. 시간이 지나면 MMR 허용 범위가 확장된다.</p>
+          <span class="field">RequestId</span><span class="field">RequestTime</span><span class="field">ExpandedMMRRange</span>
+          <span class="pulse"></span>
+        </div>
+        <div class="model">
+          <span class="mini-source">원문: Match</span>
+          <strong>Match</strong>
+          <p>성공한 결과다. 두 팀과 평균 MMR, 평균 핑을 가진다.</p>
+          <span class="field">Team1</span><span class="field">Team2</span><span class="field">AverageMMR</span><span class="field">AveragePing</span>
+          <span class="pulse"></span>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:16px">
+        쉽게 말하면, <strong>Player는 사람</strong>, <strong>MatchRequest는 대기표</strong>, <strong>MatchmakingService는 접수창과 심판</strong>, <strong>Match는 완성된 경기방</strong>이다.
+      </div>
+
+      <div class="grid two" style="margin-top:16px">
+        <div class="card">
+          <h3>MatchmakingService가 들고 있는 핵심 저장소</h3>
+          <table>
+            <thead><tr><th>저장소</th><th>역할</th></tr></thead>
+            <tbody>
+              <tr><td><code>_matchQueues</code></td><td>게임 모드별 대기 큐. TeamDeathmatch, CTF 같은 모드마다 따로 둔다.</td></tr>
+              <tr><td><code>_activeRequests</code></td><td>아직 매칭되지 않은 유효 요청 목록. 중복 매칭 방지의 핵심이다.</td></tr>
+              <tr><td><code>_restoringRequests</code></td><td>후보로 꺼냈지만 매칭에 실패한 요청을 다시 넣을 때 중복 복원을 막는다.</td></tr>
+              <tr><td><code>_config</code></td><td>워커 수, 틱 간격, 한 경기 인원, 허용 핑, 팀 MMR 차이 같은 기준값.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>원문 코드의 핵심 의도</h3>
+          <pre class="code">EnqueuePlayerAsync()
+  1. MatchRequest 생성
+  2. activeRequests에 등록
+  3. 게임 모드 큐에 Enqueue
+
+MatchmakingWorkerAsync()
+  1. 모든 게임 모드 큐를 반복 처리
+  2. 짧게 쉬고 다시 반복
+  3. 에러는 로그로 남기고 계속 운영</pre>
+        </div>
+      </div>
+
+      <div style="margin-top:26px">
+        <h3 style="margin-bottom:12px">매칭 워커가 한 틱에서 하는 일: 코드를 따라가는 애니메이션</h3>
+        <div class="tick-lab">
+          <div class="code-timeline">
+            <h4>원문 코드 흐름: ProcessMatchQueueAsync</h4>
+            <div class="code-line c1"><span class="ln">01</span><span><b>if</b> (!queueExists || queue.IsEmpty) <b>return</b>;</span></div>
+            <div class="code-line c2"><span class="ln">02</span><span><b>while</b> (candidateRequests.Count &lt; playersNeeded * 3<br>       &amp;&amp; queue.<i>TryDequeue</i>(out request))</span></div>
+            <div class="code-line c3"><span class="ln">03</span><span>  <b>if</b> (_activeRequests.<i>TryRemove</i>(request.RequestId, out active))<br>      candidateRequests.Add(active);</span></div>
+            <div class="code-line c4"><span class="ln">04</span><span><b>if</b> (candidateRequests.Count &lt; playersNeeded)<br>      RestoreCandidates(orderedByWait, queue);</span></div>
+            <div class="code-line c5"><span class="ln">05</span><span>match = <i>TryCreateMatch</i>(candidateRequests, playersNeeded);</span></div>
+            <div class="code-line c6"><span class="ln">06</span><span><b>if</b> (match != null) OnMatchCreatedAsync(match);<br><b>else</b> RestoreCandidates(candidateRequests, queue);</span></div>
+            <div class="code-note">
+              밝아지는 줄이 현재 실행 중인 코드라고 생각하면 된다. 오른쪽 요청 토큰은 큐에서 후보 목록으로 이동하고, 성공하면 매치로, 실패하면 다시 큐로 돌아간다.
+            </div>
+          </div>
+
+          <div class="tick-stage">
+            <div class="state-grid">
+              <div class="state-box">
+                <strong>1. queue</strong>
+                <span class="state-token low">P1</span><span class="state-token low">P2</span><span class="state-token mid">P3</span><span class="state-token high">P4</span>
+              </div>
+              <div class="state-box">
+                <strong>2. activeRequests</strong>
+                <span class="state-token low">P1</span><span class="state-token low">P2</span><span class="state-token mid">P3</span><span class="state-token high">P4</span>
+              </div>
+            </div>
+            <div class="flow-rail"></div>
+            <div class="flow-node fn1">TryDequeue<br>큐에서 꺼냄</div>
+            <div class="flow-node fn2">TryRemove<br>소유권 획득</div>
+            <div class="flow-node fn3">TryCreateMatch<br>조건 검사</div>
+            <div class="flow-node fn4">Match<br>또는 Restore</div>
+            <div class="moving-req">P1</div>
+            <div class="moving-req r2">P2</div>
+            <div class="moving-req r3">P3</div>
+            <div class="moving-req r4">P4</div>
+            <div class="decision-board">
+              <div class="decision good">
+                <strong>성공 경로</strong>
+                MMR 범위, 평균 핑, 팀 밸런스를 통과하면 <code>OnMatchCreatedAsync</code>로 넘어간다.
+              </div>
+              <div class="decision warn">
+                <strong>후보 부족</strong>
+                필요한 인원보다 적으면 오래 기다린 순서로 <code>RestoreCandidates</code>를 호출한다.
+              </div>
+              <div class="decision bad">
+                <strong>조건 실패</strong>
+                후보는 충분하지만 조건이 안 맞으면 후보를 다시 큐에 넣고 다음 틱을 기다린다.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:14px">
+          <span class="mini-arrow">→</span>
+          이 한 틱의 핵심은 <code>TryDequeue</code>로 큐에서 “꺼내고”, <code>TryRemove</code>로 activeRequests에서 “소유권을 얻고”,
+          <code>TryCreateMatch</code>로 “매치 가능성을 판단한 뒤”, 실패한 요청은 <code>RestoreCandidates</code>로 “잃어버리지 않게 되돌리는 것”이다.
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top:26px">
+        <div class="race">
+          <div class="worker wA">Worker A<br>후보 추출</div>
+          <div class="worker wB">Worker B<br>동시 처리</div>
+          <div class="queue-box">
+            <span class="qtoken low">P1</span><span class="qtoken low">P2</span><span class="qtoken mid">P3</span><span class="qtoken mid">P4</span><span class="qtoken high">P5</span>
+          </div>
+          <div class="ownership">
+            <div>TryDequeue<br>큐에서 한 번만 꺼냄</div>
+            <div>TryRemove<br>유효 요청 소유권 획득</div>
+            <div>Restore<br>실패 후보 재등록</div>
+          </div>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: 멀티스레드 환경에서의 중복 매칭 문제</span>
+          <h3>왜 TryDequeue만으로는 부족할까?</h3>
+          <p><code>ConcurrentQueue.TryDequeue()</code>는 같은 큐 요소를 두 워커가 동시에 꺼내는 것을 막는다. 하지만 큐에 오래 남아 있던 요청이 이미 타임아웃되었거나 다른 흐름에서 제거되었을 수 있다.</p>
+          <p>그래서 원문은 큐에서 꺼낸 뒤 <code>_activeRequests.TryRemove()</code>를 한 번 더 수행한다. 이 연산에 성공한 워커만 “이 플레이어는 내가 처리한다”는 소유권을 얻는다.</p>
+          <p>그리고 후보로 꺼냈지만 최종 매치에 들어가지 못한 플레이어는 반드시 복원해야 한다. 복원하지 않으면 플레이어가 큐에서 사라지는 버그가 된다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="s62" class="chapter">
+      <div class="section-head">
+        <div>
+          <h2>6.2 MMR 계산 로직 구현</h2>
+          <p>이 절은 경기 후 실력 점수를 어떻게 바꿀지 설명한다. 단순히 이기면 오르고 지면 떨어지는 것이 아니라, 상대의 강함과 개인 기여도까지 반영한다.</p>
+        </div>
+        <span class="source">원문 위치: 6.2 / 478행부터</span>
+      </div>
+
+      <div class="grid two">
+        <div class="card">
+          <span class="mini-source">원문: CalculateNewMMR</span>
+          <h3>ELO 기반 계산을 아주 쉽게 풀면</h3>
+          <div class="formula-stack">
+            <div class="formula">기대 승률<code>expected = 1 / (1 + 10^((상대MMR - 내MMR) / 400))</code></div>
+            <div class="formula">기본 변화량<code>baseChange = K-Factor × (실제 결과 - 기대 승률)</code></div>
+            <div class="formula">최종 변화량<code>mmrChange = baseChange × 개인 성과 배율</code></div>
+          </div>
+        </div>
+        <div class="rating-stage">
+          <span class="mini-source">애니메이션: 기다릴수록 매칭 허용 범위 확장</span>
+          <div class="mmr-axis"></div>
+          <div class="mmr-band"></div>
+          <div class="mmr-player mp0">나</div>
+          <div class="mmr-player mp1">A</div>
+          <div class="mmr-player mp2">B</div>
+          <div class="mmr-player mp3">C</div>
+          <div class="mmr-player mp4">D</div>
+          <div class="mmr-caption">
+            <div>초기: 비슷한 MMR만</div>
+            <div>30초 이후: 범위 확장</div>
+            <div>너무 오래 대기: 타임아웃</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid three" style="margin-top:16px">
+        <div class="card">
+          <span class="mini-source">원문: CalculateKFactor</span>
+          <h3>K-Factor</h3>
+          <p>MMR이 얼마나 크게 움직일지 정하는 계수다. 신규 유저는 데이터가 부족하므로 크게 움직이고, 고랭크는 안정성을 위해 작게 움직인다.</p>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: CalculatePerformanceMultiplier</span>
+          <h3>개인 성과 배율</h3>
+          <p>K/D가 좋거나 목표 기여도가 높거나 어시스트가 많으면 변화량에 보너스를 준다. 반대로 성과가 낮으면 페널티가 붙는다.</p>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: Math.Clamp</span>
+          <h3>변화량 제한</h3>
+          <p>한 경기로 MMR이 지나치게 출렁이지 않도록 최대 변화량을 제한한다. 원문 기본값은 최대 50이다.</p>
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top:16px">
+        <div class="card">
+          <span class="mini-source">원문: Glicko-2 기반 신뢰도</span>
+          <h3>Glicko-2는 무엇을 더 보나?</h3>
+          <p>ELO는 “점수” 중심이다. Glicko-2는 여기에 <strong>불확실성</strong>을 더한다. 오랫동안 경기를 안 한 유저나 경기 수가 적은 유저는 실력 추정의 신뢰도가 낮다고 보고, rating deviation과 volatility를 함께 갱신한다.</p>
+          <p>즉, MMR 숫자 하나만 보는 것이 아니라 “이 숫자를 얼마나 믿을 수 있는가”까지 관리하는 방식이다.</p>
+        </div>
+        <div class="card">
+          <h3>원문 코드 흐름 요약</h3>
+          <pre class="code">CalculateGlicko2()
+  1. rating을 Glicko-2 스케일로 변환
+  2. 상대별 기대 결과 E 계산
+  3. 결과 분산 v 계산
+  4. delta와 volatility 갱신
+  5. 새 rating과 deviation 반환</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="s63" class="chapter">
+      <div class="section-head">
+        <div>
+          <h2>6.3 앞 구현의 문제와 개선</h2>
+          <p>이 절은 6.1의 단순 큐 방식이 실제 서비스에서 왜 부족한지 보여주고, MMR 버킷 분리와 능동 탐색을 결합한 개선 구조로 넘어간다.</p>
+        </div>
+        <span class="source">원문 위치: 6.3 / 775행부터, 개선 구현 835행부터</span>
+      </div>
+
+      <div class="bad-queue">
+        <div class="queue-row">
+          <div class="label">단순 FIFO 큐</div>
+          <div class="tokens">
+            <span class="token low">1500</span><span class="token hot">2800</span><span class="token low">1520</span><span class="token hot">2750</span><span class="token low">1510</span><span class="token hot">2900</span>
+          </div>
+        </div>
+        <div class="queue-row">
+          <div class="label">앞에서 30명 추출</div>
+          <div class="tokens">
+            <span class="token wait">섞인 후보</span><span class="token hot">MMR 초과</span><span class="token wait">전원 복원</span><span class="token wait">반복 실패</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid three" style="margin-top:16px">
+        <div class="card">
+          <span class="mini-source">원문: 방식 1</span>
+          <h3>MMR 버킷 분리 큐</h3>
+          <p>처음부터 0~199, 200~399 같은 구간별 큐에 넣는다. 비슷한 실력대끼리 모이므로 성공 가능성이 높다.</p>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: 방식 2</span>
+          <h3>플레이어 중심 능동 탐색</h3>
+          <p>큐 앞에서 순서대로 꺼내는 대신, 특정 플레이어를 기준으로 허용 MMR 범위 안의 상대를 찾는다.</p>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: 방식 3</span>
+          <h3>점수 기반 최적화</h3>
+          <p>MMR 차이, 핑 차이, 대기 시간, 팀 밸런스를 점수화하고 가장 좋은 조합을 고른다.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:26px">
+        <h3 style="margin-bottom:12px">개선된 구조: 버킷 안에서 먼저 찾고, 부족하면 옆 버킷으로 넓힌다</h3>
+        <div class="bucket-board">
+          <div class="bucket">
+            <div class="label">1400-1599</div>
+            <div class="tokens"><span class="token low">1450</span><span class="token low">1510</span><span class="token low">1540</span><span class="token low">1580</span></div>
+            <div class="bucket-meter"><span style="animation-delay:0s"></span></div>
+          </div>
+          <div class="bucket">
+            <div class="label">1600-1799</div>
+            <div class="tokens"><span class="token mid">1620</span><span class="token mid">1680</span><span class="token mid">1740</span></div>
+            <div class="bucket-meter"><span style="animation-delay:.6s"></span></div>
+          </div>
+          <div class="bucket">
+            <div class="label">1800-1999</div>
+            <div class="tokens"><span class="token high">1810</span><span class="token high">1900</span><span class="token high">1960</span></div>
+            <div class="bucket-meter"><span style="animation-delay:1.2s"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top:16px">
+        <div class="card">
+          <span class="mini-source">원문: 개선된 구현의 주요 메서드</span>
+          <h3>개선 구현의 흐름</h3>
+          <pre class="code">EnqueuePlayerAsync()
+  → MMR로 버킷 계산
+  → 버킷별 SortedList에 저장
+
+ProcessBucketAsync()
+  → 현재 버킷 후보 수집
+  → 부족하면 인접 버킷 포함
+  → 모든 유효 조합을 평가
+
+FindBestMatchCombination()
+  → 품질 점수가 가장 높은 조합 선택</pre>
+        </div>
+        <div class="card">
+          <h3>왜 대기시간 보너스가 필요할까?</h3>
+          <p>점수 기반 최적화만 하면 “가장 좋은 매치”만 계속 고르다가 애매한 조건의 플레이어가 오래 기다릴 수 있다.</p>
+          <p>그래서 원문은 대기 시간이 길수록 품질 점수에 보너스를 주어 기아 상태를 줄인다. 오래 기다린 사람은 조금 더 넓은 범위에서 매칭 기회를 얻는다.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:26px">
+        <h3 style="margin-bottom:12px">조합별 품질 점수 예시</h3>
+        <div class="score-board">
+          <div class="score-card s1"><span class="mini-source">후보 A</span><h3>MMR 좋음, 핑 나쁨</h3><p>실력은 비슷하지만 평균 핑이 높아 점수가 깎인다.</p></div>
+          <div class="score-card s2"><span class="mini-source">후보 B</span><h3>MMR 좋음, 핑 좋음</h3><p>팀 밸런스와 핑이 모두 좋아 가장 높은 점수를 받는다.</p></div>
+          <div class="score-card s3"><span class="mini-source">후보 C</span><h3>대기시간 보너스</h3><p>완벽하진 않지만 오래 기다린 플레이어가 포함되어 보너스를 받는다.</p></div>
+        </div>
+      </div>
+
+      <table style="margin-top:18px">
+        <thead><tr><th>항목</th><th>6.1 이전 방식</th><th>6.3 개선 방식</th></tr></thead>
+        <tbody>
+          <tr><td>큐 구조</td><td>게임 모드별 단일 FIFO 큐</td><td>게임 모드 + MMR 버킷별 분리 큐</td></tr>
+          <tr><td>후보 수집</td><td>앞에서 순서대로 일정 수 추출</td><td>타겟 버킷과 인접 버킷을 능동 탐색</td></tr>
+          <tr><td>매칭 선택</td><td>처음 성공한 슬라이딩 윈도우</td><td>모든 유효 조합 중 최고 점수</td></tr>
+          <tr><td>공정성</td><td>대기시간 고려가 약함</td><td>대기시간 보너스로 장기 대기 완화</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="s64" class="chapter">
+      <div class="section-head">
+        <div>
+          <h2>6.4 분산 매칭 큐 구현</h2>
+          <p>이 절은 단일 서버를 넘어 여러 매칭 서버가 동시에 일하는 구조를 만든다. 핵심은 Redis가 공유 저장소와 소유권 판정자 역할을 한다는 점이다.</p>
+        </div>
+        <span class="source">원문 위치: 6.4 / 1339행부터, 분산 중복 문제 1344행부터</span>
+      </div>
+
+      <div class="redis-stage">
+        <div class="dist-server dsA">Server A<br>매칭 시도</div>
+        <div class="dist-server dsB">Server B<br>매칭 시도</div>
+        <div class="lock-line llA"></div>
+        <div class="lock-line llB"></div>
+        <div class="redis-node">Redis<br>Sorted Set<br>SET NX + TTL</div>
+        <div class="sorted-set">
+          <div class="set-item">P1001<span>score: JoinedAt</span></div>
+          <div class="set-item">P1002<span>member 유일</span></div>
+          <div class="set-item">P1003<span>대기시간 순</span></div>
+          <div class="set-item">P1004<span>버킷 검색</span></div>
+          <div class="set-item">P1005<span>락 후 제거</span></div>
+        </div>
+      </div>
+
+      <div class="grid three" style="margin-top:16px">
+        <div class="card">
+          <span class="mini-source">원문: Redis Sorted Set</span>
+          <h3>member 유일성</h3>
+          <p>Sorted Set 안에서 같은 <code>playerId</code>는 한 번만 존재한다. 같은 플레이어가 중복 삽입되어도 버킷 안에서는 하나로 유지된다.</p>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: SET NX + TTL</span>
+          <h3>분산 락</h3>
+          <p>매칭 생성 직전에 모든 플레이어에 대해 락을 잡는다. 모든 락을 얻은 서버만 매치를 만들 수 있다.</p>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: 락 획득 후 재검증</span>
+          <h3>데이터 재검증</h3>
+          <p>락을 얻은 뒤에도 플레이어 데이터가 아직 존재하는지 다시 확인한다. 직전에 다른 서버가 처리했을 가능성을 막는다.</p>
+        </div>
+      </div>
+
+      <div class="grid two" style="margin-top:16px">
+        <div class="card">
+          <h3>Redis 키 구조</h3>
+          <pre class="code">matchmaking:queue:{GameMode}:{Bucket}
+  Sorted Set
+  member = playerId
+  score  = JoinedAt
+
+matchmaking:player:{PlayerId}
+  MMR, Ping, Region, GameMode,
+  RegisteredBuckets
+
+matchmaking:lock:player:{PlayerId}
+  SET value NX EX lockTimeout</pre>
+        </div>
+        <div class="card">
+          <span class="mini-source">원문: RegisteredBuckets 수정</span>
+          <h3>왜 RegisteredBuckets를 저장할까?</h3>
+          <p>플레이어가 여러 인접 버킷에 등록되면 매칭 후 모든 관련 버킷에서 제거해야 한다.</p>
+          <p>원문은 0~5000 전체 버킷을 매번 훑는 대신, 플레이어 데이터에 실제 등록된 버킷 목록을 저장한다. 덕분에 제거할 때 Redis 호출을 크게 줄일 수 있다.</p>
+        </div>
+      </div>
+
+      <div style="margin-top:26px">
+        <h3 style="margin-bottom:12px">분산 매칭 생성의 안전한 순서</h3>
+        <div class="pipeline">
+          <div class="pipe-step"><span class="num">1</span><h4>후보 조회</h4><p>타겟 MMR 주변 버킷에서 오래 기다린 플레이어를 가져온다.</p></div>
+          <div class="pipe-step"><span class="num">2</span><h4>락 시도</h4><p>후보 전원에게 <code>SET NX</code> 락을 시도한다.</p></div>
+          <div class="pipe-step"><span class="num">3</span><h4>전체 성공 확인</h4><p>하나라도 실패하면 이미 얻은 락을 풀고 포기한다.</p></div>
+          <div class="pipe-step"><span class="num">4</span><h4>데이터 재검증</h4><p>각 player 데이터가 아직 Redis에 있는지 확인한다.</p></div>
+          <div class="pipe-step"><span class="num">5</span><h4>매치 생성</h4><p>균형 팀을 만들고 매치 객체를 반환한다.</p></div>
+          <div class="pipe-step"><span class="num">6</span><h4>큐 제거와 락 해제</h4><p>RegisteredBuckets에서 제거하고 finally로 락을 해제한다.</p></div>
+        </div>
+      </div>
+
+      <table style="margin-top:18px">
+        <thead><tr><th>방어 레이어</th><th>원문 위치</th><th>무엇을 막나</th></tr></thead>
+        <tbody>
+          <tr><td>Redis Sorted Set member 유일성</td><td>6.4 EnqueueAsync</td><td>버킷 안에서 같은 플레이어가 중복 저장되는 문제</td></tr>
+          <tr><td>SET NX + TTL</td><td>6.4 TryCreateMatchWithLockAsync</td><td>서버 A와 B가 같은 플레이어로 동시에 매치를 만드는 문제</td></tr>
+          <tr><td>락 실패 시 즉시 취소</td><td>6.4 allLocksAcquired 검사</td><td>일부 플레이어만 잠근 어정쩡한 상태</td></tr>
+          <tr><td>락 후 데이터 재검증</td><td>6.4 playerDataJson 확인</td><td>락 직전에 다른 서버가 이미 처리한 플레이어 사용</td></tr>
+          <tr><td>finally 락 해제</td><td>6.4 finally 블록</td><td>예외나 실패 후 락이 남아 데드락이 되는 문제</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>6.1~6.4를 한 문장씩 다시 정리</h2>
+          <p>코드를 읽을 때는 아래 질문을 옆에 두면 흐름을 놓치지 않는다.</p>
+        </div>
+        <span class="source">원문 대응표</span>
+      </div>
+      <table>
+        <thead><tr><th>절</th><th>핵심 질문</th><th>답</th></tr></thead>
+        <tbody>
+          <tr><td>6.1</td><td>플레이어를 어떻게 경기로 묶는가?</td><td>요청을 큐에 넣고, 워커가 후보를 가져와 MMR/핑/팀 밸런스를 검사한다.</td></tr>
+          <tr><td>6.2</td><td>경기 후 실력 점수는 어떻게 바뀌는가?</td><td>기대 승률과 실제 결과 차이에 K-Factor와 개인 성과 배율을 적용한다.</td></tr>
+          <tr><td>6.3</td><td>단순 큐는 왜 실제 서비스에서 부족한가?</td><td>MMR이 섞이면 좋은 조합을 놓치므로 버킷, 능동 탐색, 점수 최적화가 필요하다.</td></tr>
+          <tr><td>6.4</td><td>여러 서버가 동시에 매칭하면 어떻게 안전하게 처리하는가?</td><td>Redis Sorted Set과 SET NX 락, 데이터 재검증으로 중복 매칭을 막는다.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    첨부 문서 06.md의 6.1~6.4 내용을 기반으로 만든 상세 시각 해설 HTML입니다.
+  </footer>
+</body>
+</html>
