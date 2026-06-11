@@ -1,0 +1,380 @@
+<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;"><meta http-equiv="x-dns-prefetch-control" content="off"><meta name="x-poe-datastore-behavior" content="disabled"><meta name="x-poe-allow-downloads" content="true"><script src="https://puc.poecdn.net/standard.25f6d5ebb7608dc2f276.js"></script>
+    <meta charset="utf-8">
+    <title>Poe</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://puc.poecdn.net/disableWebRTC.9710cebe07429a9e8e06.js"></script><script src="https://puc.poecdn.net/tw.b9024aecac666455e183.js"></script><script src="https://puc.poecdn.net/deps.faccd16000d314dc16d5.js"></script><script src="https://puc.poecdn.net/exports.b0f0f482cdeb5302b0b9.js"></script><script src="https://puc.poecdn.net/renderer.75c73ae6b4235f62945a.js"></script><script>Object.defineProperty(exports, "__esModule", {value: true}); function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }var _react = require('react'); var _react2 = _interopRequireDefault(_react);
+var _lucidereact = require('lucide-react');
+
+function NATSimulatorVisualization() {
+  const [currentStep, setCurrentStep] = _react.useState.call(void 0, 0);
+  const [natTable, setNatTable] = _react.useState.call(void 0, []);
+
+  const steps = [
+    {
+      title: "초기 상태",
+      description: "NAT 시뮬레이터 시작 - 빈 NAT 테이블",
+      natEntries: []
+    },
+    {
+      title: "1단계: 클라이언트 1이 외부 서버로 패킷 전송",
+      description: "192.168.1.10:12345 → 93.184.216.34:80",
+      natEntries: [
+        { internal: "192.168.1.10:12345", external: "203.0.113.1:20000", destination: "93.184.216.34:80", status: "활성" }
+      ]
+    },
+    {
+      title: "2단계: 클라이언트 2가 외부 서버로 패킷 전송",
+      description: "192.168.1.11:12346 → 93.184.216.34:80",
+      natEntries: [
+        { internal: "192.168.1.10:12345", external: "203.0.113.1:20000", destination: "93.184.216.34:80", status: "활성" },
+        { internal: "192.168.1.11:12346", external: "203.0.113.1:20001", destination: "93.184.216.34:80", status: "활성" }
+      ]
+    },
+    {
+      title: "3단계: 외부 서버에서 응답 패킷 수신",
+      description: "NAT가 매핑을 찾아 내부로 전달",
+      natEntries: [
+        { internal: "192.168.1.10:12345", external: "203.0.113.1:20000", destination: "93.184.216.34:80", status: "활성" },
+        { internal: "192.168.1.11:12346", external: "203.0.113.1:20001", destination: "93.184.216.34:80", status: "활성" }
+      ]
+    },
+    {
+      title: "4단계: 알 수 없는 외부 주소에서 패킷 수신",
+      description: "매핑이 없어 패킷 드롭",
+      natEntries: [
+        { internal: "192.168.1.10:12345", external: "203.0.113.1:20000", destination: "93.184.216.34:80", status: "활성" },
+        { internal: "192.168.1.11:12346", external: "203.0.113.1:20001", destination: "93.184.216.34:80", status: "활성" }
+      ]
+    },
+    {
+      title: "5단계: 클라이언트 1이 다른 서버로 연결",
+      description: "새로운 매핑 생성",
+      natEntries: [
+        { internal: "192.168.1.10:12345", external: "203.0.113.1:20000", destination: "93.184.216.34:80", status: "활성" },
+        { internal: "192.168.1.11:12346", external: "203.0.113.1:20001", destination: "93.184.216.34:80", status: "활성" },
+        { internal: "192.168.1.10:12345", external: "203.0.113.1:20002", destination: "192.0.2.1:443", status: "활성" }
+      ]
+    }
+  ];
+
+  const Device = ({ label, ip, type = "client" }) => {
+    const bgColor = type === "client" ? "bg-blue-200" : type === "server" ? "bg-green-200" : "bg-orange-200";
+    return (
+      _react2.default.createElement('div', { className: `${bgColor} rounded-lg p-3 text-center text-sm font-medium min-w-32`,}
+        , _react2.default.createElement('div', { className: "font-bold",}, label)
+        , _react2.default.createElement('div', { className: "text-xs text-gray-600" ,}, ip)
+      )
+    );
+  };
+
+  const NATDevice = () => (
+    _react2.default.createElement('div', { className: "bg-orange-300 rounded-lg p-4 text-center border-2 border-orange-500"     ,}
+      , _react2.default.createElement('div', { className: "font-bold text-lg" ,}, "NAT 시뮬레이터" )
+      , _react2.default.createElement('div', { className: "text-sm text-gray-700" ,}, "203.0.113.1")
+      , _react2.default.createElement('div', { className: "text-xs mt-1" ,}, "포트 할당: 20000+"  )
+    )
+  );
+
+  const Arrow = ({ direction = "right", label = "", blocked = false, dashed = false }) => {
+    const ArrowComponent = direction === "right" ? _lucidereact.ArrowRight : _lucidereact.ArrowLeft;
+    const color = blocked ? "text-red-500" : "text-green-600";
+    const style = dashed ? "opacity-50" : "";
+    
+    return (
+      _react2.default.createElement('div', { className: `flex flex-col items-center ${style}`,}
+        , _react2.default.createElement(ArrowComponent, { className: `w-6 h-6 ${color}`,} )
+        , label && _react2.default.createElement('span', { className: "text-xs mt-1 text-center max-w-20"   ,}, label)
+        , blocked && _react2.default.createElement(_lucidereact.X, { className: "w-4 h-4 text-red-500 mt-1"   ,} )
+      )
+    );
+  };
+
+  const NATTable = ({ entries }) => (
+    _react2.default.createElement('div', { className: "bg-white border-2 border-gray-300 rounded-lg p-4 mt-4"     ,}
+      , _react2.default.createElement('div', { className: "flex items-center gap-2 mb-3"   ,}
+        , _react2.default.createElement(_lucidereact.Table, { className: "w-5 h-5" ,} )
+        , _react2.default.createElement('h3', { className: "font-bold",}, "NAT 테이블" )
+      )
+      , entries.length === 0 ? (
+        _react2.default.createElement('div', { className: "text-gray-500 text-sm text-center py-2"   ,}, "테이블이 비어있습니다" )
+      ) : (
+        _react2.default.createElement('div', { className: "space-y-2",}
+          , entries.map((entry, index) => (
+            _react2.default.createElement('div', { key: index, className: "grid grid-cols-4 gap-2 text-xs border-b pb-2"     ,}
+              , _react2.default.createElement('div', null
+                , _react2.default.createElement('div', { className: "font-medium",}, "내부")
+                , _react2.default.createElement('div', { className: "text-gray-600",}, entry.internal)
+              )
+              , _react2.default.createElement('div', null
+                , _react2.default.createElement('div', { className: "font-medium",}, "외부")
+                , _react2.default.createElement('div', { className: "text-gray-600",}, entry.external)
+              )
+              , _react2.default.createElement('div', null
+                , _react2.default.createElement('div', { className: "font-medium",}, "목적지")
+                , _react2.default.createElement('div', { className: "text-gray-600",}, entry.destination)
+              )
+              , _react2.default.createElement('div', { className: "flex items-center gap-1"  ,}
+                , _react2.default.createElement(_lucidereact.Clock, { className: "w-3 h-3" ,} )
+                , _react2.default.createElement('span', { className: entry.status === "활성" ? "text-green-600" : "text-red-600",}
+                  , entry.status
+                )
+              )
+            )
+          ))
+        )
+      )
+    )
+  );
+
+  const getCurrentStepData = () => steps[currentStep];
+
+  const renderStepVisualization = () => {
+    const step = getCurrentStepData();
+    
+    switch(currentStep) {
+      case 0:
+        return (
+          _react2.default.createElement('div', { className: "grid grid-cols-3 gap-8 items-center"   ,}
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Device, { label: "클라이언트 1" , ip: "192.168.1.10:12345", type: "client",} )
+              , _react2.default.createElement(Device, { label: "클라이언트 2" , ip: "192.168.1.11:12346", type: "client",} )
+            )
+            , _react2.default.createElement(NATDevice, null )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Device, { label: "웹 서버" , ip: "93.184.216.34:80", type: "server",} )
+              , _react2.default.createElement(Device, { label: "HTTPS 서버" , ip: "192.0.2.1:443", type: "server",} )
+            )
+          )
+        );
+
+      case 1:
+        return (
+          _react2.default.createElement('div', { className: "grid grid-cols-3 gap-8 items-center"   ,}
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "클라이언트 1" , ip: "192.168.1.10:12345", type: "client",} )
+                , _react2.default.createElement('div', { className: "absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"           ,}, "1")
+              )
+              , _react2.default.createElement(Device, { label: "클라이언트 2" , ip: "192.168.1.11:12346", type: "client",} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Arrow, { direction: "right", label: "새 매핑 생성"  ,} )
+              , _react2.default.createElement(NATDevice, null )
+              , _react2.default.createElement(Arrow, { direction: "right", label: "203.0.113.1:20000",} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "웹 서버" , ip: "93.184.216.34:80", type: "server",} )
+                , _react2.default.createElement('div', { className: "absolute -top-2 -left-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"           ,}, "1")
+              )
+              , _react2.default.createElement(Device, { label: "HTTPS 서버" , ip: "192.0.2.1:443", type: "server",} )
+            )
+          )
+        );
+
+      case 2:
+        return (
+          _react2.default.createElement('div', { className: "grid grid-cols-3 gap-8 items-center"   ,}
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Device, { label: "클라이언트 1" , ip: "192.168.1.10:12345", type: "client",} )
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "클라이언트 2" , ip: "192.168.1.11:12346", type: "client",} )
+                , _react2.default.createElement('div', { className: "absolute -top-2 -right-2 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"           ,}, "2")
+              )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Arrow, { direction: "right", label: "203.0.113.1:20000", dashed: true,} )
+              , _react2.default.createElement(NATDevice, null )
+              , _react2.default.createElement(Arrow, { direction: "right", label: "새 매핑: 203.0.113.1:20001"  ,} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "웹 서버" , ip: "93.184.216.34:80", type: "server",} )
+                , _react2.default.createElement('div', { className: "absolute -top-2 -left-2 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"           ,}, "2")
+              )
+              , _react2.default.createElement(Device, { label: "HTTPS 서버" , ip: "192.0.2.1:443", type: "server",} )
+            )
+          )
+        );
+
+      case 3:
+        return (
+          _react2.default.createElement('div', { className: "grid grid-cols-3 gap-8 items-center"   ,}
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "클라이언트 1" , ip: "192.168.1.10:12345", type: "client",} )
+                , _react2.default.createElement(_lucidereact.Check, { className: "absolute -top-2 -left-2 w-6 h-6 text-green-600 bg-white rounded-full"       ,} )
+              )
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "클라이언트 2" , ip: "192.168.1.11:12346", type: "client",} )
+                , _react2.default.createElement(_lucidereact.Check, { className: "absolute -top-2 -left-2 w-6 h-6 text-green-600 bg-white rounded-full"       ,} )
+              )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Arrow, { direction: "left", label: "매핑 찾음" ,} )
+              , _react2.default.createElement(NATDevice, null )
+              , _react2.default.createElement(Arrow, { direction: "left", label: "매핑 찾음" ,} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "웹 서버" , ip: "93.184.216.34:80", type: "server",} )
+                , _react2.default.createElement(_lucidereact.ArrowLeft, { className: "absolute -top-2 -right-2 w-6 h-6 text-green-600"     ,} )
+              )
+              , _react2.default.createElement(Device, { label: "HTTPS 서버" , ip: "192.0.2.1:443", type: "server",} )
+            )
+          )
+        );
+
+      case 4:
+        return (
+          _react2.default.createElement('div', { className: "grid grid-cols-3 gap-8 items-center"   ,}
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Device, { label: "클라이언트 1" , ip: "192.168.1.10:12345", type: "client",} )
+              , _react2.default.createElement(Device, { label: "클라이언트 2" , ip: "192.168.1.11:12346", type: "client",} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Arrow, { direction: "left", label: "매핑 없음" , blocked: true,} )
+              , _react2.default.createElement(NATDevice, null )
+              , _react2.default.createElement('div', { className: "text-center text-red-600 text-sm font-medium"   ,}, "패킷 드롭" )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Device, { label: "웹 서버" , ip: "93.184.216.34:80", type: "server",} )
+              , _react2.default.createElement('div', { className: "bg-red-200 rounded-lg p-3 text-center text-sm font-medium border-2 border-red-400"       ,}
+                , _react2.default.createElement('div', { className: "font-bold",}, "알 수 없는 송신자"   )
+                , _react2.default.createElement('div', { className: "text-xs text-gray-600" ,}, "198.51.100.1:8080")
+                , _react2.default.createElement(_lucidereact.X, { className: "w-4 h-4 mx-auto mt-1 text-red-600"    ,} )
+              )
+            )
+          )
+        );
+
+      case 5:
+        return (
+          _react2.default.createElement('div', { className: "grid grid-cols-3 gap-8 items-center"   ,}
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "클라이언트 1" , ip: "192.168.1.10:12345", type: "client",} )
+                , _react2.default.createElement('div', { className: "absolute -top-2 -right-2 bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"           ,}, "3")
+              )
+              , _react2.default.createElement(Device, { label: "클라이언트 2" , ip: "192.168.1.11:12346", type: "client",} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Arrow, { direction: "right", label: "기존 매핑" , dashed: true,} )
+              , _react2.default.createElement(NATDevice, null )
+              , _react2.default.createElement(Arrow, { direction: "right", label: "새 매핑: 203.0.113.1:20002"  ,} )
+            )
+            , _react2.default.createElement('div', { className: "space-y-4",}
+              , _react2.default.createElement(Device, { label: "웹 서버" , ip: "93.184.216.34:80", type: "server",} )
+              , _react2.default.createElement('div', { className: "relative",}
+                , _react2.default.createElement(Device, { label: "HTTPS 서버" , ip: "192.0.2.1:443", type: "server",} )
+                , _react2.default.createElement('div', { className: "absolute -top-2 -left-2 bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"           ,}, "3")
+              )
+            )
+          )
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    _react2.default.createElement('div', { className: "max-w-6xl mx-auto p-6"  ,}
+      , _react2.default.createElement('div', { className: "text-center mb-8" ,}
+        , _react2.default.createElement('h2', { className: "text-2xl font-bold mb-2"  ,}, "NAT 동작 시뮬레이터"  )
+        , _react2.default.createElement('p', { className: "text-gray-600",}, "C# 코드의 실행 과정을 시각화"    )
+      )
+
+      /* 컨트롤 버튼 */
+      , _react2.default.createElement('div', { className: "flex justify-center gap-4 mb-6"   ,}
+        , _react2.default.createElement('button', {
+          onClick: () => setCurrentStep(0),
+          className: "flex items-center gap-2 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"        ,}
+
+          , _react2.default.createElement(_lucidereact.RotateCcw, { className: "w-4 h-4" ,} ), "처음으로"
+
+        )
+        , _react2.default.createElement('button', {
+          onClick: () => setCurrentStep(Math.min(currentStep + 1, steps.length - 1)),
+          disabled: currentStep >= steps.length - 1,
+          className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors"          ,}
+
+          , _react2.default.createElement(_lucidereact.Play, { className: "w-4 h-4" ,} ), "다음 단계"
+
+        )
+      )
+
+      /* 현재 단계 정보 */
+      , _react2.default.createElement('div', { className: "bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6"     ,}
+        , _react2.default.createElement('h3', { className: "font-bold text-lg mb-2"  ,}, getCurrentStepData().title)
+        , _react2.default.createElement('p', { className: "text-gray-700",}, getCurrentStepData().description)
+      )
+
+      /* 네트워크 다이어그램 */
+      , _react2.default.createElement('div', { className: "bg-white border-2 border-gray-200 rounded-lg p-6 mb-6"     ,}
+        , _react2.default.createElement('div', { className: "mb-4",}
+          , _react2.default.createElement('div', { className: "text-center text-sm text-gray-600 mb-4"   ,}
+            , _react2.default.createElement('span', { className: "bg-blue-100 px-3 py-1 rounded-full"   ,}, "내부 네트워크" )
+            , _react2.default.createElement('span', { className: "mx-8",}, "←→")
+            , _react2.default.createElement('span', { className: "bg-orange-100 px-3 py-1 rounded-full"   ,}, "NAT")
+            , _react2.default.createElement('span', { className: "mx-8",}, "←→")
+            , _react2.default.createElement('span', { className: "bg-green-100 px-3 py-1 rounded-full"   ,}, "외부 네트워크" )
+          )
+        )
+        , renderStepVisualization()
+      )
+
+      /* NAT 테이블 */
+      , _react2.default.createElement(NATTable, { entries: getCurrentStepData().natEntries,} )
+
+      /* 단계 진행 표시 */
+      , _react2.default.createElement('div', { className: "mt-6",}
+        , _react2.default.createElement('div', { className: "flex justify-center" ,}
+          , _react2.default.createElement('div', { className: "flex gap-2" ,}
+            , steps.map((_, index) => (
+              _react2.default.createElement('div', {
+                key: index,
+                className: `w-3 h-3 rounded-full ${
+                  index <= currentStep ? 'bg-blue-500' : 'bg-gray-300'
+                }`,}
+              )
+            ))
+          )
+        )
+        , _react2.default.createElement('div', { className: "text-center text-sm text-gray-600 mt-2"   ,}
+          , currentStep + 1, " / "  , steps.length
+        )
+      )
+
+      /* 코드 주요 기능 설명 */
+      , _react2.default.createElement('div', { className: "mt-8 bg-gray-50 rounded-lg p-6"   ,}
+        , _react2.default.createElement('h3', { className: "font-bold text-lg mb-4"  ,}, "코드 주요 기능"  )
+        , _react2.default.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"    ,}
+          , _react2.default.createElement('div', { className: "bg-white rounded-lg p-4"  ,}
+            , _react2.default.createElement('h4', { className: "font-medium mb-2" ,}, "🔄 ProcessOutbound" )
+            , _react2.default.createElement('p', { className: "text-gray-600",}, "내부에서 외부로 나가는 패킷 처리, 새로운 NAT 매핑 생성 또는 기존 매핑 재사용"            )
+          )
+          , _react2.default.createElement('div', { className: "bg-white rounded-lg p-4"  ,}
+            , _react2.default.createElement('h4', { className: "font-medium mb-2" ,}, "📥 ProcessInbound" )
+            , _react2.default.createElement('p', { className: "text-gray-600",}, "외부에서 내부로 들어오는 패킷 처리, NAT 테이블에서 해당 매핑 찾아 전달"          )
+          )
+          , _react2.default.createElement('div', { className: "bg-white rounded-lg p-4"  ,}
+            , _react2.default.createElement('h4', { className: "font-medium mb-2" ,}, "🧹 CleanupExpiredEntries" )
+            , _react2.default.createElement('p', { className: "text-gray-600",}, "만료된 NAT 테이블 엔트리 정리 (60초 타임아웃)"      )
+          )
+          , _react2.default.createElement('div', { className: "bg-white rounded-lg p-4"  ,}
+            , _react2.default.createElement('h4', { className: "font-medium mb-2" ,}, "📊 PrintNATTable" )
+            , _react2.default.createElement('p', { className: "text-gray-600",}, "현재 NAT 테이블 상태를 콘솔에 출력"     )
+          )
+        )
+      )
+    )
+  );
+}
+
+exports. default = NATSimulatorVisualization;
+</script></head>
+  <body>
+  
+
+<div id="preview-app"></div></body></html>
