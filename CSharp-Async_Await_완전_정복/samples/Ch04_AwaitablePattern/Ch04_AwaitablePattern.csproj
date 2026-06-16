@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ch04_AwaitablePattern</RootNamespace>
+  </PropertyGroup>
+</Project>

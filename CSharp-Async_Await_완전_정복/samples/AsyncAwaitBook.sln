@@ -1,0 +1,71 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch01_Basics", "Ch01_Basics\Ch01_Basics.csproj", "{11111111-0001-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch02_SynchronizationContext", "Ch02_SynchronizationContext\Ch02_SynchronizationContext.csproj", "{11111111-0002-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch03_ConfigureAwait", "Ch03_ConfigureAwait\Ch03_ConfigureAwait.csproj", "{11111111-0003-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch04_AwaitablePattern", "Ch04_AwaitablePattern\Ch04_AwaitablePattern.csproj", "{11111111-0004-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch05_ServerAsync", "Ch05_ServerAsync\Ch05_ServerAsync.csproj", "{11111111-0005-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch06_Pitfalls", "Ch06_Pitfalls\Ch06_Pitfalls.csproj", "{11111111-0006-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch07_AsyncLock", "Ch07_AsyncLock\Ch07_AsyncLock.csproj", "{11111111-0007-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch08_AsyncLocal", "Ch08_AsyncLocal\Ch08_AsyncLocal.csproj", "{11111111-0008-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch09_ModernFeatures", "Ch09_ModernFeatures\Ch09_ModernFeatures.csproj", "{11111111-0009-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ch10_Practical", "Ch10_Practical\Ch10_Practical.csproj", "{11111111-0010-0000-0000-000000000001}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{11111111-0001-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0001-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0001-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0001-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0002-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0002-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0002-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0002-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0003-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0003-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0003-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0003-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0004-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0004-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0004-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0004-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0005-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0005-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0005-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0005-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0006-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0006-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0006-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0006-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0007-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0007-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0007-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0007-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0008-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0008-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0008-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0008-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0009-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0009-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0009-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0009-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11111111-0010-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11111111-0010-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11111111-0010-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11111111-0010-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

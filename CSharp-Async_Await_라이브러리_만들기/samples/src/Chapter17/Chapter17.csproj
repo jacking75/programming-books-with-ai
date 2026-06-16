@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>AsyncAwaitLab.Chapter17</AssemblyName>
+    <RootNamespace>AsyncAwaitLab.Chapter17</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\AsyncAwaitLab.Common.csproj" />
+  </ItemGroup>
+</Project>

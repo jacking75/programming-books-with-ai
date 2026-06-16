@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisMode>Default</AnalysisMode>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- 교육용 예제 프로젝트라 일부 분석 경고를 완화 -->
+    <NoWarn>$(NoWarn);CS1591;CA1303;CA2007;CA1822;CA1812;CA1052;CA1031;CA5394;CA1848;CA1849;CA2008</NoWarn>
+  </PropertyGroup>
+</Project>

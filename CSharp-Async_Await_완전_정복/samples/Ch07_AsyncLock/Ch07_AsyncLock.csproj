@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ch07_AsyncLock</RootNamespace>
+  </PropertyGroup>
+</Project>

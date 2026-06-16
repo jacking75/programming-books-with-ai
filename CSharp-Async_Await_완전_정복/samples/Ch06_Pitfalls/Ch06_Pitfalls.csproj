@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Ch06_Pitfalls</RootNamespace>
+    <!-- 의도적으로 안티패턴을 보여주는 코드들이 있어 일부 경고를 허용 -->
+    <NoWarn>$(NoWarn);CS1998;CS4014;CA1849;CA2008;CA2012</NoWarn>
+  </PropertyGroup>
+</Project>
