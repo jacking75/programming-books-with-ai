@@ -1,4 +1,4 @@
-# ASP.NET Web API를 이용한 API 게임 서버 실습  
+# ASP.NET Core Web API를 이용한 API 게임 서버 실습  
 
 저자: 최흥배, AI-Assisted   
     
