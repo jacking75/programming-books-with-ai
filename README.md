@@ -53,6 +53,7 @@ LLM AI를 사용하여 만든 프로그래밍 책을 모아 놓은 저장소이�
 	- OpenSiv3D를 이용한 C++ 프로그래밍 학습
 	- Rust처럼 안전한 Modern C++ 프로그래밍
 	- 실전 Thread-Local Storage: 락(Lock) 없는 고성능 멀티스레딩과 C++ 최적화 기법
+	-  C++23 메모리 모델(Memory Order) 완벽 가이드
 - Rust
     - C++ 개발자를 위한 Rust 입문서  
 	- C++ 프로그래머를 위한 4주간 Rust 프로그래밍  
