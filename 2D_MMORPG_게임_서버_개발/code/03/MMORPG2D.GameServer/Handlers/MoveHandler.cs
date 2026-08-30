@@ -1,0 +1,37 @@
+using MemoryPack;
+using MMORPG2D.GameServer.Game;
+using MMORPG2D.Shared;
+using MMORPG2D.Shared.Packets;
+
+namespace MMORPG2D.GameServer.Handlers;
+
+public static class MoveHandler
+{
+    public static void OnReqMove(GameSession s, byte[] body)
+    {
+        if (s.Player is not { } player) return;  // 미입장 무시
+        var req = MemoryPackSerializer.Deserialize<ReqMove>(body)!;
+
+        int dx = 0, dy = 0;
+        switch (req.Dir)
+        {
+            case 0: dy = -World.CellSize; break;
+            case 1: dx =  World.CellSize; break;
+            case 2: dy =  World.CellSize; break;
+            case 3: dx = -World.CellSize; break;
+            default: return;  // 잘못된 방향 — 즉시 거절
+        }
+
+        // 맵 경계 강제 (서버 권위 — 클라이언트가 보낸 좌표를 믿지 않는다)
+        var nx = Math.Clamp(player.X + dx, 0, World.Default.Width  - World.CellSize);
+        var ny = Math.Clamp(player.Y + dy, 0, World.Default.Height - World.CellSize);
+
+        player.X = nx; player.Y = ny;
+
+        s.SendPacket(PacketId.ResMove, new ResMove
+        {
+            CharacterId = player.CharacterId,
+            X = nx, Y = ny,
+        });
+    }
+}

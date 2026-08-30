@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "MMORPG2D.ApiServer": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:55274;http://localhost:55275"
+    }
+  }
+}
