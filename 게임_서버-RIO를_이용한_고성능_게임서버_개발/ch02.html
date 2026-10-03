@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2장. Windows Registered I/O(RIO) 소개 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch01.html">← 1장</a>
+    <a href="index.html">목차</a>
+    <a href="ch03.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 02</div>
+  <h1>Windows Registered I/O(RIO) 소개</h1>
+  <p class="hero-lead">
+    1장에서 만든 "스레드 하나당 연결 하나" 에코 서버는 접속자가 늘어날수록 스레드 비용이 그대로 늘어난다는
+    한계가 있었습니다. RIO는 이 한계를 정면으로 겨냥한 API입니다. 버퍼를 미리 등록해두고, 요청과 완료를
+    큐 단위로 몰아서 처리함으로써 커널 모드 전환과 메모리 복사를 최소화합니다. 이번 장에서는 RIO가
+    "왜" 빠른지, 그리고 RIO를 구성하는 핵심 개념들(함수 테이블, 버퍼 등록, 완료 큐, 요청 큐)을 실제
+    API 시그니처와 함께 살펴봅니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>RIO가 등장한 배경과, 전통적인 소켓 프로그래밍 대비 무엇이 다른지</li>
+      <li>제로 카피 전송이 실제로 무엇을 생략하는 것인지 메모리 경로로 이해하기</li>
+      <li>RIO 아키텍처의 4대 구성요소: 함수 테이블 · 버퍼 등록 · 완료 큐 · 요청 큐</li>
+      <li>RIORegisterBuffer, RIOCreateRequestQueue, RIOSend/RIOReceive, RIODequeueCompletion 등
+        주요 RIO 함수의 시그니처와 파라미터</li>
+      <li>이 함수들을 조합해 RIO 서버의 골격을 이루는 예제 코드 읽는 법</li>
+      <li>버퍼 크기, 큐 크기, 통지 전략 등 RIO 성능 튜닝의 기본 체크리스트</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="rio-concept">
+  <h2><span class="num">2.1</span> RIO의 개념과 장점</h2>
+  <p class="sec-sub">RIO는 "커널이 대신 복사해주는 한 단계"를 없애버리는 API입니다.</p>
+
+  <h3>RIO란?</h3>
+  <p>
+    Windows Registered I/O(RIO)는 <strong>Windows 8 / Windows Server 2012부터 도입된 고성능 네트워크
+    프로그래밍 API</strong>입니다. 이름 그대로 "등록(Registered)"이 핵심입니다 — 데이터를 주고받을
+    메모리 버퍼를 미리 커널에 등록해두고, 이후의 모든 송수신 요청은 그 등록된 버퍼를 가리키는 가벼운
+    참조만 주고받습니다. 대규모 동시 접속과 대량의 소규모 패킷을 처리해야 하는 온라인 게임 서버는
+    RIO가 상정하는 워크로드와 정확히 일치합니다.
+  </p>
+
+  <h3>RIO의 주요 장점</h3>
+
+  <h4>1) 메모리 복사 최소화 (제로 카피에 가까운 처리)</h4>
+  <p>
+    전통적인 소켓 I/O에서 데이터는 애플리케이션이 만든 버퍼에서 시작해, 커널이 관리하는 시스템 버퍼를
+    거쳐야 네트워크 카드로 나갑니다. 이 "거쳐가는" 단계마다 CPU가 메모리를 한 번씩 복사(memcpy)해야
+    합니다. RIO는 애플리케이션 버퍼를 커널에 미리 등록해둠으로써, 커널이 그 버퍼의 위치를 이미 알고
+    있는 상태로 만듭니다. 그 결과 중간 복사 단계 없이 등록된 버퍼에서 곧바로 네트워크 카드로 전달할
+    수 있습니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 300" role="img" aria-labelledby="zc-title zc-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="zc-title">전통적인 소켓 I/O와 RIO의 메모리 복사 경로 비교</title>
+      <desc id="zc-desc">전통적인 방식은 애플리케이션 버퍼에서 시스템 버퍼를 거쳐 네트워크 카드로 두 번 복사되지만, RIO 방식은 등록된 애플리케이션 버퍼에서 네트워크 카드로 중간 복사 없이 직접 전달됨을 보여주는 비교 다이어그램.</desc>
+      <defs>
+        <marker id="zc-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+        <marker id="zc-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#c8862e"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <text x="40" y="28" fill="#877d70" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.18em">전통적인 방식</text>
+      <rect x="40" y="48" width="140" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="110" y="77" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">애플리케이션 버퍼</text>
+
+      <rect x="244" y="48" width="140" height="48" rx="6" fill="rgba(32,29,26,0.05)" stroke="#6b6259" stroke-width="1"/>
+      <text x="314" y="70" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">시스템 버퍼</text>
+      <text x="314" y="84" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">(커널)</text>
+
+      <rect x="448" y="48" width="140" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="518" y="77" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">네트워크 카드</text>
+
+      <line x1="180" y1="72" x2="240" y2="72" stroke="#6b6259" stroke-width="1.2" marker-end="url(#zc-arrow)"/>
+      <rect x="182" y="52" width="56" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="210" y="61" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">복사①</text>
+
+      <line x1="384" y1="72" x2="444" y2="72" stroke="#6b6259" stroke-width="1.2" marker-end="url(#zc-arrow)"/>
+      <rect x="386" y="52" width="56" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="414" y="61" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">복사②</text>
+
+      <text x="40" y="144" fill="#8f5f1e" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.18em">RIO 방식</text>
+      <rect x="40" y="164" width="140" height="48" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="110" y="184" text-anchor="middle" fill="#8f5f1e" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">애플리케이션 버퍼</text>
+      <text x="110" y="198" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">(등록됨, RIORegisterBuffer)</text>
+
+      <rect x="448" y="164" width="140" height="48" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="518" y="193" text-anchor="middle" fill="#8f5f1e" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">네트워크 카드</text>
+
+      <line x1="180" y1="188" x2="444" y2="188" stroke="#c8862e" stroke-width="1.4" marker-end="url(#zc-arrow-accent)"/>
+      <rect x="256" y="168" width="96" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="304" y="177" text-anchor="middle" fill="#8f5f1e" font-size="8" font-weight="600" font-family="'Geist Mono',monospace">직접 전송</text>
+
+      <text x="340" y="240" text-anchor="middle" fill="#6b6259" font-size="10" font-family="'Pretendard Variable',sans-serif">중간 복사 단계 제거 → CPU 사용량·지연 시간 감소</text>
+
+      <line x1="40" y1="260" x2="640" y2="260" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="278" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <line x1="160" y1="275" x2="184" y2="275" stroke="#6b6259" stroke-width="1.2" marker-end="url(#zc-arrow)"/>
+      <text x="192" y="278" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">메모리 복사 발생</text>
+      <line x1="380" y1="275" x2="404" y2="275" stroke="#c8862e" stroke-width="1.4" marker-end="url(#zc-arrow-accent)"/>
+      <text x="412" y="278" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">등록된 버퍼에서 직접 전송</text>
+    </svg>
+    <p class="dcap">그림 2-1. 전통적인 방식은 두 번 복사하지만, RIO는 등록해둔 버퍼에서 곧바로 네트워크 카드로 전달합니다</p>
+  </div>
+
+  <p class="code-label">코드 조각 1 — 버퍼를 한 번만 등록하고 계속 재사용</p>
+  <pre><code>// RIO에서는 버퍼를 미리 등록하고 재사용합니다
+RIO_BUFFERID bufferId = _rioFunctions-&gt;RIORegisterBuffer(buffer, bufferSize);
+// 이후 수천 번의 송수신 요청에서 이 bufferId를 계속 재사용 — 매번 새로 등록하지 않습니다</code></pre>
+
+  <h4>2) 향상된 버퍼 관리</h4>
+  <p>
+    버퍼를 미리 등록해두면, 매 요청마다 반복되던 메모리 할당·해제(그리고 그에 따르는 커널의 페이지
+    잠금/검증 작업)를 생략할 수 있습니다.
+  </p>
+
+  <h4>3) 커널 모드 전환 감소</h4>
+  <p>
+    시스템 호출(system call) 한 번은 유저 모드에서 커널 모드로 전환했다가 다시 돌아오는 비용을
+    수반합니다. 연결 하나당 <code>recv()</code>를 계속 개별 호출하는 대신, RIO는 여러 요청을 큐에
+    모아두고 완료도 배치로 가져오기 때문에 이 전환 횟수 자체가 줄어듭니다.
+  </p>
+
+  <h4>4) 효율적인 멀티코어 활용</h4>
+  <p>
+    RIO 완료 큐는 특정 CPU 코어와의 친화성(affinity)을 설정할 수 있어, 네트워크 처리를 특정 코어에
+    집중시켜 CPU 캐시 적중률을 높이는 구성이 가능합니다. (구체적인 설정 방법은 5장에서 다룹니다.)
+  </p>
+
+  <h4>5) 대량의 소규모 패킷 처리 최적화</h4>
+  <p>
+    온라인 게임은 "이동 좌표 갱신"처럼 수십~수백 바이트짜리 패킷을 초당 수만 건씩 주고받는 경우가
+    많습니다. RIO는 바로 이런 워크로드 — 크지만 드문 전송이 아니라, 작지만 매우 빈번한 전송 — 에
+    최적화되어 있습니다.
+  </p>
+
+  <h3>게임 서버에서의 RIO 활용 시나리오</h3>
+  <table class="cmp">
+    <thead><tr><th>시나리오</th><th>RIO 적용 효과</th></tr></thead>
+    <tbody>
+      <tr><td>MMORPG 서버</td><td>수천 명의 동시 접속자를 적은 스레드로 효율적으로 처리</td></tr>
+      <tr><td>액션 게임</td><td>커널 전환·복사 감소로 빠른 응답 시간, 낮은 지연 시간 확보</td></tr>
+      <tr><td>배틀로얄 게임</td><td>순간적으로 몰리는 대규모 동시 연결과 빈번한 위치 패킷 처리</td></tr>
+      <tr><td>소셜/카드 게임</td><td>적은 서버 리소스로 훨씬 많은 동시 플레이어 지원</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="sec" id="rio-vs-traditional">
+  <h2><span class="num">2.2</span> 전통적인 소켓 프로그래밍과의 차이점</h2>
+  <p class="sec-sub">"무엇을 어떻게 부르는가"가 아니라 "언제, 얼마나 자주 커널과 대화하는가"가 근본적으로 다릅니다.</p>
+
+  <h3>1) 버퍼 관리 방식</h3>
+  <p>
+    1장의 블로킹 에코 서버는 매 <code>recv()</code>마다 스택 버퍼를 그대로 재사용했지만, 힙 버퍼를
+    쓰는 흔한 패턴이라면 아래처럼 요청마다 할당·해제를 반복합니다. RIO는 처음부터 이 패턴을 금지하듯,
+    버퍼를 "등록"이라는 별도 절차로 커널에 딱 한 번 알려주고 프로그램이 끝날 때까지 재사용합니다.
+  </p>
+
+  <p class="code-label">전통적인 방식 — 매 요청마다 할당/해제</p>
+  <pre><code>char* buffer = new char[1024];
+recv(socket, buffer, 1024, 0);
+// 데이터 처리
+delete[] buffer;   // 다음 요청이 오면 또 new/delete를 반복</code></pre>
+
+  <p class="code-label">RIO 방식 — 한 번 등록하고 계속 재사용</p>
+  <pre><code>char* buffer = new char[1024];
+RIO_BUFFERID bufferId = _rioFunctions-&gt;RIORegisterBuffer(buffer, 1024);
+
+// 여러 요청에서 같은 bufferId를 계속 재사용
+RIO_BUF rioBuf;
+rioBuf.BufferId = bufferId;
+rioBuf.Offset = 0;
+rioBuf.Length = 1024;
+_rioFunctions-&gt;RIOReceive(requestQueue, &amp;rioBuf, 1, 0, nullptr);
+
+// 프로그램 종료 시점에만 해제
+_rioFunctions-&gt;RIODeregisterBuffer(bufferId);
+delete[] buffer;</code></pre>
+
+  <h3>2) 결과 통지 방식</h3>
+  <p>
+    RIO 이전까지 Windows 고성능 서버의 표준이었던 <strong>IOCP(완료 포트)</strong>는
+    <code>GetQueuedCompletionStatus()</code>를 호출해 완료된 I/O를 <strong>한 번에 하나씩</strong>
+    꺼내옵니다. RIO는 <code>RIODequeueCompletion()</code>으로 <strong>완료된 여러 결과를 배열에
+    한 번에 담아</strong> 꺼내온다는 점이 다릅니다 — 시스템 호출 한 번으로 열 건, 백 건의 완료를
+    동시에 처리할 수 있다는 뜻입니다.
+  </p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API (비교)</span><span class="api-name">GetQueuedCompletionStatus()</span></div>
+    <div class="api-body">
+      <p>IOCP 방식에서 완료 포트로부터 완료된 I/O 작업을 하나 꺼내옵니다. 완료된 작업이 없으면
+      호출한 스레드가 블로킹되어 대기합니다 (RIO는 5장에서 다룰 별도의 통지 방식을 사용합니다).</p>
+    </div>
+  </div>
+
+  <p class="code-label">전통적인 IOCP 방식 — 한 번에 하나씩</p>
+  <pre><code>DWORD bytesTransferred;
+OVERLAPPED* pOverlapped;
+ULONG_PTR completionKey;
+
+GetQueuedCompletionStatus(
+    hCompletionPort,
+    &amp;bytesTransferred,
+    &amp;completionKey,
+    &amp;pOverlapped,
+    INFINITE
+);</code></pre>
+
+  <p class="code-label">RIO 방식 — 여러 건을 배열로 한 번에</p>
+  <pre><code>RIORESULT results[10];
+ULONG numResults = _rioFunctions-&gt;RIODequeueCompletion(
+    completionQueue,
+    results,
+    10
+);
+
+for (ULONG i = 0; i &lt; numResults; i++) {
+    DWORD bytesTransferred = results[i].BytesTransferred;
+    ULONG_PTR completionKey = results[i].RequestContext;
+    // 결과 구조체에서 직접 정보를 추출해 데이터 처리
+}</code></pre>
+
+  <h3>3) 시스템 성능 차이</h3>
+  <table class="cmp">
+    <thead><tr><th>측면</th><th>전통적인 방식</th><th>RIO</th></tr></thead>
+    <tbody>
+      <tr><td>CPU 사용량</td><td>높음 (매 요청마다 복사·전환)</td><td class="hl">낮음</td></tr>
+      <tr><td>메모리 사용</td><td>비효율적 (반복 할당/해제)</td><td class="hl">효율적 (버퍼 재사용)</td></tr>
+      <tr><td>지연 시간</td><td>상대적으로 높음</td><td class="hl">낮음</td></tr>
+      <tr><td>처리량</td><td>제한적</td><td class="hl">높음</td></tr>
+      <tr><td>확장성 (동시 연결)</td><td>제한적</td><td class="hl">우수함</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <p class="ctitle">그렇다고 IOCP가 나쁜 선택은 아닙니다</p>
+    <p>
+      IOCP는 여전히 안정적이고 검증된 선택지이며, 대부분의 상용 서버 프레임워크가 IOCP 기반입니다.
+      RIO는 "초당 처리해야 할 소규모 패킷 수"가 매우 크고, 커널 전환 자체가 병목이 되는 극단적인
+      고성능 시나리오에서 그 차이가 의미 있게 드러납니다. 일반적인 규모의 서버라면 IOCP만으로도
+      충분한 경우가 많으니, RIO 도입은 실제 병목을 측정한 뒤 판단하는 것이 안전합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="rio-architecture">
+  <h2><span class="num">2.3</span> RIO 아키텍처 및 구성 요소</h2>
+  <p class="sec-sub">RIO를 쓰려면 매번 다섯 가지 준비물이 필요합니다 — 함수 테이블, 등록된 버퍼, 완료 큐, 요청 큐, 그리고 그 조각을 가리키는 RIO_BUF.</p>
+
+  <h3>1) RIO 함수 테이블 — RIO API의 진입점</h3>
+  <p>
+    RIO 함수들은 <code>winsock2.h</code>가 기본 제공하는 일반 함수가 아니라, <strong>소켓 확장 함수</strong>입니다.
+    그래서 <code>RIORegisterBuffer()</code>를 코드에서 바로 호출할 수 없고, 소켓마다
+    <code>WSAIoctl()</code>로 "이 소켓에서 쓸 RIO 함수들의 포인터 모음(함수 테이블)"을 먼저 받아와야
+    합니다. 1장 마지막에 만든 <code>RioSocket::create()</code>에서 이미 이 과정을 한 번 다뤘는데,
+    이번 장에서 그 이유를 정확히 짚고 넘어갑니다 — <strong>RIO는 Winsock 확장 기능이라 함수 주소가
+    빌드 시점이 아니라 런타임에 결정되기 때문</strong>입니다.
+  </p>
+
+  <pre><code>GUID functionTableId = WSAID_MULTIPLE_RIO;
+RIO_EXTENSION_FUNCTION_TABLE rioFunctions;
+DWORD dwBytes = 0;
+
+int result = WSAIoctl(
+    socket,
+    SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+    &amp;functionTableId, sizeof(GUID),
+    &amp;rioFunctions, sizeof(rioFunctions),
+    &amp;dwBytes, NULL, NULL
+);</code></pre>
+
+  <h3>2) 버퍼 등록 (Buffer Registration)</h3>
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIORegisterBuffer()</span></div>
+    <div class="api-body">
+      <p>지정한 메모리 영역을 RIO 시스템에 등록하고, 이후 모든 요청에서 이 메모리를 가리키는 데 쓸
+      식별자 <code>RIO_BUFFERID</code>를 반환합니다.</p>
+      <pre><code>RIO_BUFFERID RIORegisterBuffer(
+    _In_ PCHAR DataBuffer,
+    _In_ DWORD DataLength
+);</code></pre>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>DataBuffer</code></td><td>등록할 메모리의 시작 주소.</td></tr>
+        <tr><td><code>DataLength</code></td><td>등록할 메모리의 전체 크기(바이트).</td></tr>
+      </table>
+      <p style="margin-top:10px;">실패하면 <code>RIO_INVALID_BUFFERID</code>를 반환합니다.</p>
+    </div>
+  </div>
+  <pre><code>char* dataBuffer = new char[65536]; // 64KB 버퍼
+RIO_BUFFERID bufferId = rioFunctions.RIORegisterBuffer(dataBuffer, 65536);</code></pre>
+
+  <h3>3) 완료 큐 (Completion Queue)</h3>
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIOCreateCompletionQueue()</span></div>
+    <div class="api-body">
+      <p>네트워크 작업이 끝났을 때 그 결과를 쌓아두는 큐를 만듭니다. IOCP의 완료 포트와 비슷한
+      역할이지만, 결과를 배열 단위로 한꺼번에 꺼낼 수 있도록 설계되어 있습니다.</p>
+      <pre><code>RIO_CQ RIOCreateCompletionQueue(
+    _In_ DWORD QueueSize,
+    _In_opt_ PRIO_NOTIFICATION_COMPLETION NotificationCompletion
+);</code></pre>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>QueueSize</code></td><td>큐에 동시에 쌓일 수 있는 최대 완료 항목 수.</td></tr>
+        <tr><td><code>NotificationCompletion</code></td><td>완료 발생을 어떻게 통지받을지(이벤트 기반 등) 지정. 5장에서 자세히 다룹니다.</td></tr>
+      </table>
+    </div>
+  </div>
+  <pre><code>RIO_NOTIFICATION_COMPLETION completionType = {};
+completionType.Type = RIO_EVENT_COMPLETION;
+completionType.Event.EventHandle = CreateEvent(NULL, FALSE, FALSE, NULL);
+completionType.Event.NotifyReset = TRUE;
+
+RIO_CQ completionQueue = rioFunctions.RIOCreateCompletionQueue(1000, &amp;completionType);</code></pre>
+
+  <h3>4) 요청 큐 (Request Queue)</h3>
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIOCreateRequestQueue()</span></div>
+    <div class="api-body">
+      <p>소켓 하나마다 만드는 큐로, 그 소켓의 송신·수신 요청이 실제로 쌓이는 곳입니다. 생성할 때
+      이 요청들의 완료를 어느 완료 큐로 보낼지도 함께 지정합니다.</p>
+      <pre><code>RIO_RQ RIOCreateRequestQueue(
+    _In_ SOCKET Socket,
+    _In_ ULONG MaxOutstandingReceive,
+    _In_ ULONG MaxReceiveDataBuffers,
+    _In_ ULONG MaxOutstandingSend,
+    _In_ ULONG MaxSendDataBuffers,
+    _In_ RIO_CQ ReceiveCQ,
+    _In_ RIO_CQ SendCQ,
+    _In_ PVOID SocketContext
+);</code></pre>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>Socket</code></td><td>이 요청 큐가 속할 소켓.</td></tr>
+        <tr><td><code>MaxOutstandingReceive</code></td><td>동시에 미완료 상태로 걸어둘 수 있는 최대 수신 요청 수.</td></tr>
+        <tr><td><code>MaxReceiveDataBuffers</code></td><td>수신 요청 하나에 사용할 버퍼 조각 수(보통 1).</td></tr>
+        <tr><td><code>MaxOutstandingSend</code> / <code>MaxSendDataBuffers</code></td><td>송신에 대한 동일한 의미의 값.</td></tr>
+        <tr><td><code>ReceiveCQ</code> / <code>SendCQ</code></td><td>수신·송신 완료를 각각 어느 완료 큐로 보낼지. 같은 큐를 지정해도 됩니다.</td></tr>
+        <tr><td><code>SocketContext</code></td><td>이 큐를 식별하기 위해 애플리케이션이 자유롭게 붙이는 값(포인터/정수 캐스팅). 완료 결과에서 그대로 돌려받습니다.</td></tr>
+      </table>
+    </div>
+  </div>
+  <pre><code>RIO_RQ requestQueue = rioFunctions.RIOCreateRequestQueue(
+    socket, 100, 1, 100, 1, completionQueue, completionQueue, NULL
+);</code></pre>
+
+  <h3>5) RIO_BUF 구조체 — 등록된 버퍼의 "일부분"을 가리키는 뷰</h3>
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">STRUCT</span><span class="api-name">RIO_BUF</span></div>
+    <div class="api-body">
+      <p>등록된 버퍼 전체가 아니라, 그중 어느 구간을 이번 요청에 사용할지 지정하는 작은 구조체입니다.
+      1장의 <code>std::span</code>과 비슷한 역할을 하지만, RIO 요청 함수에 직접 전달하는 전용 타입입니다.</p>
+      <table>
+        <tr><th>필드</th><th>의미</th></tr>
+        <tr><td><code>BufferId</code></td><td><code>RIORegisterBuffer()</code>가 반환한 등록된 버퍼의 식별자.</td></tr>
+        <tr><td><code>Offset</code></td><td>등록된 버퍼의 시작으로부터 이 요청이 사용할 구간의 오프셋(바이트).</td></tr>
+        <tr><td><code>Length</code></td><td>이 요청이 사용할 구간의 길이(바이트).</td></tr>
+      </table>
+    </div>
+  </div>
+  <pre><code>RIO_BUF sendBuffer = {};
+sendBuffer.BufferId = bufferId;
+sendBuffer.Offset = 0;
+sendBuffer.Length = dataSize;</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">비유로 정리하면</p>
+    <p>
+      <strong>등록된 버퍼(RIO_BUFFERID)</strong>는 "미리 빌려둔 큰 창고"이고, <strong>RIO_BUF</strong>는
+      "그 창고의 몇 번째 칸, 어디부터 어디까지를 쓰겠다"는 전표입니다. <strong>요청 큐</strong>는 그
+      전표를 들고 줄을 서는 창구이고, <strong>완료 큐</strong>는 처리가 끝난 전표들이 쌓이는 수거함입니다.
+    </p>
+  </div>
+
+  <h3>RIO 작업 흐름도</h3>
+  <p>
+    이 다섯 구성요소가 실제로 어떤 순서로 상호작용하는지 정리하면 다음과 같습니다. 앞의 넷(함수 테이블
+    조회~요청 큐 생성)은 연결을 맺을 때 한 번만 준비하면 되고, 이후 <strong>"요청 → 완료 통지"</strong>
+    사이클만 연결이 끊길 때까지 계속 반복됩니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 320" role="img" aria-labelledby="flow-title flow-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="flow-title">RIO 작업 흐름도</title>
+      <desc id="flow-desc">애플리케이션이 RIO 시스템에 버퍼·완료 큐·요청 큐를 준비시킨 뒤, 송수신 요청과 완료 통지를 반복하며 네트워크와 데이터를 주고받는 과정을 보여주는 시퀀스 다이어그램.</desc>
+      <defs>
+        <marker id="flow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+        <marker id="flow-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#c8862e"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="24" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="94" y="47" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">애플리케이션</text>
+
+      <rect x="270" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="340" y="47" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">RIO 시스템</text>
+
+      <rect x="516" y="20" width="140" height="44" rx="6" fill="rgba(32,29,26,0.03)" stroke="rgba(32,29,26,0.30)" stroke-width="1"/>
+      <text x="586" y="47" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">네트워크 카드</text>
+
+      <line x1="94" y1="64" x2="94" y2="284" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="340" y1="64" x2="340" y2="284" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="586" y1="64" x2="586" y2="284" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <rect x="336" y="88" width="8" height="176" fill="rgba(32,29,26,0.06)" stroke="#6b6259" stroke-width="0.8"/>
+
+      <!-- 1: setup -->
+      <line x1="94" y1="100" x2="332" y2="100" stroke="#6b6259" stroke-width="1.2" marker-end="url(#flow-arrow)"/>
+      <rect x="120" y="80" width="220" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="230" y="89" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">① 버퍼·완료 큐·요청 큐 준비</text>
+
+      <line x1="340" y1="140" x2="102" y2="140" stroke="#6b6259" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#flow-arrow)"/>
+      <rect x="150" y="120" width="140" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="220" y="129" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">핸들·ID 반환</text>
+
+      <!-- 2: request -->
+      <line x1="94" y1="184" x2="332" y2="184" stroke="#c8862e" stroke-width="1.4" marker-end="url(#flow-arrow-accent)"/>
+      <rect x="130" y="164" width="200" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="230" y="173" text-anchor="middle" fill="#8f5f1e" font-size="8" font-weight="600" font-family="'Geist Mono',monospace">② RIOSend / RIOReceive</text>
+
+      <line x1="348" y1="212" x2="582" y2="212" stroke="#6b6259" stroke-width="1.2" marker-end="url(#flow-arrow)"/>
+      <rect x="410" y="192" width="120" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="470" y="201" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">비동기 송수신</text>
+
+      <line x1="586" y1="240" x2="348" y2="240" stroke="#6b6259" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#flow-arrow)"/>
+      <rect x="410" y="220" width="120" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="470" y="229" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">데이터 도착</text>
+
+      <!-- 3: completion -->
+      <line x1="340" y1="264" x2="102" y2="264" stroke="#c8862e" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#flow-arrow-accent)"/>
+      <rect x="110" y="244" width="220" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="220" y="253" text-anchor="middle" fill="#8f5f1e" font-size="8" font-weight="600" font-family="'Geist Mono',monospace">③ RIODequeueCompletion</text>
+
+      <line x1="40" y1="296" x2="640" y2="296" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="314" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <line x1="160" y1="311" x2="184" y2="311" stroke="#6b6259" stroke-width="1.2" marker-end="url(#flow-arrow)"/>
+      <text x="192" y="314" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">1회성 준비 단계</text>
+      <line x1="380" y1="311" x2="404" y2="311" stroke="#c8862e" stroke-width="1.4" marker-end="url(#flow-arrow-accent)"/>
+      <text x="412" y="314" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">연결이 끊길 때까지 반복</text>
+    </svg>
+    <p class="dcap">그림 2-2. ①준비는 연결마다 한 번, ②③ 요청·완료 사이클은 데이터가 오갈 때마다 계속 반복됩니다</p>
+  </div>
+</section>
+
+<section class="sec" id="rio-api">
+  <h2><span class="num">2.4</span> RIO 함수 및 API 개요</h2>
+  <p class="sec-sub">앞서 다룬 4가지 준비물 외에, 실제로 데이터를 주고받고 정리할 때 쓰는 나머지 함수들입니다.</p>
+
+  <h3>데이터 송수신 함수</h3>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIOReceive()</span></div>
+    <div class="api-body">
+      <p>요청 큐에 비동기 수신 요청을 등록합니다. 함수는 즉시 반환되며, 실제 데이터가 도착하면
+      결과가 완료 큐에 쌓입니다 — 1장에서 본 논블로킹 <code>recv()</code>의 사상을 그대로 이어받되,
+      폴링 대신 완료 큐라는 통지 메커니즘을 씁니다.</p>
+      <pre><code>BOOLEAN RIOReceive(
+    _In_ RIO_RQ SocketQueue,
+    _In_reads_(DataBufferCount) PRIO_BUF pData,
+    _In_ ULONG DataBufferCount,
+    _In_ DWORD Flags,
+    _In_ PVOID RequestContext
+);</code></pre>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>SocketQueue</code></td><td>수신을 요청할 요청 큐.</td></tr>
+        <tr><td><code>pData</code></td><td>수신에 사용할 <code>RIO_BUF</code> 배열.</td></tr>
+        <tr><td><code>DataBufferCount</code></td><td><code>pData</code> 배열의 원소 수(보통 1).</td></tr>
+        <tr><td><code>Flags</code></td><td>추가 옵션 플래그(보통 0).</td></tr>
+        <tr><td><code>RequestContext</code></td><td>이 요청을 식별할 값 — 완료 결과에서 <code>RequestContext</code>로 그대로 돌려받습니다. "어느 클라이언트의 요청이었는지" 추적하는 용도로 씁니다.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIOSend()</span></div>
+    <div class="api-body">
+      <p>요청 큐에 비동기 송신 요청을 등록합니다. 매개변수 구성은 <code>RIOReceive()</code>와 동일합니다.</p>
+      <pre><code>BOOLEAN RIOSend(
+    _In_ RIO_RQ SocketQueue,
+    _In_reads_(DataBufferCount) PRIO_BUF pData,
+    _In_ ULONG DataBufferCount,
+    _In_ DWORD Flags,
+    _In_ PVOID RequestContext
+);</code></pre>
+    </div>
+  </div>
+
+  <h3>결과 처리 함수</h3>
+  <p>
+    앞서 2.2절에서 <code>RIODequeueCompletion()</code>으로 완료 결과를 배열로 꺼내오는 것까지
+    살펴봤습니다. 다만 <code>RIODequeueCompletion()</code>은 "지금 큐에 있는 걸 꺼내오기"만 할 뿐,
+    "완료되면 나에게 알려달라"는 통지 자체는 별도로 요청해야 합니다 — 그 역할이
+    <code>RIONotify()</code>입니다.
+  </p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIONotify()</span></div>
+    <div class="api-body">
+      <p>완료 큐에 새 완료가 생기면 (생성 시 지정한 이벤트 핸들 등을 통해) 통지해달라고 요청합니다.
+      이 호출은 "한 번 통지받을 권리"를 예약하는 것이라, 통지를 받은 뒤에는 다음 완료를 받기 위해
+      다시 호출해야 합니다 — 자세한 사용 패턴은 5장에서 다룹니다.</p>
+      <pre><code>int RIONotify(
+    _In_ RIO_CQ CQ
+);</code></pre>
+    </div>
+  </div>
+
+  <h3>정리 함수</h3>
+  <p>연결이 끊기거나 서버를 종료할 때 등록했던 리소스를 되돌려주는 함수들입니다.</p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIODeregisterBuffer()</span></div>
+    <div class="api-body">
+      <pre><code>void RIODeregisterBuffer(
+    _In_ RIO_BUFFERID BufferId
+);</code></pre>
+      <p>등록된 버퍼를 해제합니다. 이 버퍼를 참조하는 요청이 더 이상 없을 때 호출해야 합니다.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIOCloseCompletionQueue()</span></div>
+    <div class="api-body">
+      <pre><code>void RIOCloseCompletionQueue(
+    _In_ RIO_CQ CQ
+);</code></pre>
+      <p>완료 큐를 닫습니다. 이 큐를 참조하는 요청 큐가 모두 정리된 뒤에 호출합니다.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">RIOResizeCompletionQueue() / RIOResizeRequestQueue()</span></div>
+    <div class="api-body">
+      <pre><code>BOOL RIOResizeCompletionQueue(
+    _In_ RIO_CQ CQ,
+    _In_ DWORD QueueSize
+);
+
+BOOL RIOResizeRequestQueue(
+    _In_ RIO_RQ RQ,
+    _In_ DWORD MaxOutstandingReceive,
+    _In_ DWORD MaxOutstandingSend
+);</code></pre>
+      <p>운영 중에 트래픽이 예상보다 몰려 큐 용량을 늘려야 할 때, 큐를 새로 만들지 않고 크기만
+      조정할 수 있습니다. 접속자 수가 급증하는 이벤트 기간 등에 유용합니다.</p>
+    </div>
+  </div>
+
+  <h3>RIO 사용 예제: 기본 구조</h3>
+  <p>
+    지금까지 소개한 함수들을 모두 조합하면 RIO 서버의 골격이 만들어집니다. 아래 <code>RioServer</code>
+    클래스를 통해 "어느 함수가 어느 시점에 호출되는지" 전체 그림을 따라가 봅니다. (버퍼 하나로
+    여러 연결을 관리하는 이 단순화된 구조의 한계와, 3~4장에서 이를 어떻게 개선하는지는 다음 장부터
+    본격적으로 다룹니다.)
+  </p>
+
+  <h4>1) 초기화 — Winsock, 소켓, 함수 테이블까지는 1장과 동일</h4>
+  <pre><code>std::expected&lt;void, std::string&gt; initialize(uint16_t port, int maxConnections = 1000) {
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+
+    _listenSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP,
+                                nullptr, 0, WSA_FLAG_REGISTERED_IO);
+
+    GUID functionTableId = WSAID_MULTIPLE_RIO;
+    DWORD dwBytes = 0;
+    WSAIoctl(_listenSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+             &amp;functionTableId, sizeof(GUID), &amp;_rioFunctions, sizeof(_rioFunctions),
+             &amp;dwBytes, NULL, NULL);
+    // (실전 코드에서는 각 단계마다 실패를 검사해 std::unexpected로 반환해야 합니다 — 아래 전체 코드 참고)
+    // ...
+</code></pre>
+
+  <h4>2) 초기화 — 이번 장에서 새로 추가되는 부분: 버퍼 등록과 완료 큐</h4>
+  <pre><code>    // 모든 연결이 공유해서 쓸 하나의 큰 버퍼를 미리 등록
+    _dataBuffer = new char[_bufferSize * maxConnections];
+    _bufferId = _rioFunctions.RIORegisterBuffer(_dataBuffer, _bufferSize * maxConnections);
+
+    // 완료 큐 생성 — 이벤트 핸들은 별도 멤버에도 저장해 둡니다 (아래 실전 팁 참고)
+    RIO_NOTIFICATION_COMPLETION completionType{};
+    completionType.Type = RIO_EVENT_COMPLETION;
+    completionType.Event.EventHandle = CreateEvent(NULL, FALSE, FALSE, NULL);
+    completionType.Event.NotifyReset = TRUE;
+    _completionEvent = completionType.Event.EventHandle;
+
+    _completionQueue = _rioFunctions.RIOCreateCompletionQueue(maxConnections * 2, &amp;completionType);
+    return {};
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">실전 팁 — 완료 큐 핸들(RIO_CQ)을 다시 캐스팅해서 쓰지 않기</p>
+    <p>
+      <code>RIO_CQ</code>는 내부 구조를 알 수 없는 <strong>불투명(opaque) 핸들</strong>입니다.
+      완료 큐를 만들 때 넘긴 <code>RIO_NOTIFICATION_COMPLETION</code> 구조체의 내용을 나중에 다시
+      쓰고 싶다면, <code>RIO_CQ</code> 값을 그 구조체 포인터로 캐스팅해서 되돌리려 하지 말고
+      (구조가 다르므로 미정의 동작입니다), 위 코드처럼 <strong>이벤트 핸들 자체를 별도 멤버 변수에
+      따로 저장</strong>해 두는 편이 안전합니다.
+    </p>
+  </div>
+
+  <h4>3) start() — 두 개의 작업 스레드 시작</h4>
+  <p>
+    1장에서 배운 <code>std::jthread</code>를 그대로 활용해, 연결을 받는 스레드와 I/O 완료를
+    처리하는 스레드를 분리합니다. 이렇게 역할을 나누면 한쪽이 바쁘더라도 다른 쪽이 영향을 받지 않습니다.
+  </p>
+  <pre><code>void start() {
+    _acceptThread = std::jthread([this](std::stop_token stoken) { acceptLoop(stoken); });
+    _ioThread = std::jthread([this](std::stop_token stoken) { ioProcessingLoop(stoken); });
+}</code></pre>
+
+  <h4>4) acceptLoop() — 연결마다 요청 큐를 만들고 첫 수신을 예약</h4>
+  <p>
+    1장의 <code>accept()</code> 루프와 겉모습은 비슷하지만, 클라이언트 소켓을 얻은 뒤 곧바로
+    <strong>스레드를 만들지 않고</strong> 대신 그 소켓 전용 <code>RIOCreateRequestQueue()</code>를
+    호출한다는 점이 핵심적인 차이입니다. 이후 이 클라이언트의 모든 송수신은 스레드가 아니라 이 요청
+    큐를 통해 5)의 I/O 스레드가 처리합니다.
+  </p>
+  <pre><code>void acceptLoop(std::stop_token stoken) {
+    while (!stoken.stop_requested()) {
+        sockaddr_in clientAddr{};
+        int clientAddrSize = sizeof(clientAddr);
+        SOCKET clientSocket = accept(_listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;clientAddrSize);
+        if (clientSocket == INVALID_SOCKET) continue;
+
+        RIO_RQ requestQueue = _rioFunctions.RIOCreateRequestQueue(
+            clientSocket, 100, 1, 100, 1,
+            _completionQueue, _completionQueue,
+            reinterpret_cast&lt;PVOID&gt;(static_cast&lt;uintptr_t&gt;(_requestQueues.size()))
+        );
+
+        _requestQueues.push_back(requestQueue);
+        postReceive(requestQueue, _requestQueues.size() - 1);   // 첫 수신 요청을 미리 걸어둠
+    }
+}</code></pre>
+
+  <h4>5) ioProcessingLoop() — 완료를 기다렸다가 배치로 처리</h4>
+  <p>
+    RIO의 핵심이 드러나는 부분입니다. <code>RIONotify()</code>로 통지를 예약하고,
+    <code>WaitForSingleObject()</code>로 완료 이벤트를 기다린 뒤, <code>RIODequeueCompletion()</code>으로
+    한 번에 최대 10건까지 결과를 꺼내와 반복 처리합니다.
+  </p>
+  <pre><code>void ioProcessingLoop(std::stop_token stoken) {
+    RIORESULT results[10];
+
+    while (!stoken.stop_requested()) {
+        if (_rioFunctions.RIONotify(_completionQueue) != ERROR_SUCCESS) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+
+        DWORD waitResult = WaitForSingleObject(_completionEvent, 100);
+        if (waitResult == WAIT_TIMEOUT) continue;
+
+        ULONG numResults = _rioFunctions.RIODequeueCompletion(_completionQueue, results, 10);
+        if (numResults == 0 || numResults == RIO_CORRUPT_CQ) continue;
+
+        for (ULONG i = 0; i &lt; numResults; i++) {
+            ULONG_PTR index = results[i].RequestContext;
+            DWORD bytesTransferred = results[i].BytesTransferred;
+
+            if (bytesTransferred == 0) {           // recv() == 0과 같은 의미: 상대가 연결 종료
+                std::cout &lt;&lt; std::format("클라이언트 {} 연결 종료\n", index);
+                continue;
+            }
+
+            postSend(_requestQueues[index], index, bytesTransferred);   // 받은 그대로 에코
+            postReceive(_requestQueues[index], index);                  // 다음 수신을 또 예약
+        }
+    }
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">bytesTransferred == 0의 의미, 여기서도 동일합니다</p>
+    <p>
+      1장에서 강조했던 "<code>recv()</code>가 0을 반환하면 정상 종료"라는 규칙이 RIO 완료 결과에서도
+      그대로 적용됩니다. <code>RIORESULT::BytesTransferred</code>가 0이면 상대가 연결을 정상적으로
+      끊었다는 뜻입니다.
+    </p>
+  </div>
+
+  <h4>6) postReceive() / postSend() — RIO_BUF를 채워 요청 걸기</h4>
+  <p>
+    앞서 등록해둔 하나의 큰 <code>_dataBuffer</code>를 클라이언트 인덱스별로 <code>_bufferSize</code>만큼
+    나눠 쓰는 방식입니다. <code>Offset</code> 계산이 곧 "이 클라이언트의 몫은 버퍼의 몇 번째 구간인가"를
+    가리킵니다.
+  </p>
+  <pre><code>void postReceive(RIO_RQ requestQueue, ULONG_PTR index) {
+    RIO_BUF receiveBuffer{};
+    receiveBuffer.BufferId = _bufferId;
+    receiveBuffer.Offset = index * _bufferSize;
+    receiveBuffer.Length = _bufferSize;
+    _rioFunctions.RIOReceive(requestQueue, &amp;receiveBuffer, 1, 0, reinterpret_cast&lt;PVOID&gt;(index));
+}
+
+void postSend(RIO_RQ requestQueue, ULONG_PTR index, DWORD dataSize) {
+    RIO_BUF sendBuffer{};
+    sendBuffer.BufferId = _bufferId;
+    sendBuffer.Offset = index * _bufferSize;   // 방금 수신한 것과 같은 구간을 그대로 재전송(에코)
+    sendBuffer.Length = dataSize;
+    _rioFunctions.RIOSend(requestQueue, &amp;sendBuffer, 1, 0, reinterpret_cast&lt;PVOID&gt;(index));
+}</code></pre>
+
+  <h3>전체 코드 — RioServer 클래스</h3>
+  <pre><code>#include &lt;winsock2.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;iostream&gt;
+#include &lt;format&gt;
+#include &lt;thread&gt;
+#include &lt;vector&gt;
+#include &lt;span&gt;
+#include &lt;expected&gt;
+#include &lt;string&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+
+class RioServer {
+public:
+    RioServer() = default;
+    ~RioServer() { cleanup(); }
+
+    std::expected&lt;void, std::string&gt; initialize(uint16_t port, int maxConnections = 1000) {
+        WSADATA wsaData;
+        int result = WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+        if (result != 0) {
+            return std::unexpected(std::format("WSAStartup 실패: {}", result));
+        }
+
+        _listenSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+        if (_listenSocket == INVALID_SOCKET) {
+            return std::unexpected(std::format("소켓 생성 실패: {}", WSAGetLastError()));
+        }
+
+        GUID functionTableId = WSAID_MULTIPLE_RIO;
+        DWORD dwBytes = 0;
+        result = WSAIoctl(_listenSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+                           &amp;functionTableId, sizeof(GUID), &amp;_rioFunctions, sizeof(_rioFunctions),
+                           &amp;dwBytes, NULL, NULL);
+        if (result == SOCKET_ERROR) {
+            return std::unexpected(std::format("RIO 함수 테이블 초기화 실패: {}", WSAGetLastError()));
+        }
+
+        sockaddr_in serverAddr{};
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_port = htons(port);
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+        result = bind(_listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr));
+        if (result == SOCKET_ERROR) {
+            return std::unexpected(std::format("바인드 실패: {}", WSAGetLastError()));
+        }
+
+        result = listen(_listenSocket, SOMAXCONN);
+        if (result == SOCKET_ERROR) {
+            return std::unexpected(std::format("리슨 실패: {}", WSAGetLastError()));
+        }
+
+        _dataBuffer = new char[_bufferSize * maxConnections];
+        _bufferId = _rioFunctions.RIORegisterBuffer(_dataBuffer, _bufferSize * maxConnections);
+        if (_bufferId == RIO_INVALID_BUFFERID) {
+            return std::unexpected(std::format("버퍼 등록 실패: {}", WSAGetLastError()));
+        }
+
+        RIO_NOTIFICATION_COMPLETION completionType{};
+        completionType.Type = RIO_EVENT_COMPLETION;
+        completionType.Event.EventHandle = CreateEvent(NULL, FALSE, FALSE, NULL);
+        completionType.Event.NotifyReset = TRUE;
+        _completionEvent = completionType.Event.EventHandle;
+
+        _completionQueue = _rioFunctions.RIOCreateCompletionQueue(maxConnections * 2, &amp;completionType);
+        if (_completionQueue == RIO_INVALID_CQ) {
+            return std::unexpected(std::format("완료 큐 생성 실패: {}", WSAGetLastError()));
+        }
+
+        std::cout &lt;&lt; std::format("RIO 서버가 초기화되었습니다. 포트: {}\n", port);
+        return {};
+    }
+
+    void start() {
+        _acceptThread = std::jthread([this](std::stop_token stoken) { acceptLoop(stoken); });
+        _ioThread = std::jthread([this](std::stop_token stoken) { ioProcessingLoop(stoken); });
+    }
+
+private:
+    SOCKET _listenSocket = INVALID_SOCKET;
+    RIO_EXTENSION_FUNCTION_TABLE _rioFunctions{};
+    char* _dataBuffer = nullptr;
+    RIO_BUFFERID _bufferId = RIO_INVALID_BUFFERID;
+    RIO_CQ _completionQueue = RIO_INVALID_CQ;
+    HANDLE _completionEvent = NULL;
+    const DWORD _bufferSize = 4096;
+    std::jthread _acceptThread;
+    std::jthread _ioThread;
+    std::vector&lt;RIO_RQ&gt; _requestQueues;
+
+    void acceptLoop(std::stop_token stoken) {
+        while (!stoken.stop_requested()) {
+            sockaddr_in clientAddr{};
+            int clientAddrSize = sizeof(clientAddr);
+
+            SOCKET clientSocket = accept(_listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;clientAddrSize);
+            if (clientSocket == INVALID_SOCKET) {
+                if (!stoken.stop_requested()) {
+                    std::cerr &lt;&lt; std::format("연결 수락 실패: {}\n", WSAGetLastError());
+                }
+                continue;
+            }
+
+            char clientIP[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &amp;clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+            std::cout &lt;&lt; std::format("새 클라이언트 연결: {}\n", clientIP);
+
+            RIO_RQ requestQueue = _rioFunctions.RIOCreateRequestQueue(
+                clientSocket, 100, 1, 100, 1,
+                _completionQueue, _completionQueue,
+                reinterpret_cast&lt;PVOID&gt;(static_cast&lt;uintptr_t&gt;(_requestQueues.size()))
+            );
+
+            if (requestQueue == RIO_INVALID_RQ) {
+                std::cerr &lt;&lt; std::format("요청 큐 생성 실패: {}\n", WSAGetLastError());
+                closesocket(clientSocket);
+                continue;
+            }
+
+            _requestQueues.push_back(requestQueue);
+            postReceive(requestQueue, _requestQueues.size() - 1);
+        }
+    }
+
+    void ioProcessingLoop(std::stop_token stoken) {
+        RIORESULT results[10];
+
+        while (!stoken.stop_requested()) {
+            int notifyResult = _rioFunctions.RIONotify(_completionQueue);
+            if (notifyResult != ERROR_SUCCESS) {
+                std::cerr &lt;&lt; std::format("RIONotify 실패: {}\n", notifyResult);
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+
+            DWORD waitResult = WaitForSingleObject(_completionEvent, 100);
+            if (waitResult == WAIT_TIMEOUT) {
+                continue;
+            } else if (waitResult != WAIT_OBJECT_0) {
+                std::cerr &lt;&lt; std::format("이벤트 대기 실패: {}\n", GetLastError());
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+
+            ULONG numResults = _rioFunctions.RIODequeueCompletion(_completionQueue, results, 10);
+            if (numResults == 0) {
+                continue;
+            } else if (numResults == RIO_CORRUPT_CQ) {
+                std::cerr &lt;&lt; "완료 큐가 손상되었습니다.\n";
+                break;
+            }
+
+            for (ULONG i = 0; i &lt; numResults; i++) {
+                ULONG_PTR index = results[i].RequestContext;
+                DWORD bytesTransferred = results[i].BytesTransferred;
+
+                if (bytesTransferred == 0) {
+                    std::cout &lt;&lt; std::format("클라이언트 {} 연결 종료\n", index);
+                    continue;
+                }
+
+                postSend(_requestQueues[index], index, bytesTransferred);
+                postReceive(_requestQueues[index], index);
+            }
+        }
+    }
+
+    void postReceive(RIO_RQ requestQueue, ULONG_PTR index) {
+        RIO_BUF receiveBuffer{};
+        receiveBuffer.BufferId = _bufferId;
+        receiveBuffer.Offset = index * _bufferSize;
+        receiveBuffer.Length = _bufferSize;
+
+        BOOL receiveResult = _rioFunctions.RIOReceive(requestQueue, &amp;receiveBuffer, 1, 0, reinterpret_cast&lt;PVOID&gt;(index));
+        if (!receiveResult) {
+            std::cerr &lt;&lt; std::format("RIOReceive 실패: {}\n", WSAGetLastError());
+        }
+    }
+
+    void postSend(RIO_RQ requestQueue, ULONG_PTR index, DWORD dataSize) {
+        RIO_BUF sendBuffer{};
+        sendBuffer.BufferId = _bufferId;
+        sendBuffer.Offset = index * _bufferSize;
+        sendBuffer.Length = dataSize;
+
+        BOOL sendResult = _rioFunctions.RIOSend(requestQueue, &amp;sendBuffer, 1, 0, reinterpret_cast&lt;PVOID&gt;(index));
+        if (!sendResult) {
+            std::cerr &lt;&lt; std::format("RIOSend 실패: {}\n", WSAGetLastError());
+        }
+    }
+
+    void cleanup() {
+        if (_bufferId != RIO_INVALID_BUFFERID) {
+            _rioFunctions.RIODeregisterBuffer(_bufferId);
+        }
+        if (_completionQueue != RIO_INVALID_CQ) {
+            _rioFunctions.RIOCloseCompletionQueue(_completionQueue);
+        }
+        if (_listenSocket != INVALID_SOCKET) {
+            closesocket(_listenSocket);
+        }
+        delete[] _dataBuffer;
+        WSACleanup();
+    }
+};
+
+int main() {
+    RioServer server;
+
+    auto result = server.initialize(27015);
+    if (!result) {
+        std::cerr &lt;&lt; "서버 초기화 실패: " &lt;&lt; result.error() &lt;&lt; std::endl;
+        return 1;
+    }
+
+    server.start();
+
+    std::cout &lt;&lt; "서버가 실행 중입니다. 종료하려면 Enter 키를 누르세요...\n";
+    std::cin.get();
+
+    return 0;
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">이 구조의 한계</p>
+    <p>
+      이 예제는 개념을 보여주기 위해 단순화되어 있습니다. 모든 연결이 하나의 거대한 버퍼를 인덱스로
+      나눠 쓰기 때문에 <code>maxConnections</code>를 넘어서는 연결을 받을 수 없고, 클라이언트가
+      끊어져도 그 슬롯을 재활용하는 로직이 없습니다. 3장에서는 이런 실전 이슈를 하나씩 보완하며 훨씬
+      견고한 구조로 다시 만듭니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="rio-perf">
+  <h2><span class="num">2.5</span> RIO 성능 최적화 고려사항</h2>
+  <p class="sec-sub">API를 안다고 빠른 서버가 저절로 나오지는 않습니다 — 아래 다섯 가지는 4~5장에서 실제로 손을 대며 다시 등장할 주제들입니다.</p>
+
+  <ol>
+    <li>
+      <strong>버퍼 크기 최적화</strong> — 게임의 평균 패킷 크기에 맞춰 버퍼를 잡아야 합니다.
+      너무 크면(예: 모든 연결에 64KB씩) 동시접속자 수만큼 메모리가 낭비되고, 너무 작으면 큰 패킷이
+      여러 조각으로 나뉘어 처리 로직이 복잡해집니다. (4장에서 자세히 다룹니다.)
+    </li>
+    <li>
+      <strong>큐 크기 최적화</strong> — 완료 큐·요청 큐 크기를 예상 동시접속자 수와 트래픽 패턴에
+      맞게 설정해야 합니다. 너무 작으면 큐가 꽉 차 요청이 실패하는 병목이 생기고, 너무 크면 그만큼
+      커널 메모리를 낭비합니다. (5장에서 자세히 다룹니다.)
+    </li>
+    <li>
+      <strong>완료 통지 전략</strong> — 이 장의 예제처럼 이벤트 기반으로 대기할 수도 있고, 짧은
+      간격으로 계속 <code>RIODequeueCompletion()</code>을 찔러보는 폴링 방식을 쓸 수도 있습니다.
+      지연 시간이 극도로 중요하다면(예: 격투 게임의 입력 동기화) 폴링이 유리할 수 있지만 CPU를
+      더 많이 씁니다. 트래픽 패턴에 따라 선택해야 합니다.
+    </li>
+    <li>
+      <strong>메모리 정렬</strong> — 등록할 버퍼를 캐시 라인 크기(대부분의 x86-64 CPU에서 64바이트)에
+      맞춰 정렬하면, 여러 스레드가 인접한 메모리에 접근할 때 발생하는 캐시 라인 튀기기(false sharing)를
+      줄일 수 있습니다.
+    </li>
+    <li>
+      <strong>CPU 친화성 설정</strong> — I/O 처리 스레드를 특정 CPU 코어에 고정(affinity)하면, 그
+      스레드가 다른 코어로 옮겨 다니며 캐시를 다시 채우는 비용을 줄일 수 있습니다. 코어 수가 많은
+      서버에서 워커 스레드를 코어별로 분산 배치하는 전략과 함께 자주 사용됩니다.
+    </li>
+  </ol>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">2.6</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>RIO의 핵심 아이디어</strong> — 버퍼를 미리 등록해 중간 복사를 없애고(제로 카피에 가까운 처리),
+        요청·완료를 큐 단위 배치로 처리해 커널 모드 전환 횟수를 줄이는 것이 RIO 성능의 근본 원리입니다.</li>
+      <li><strong>전통적인 방식과의 차이</strong> — 버퍼는 요청마다 할당하지 않고 한 번만 등록하며,
+        완료 결과는 <code>GetQueuedCompletionStatus()</code>처럼 하나씩이 아니라
+        <code>RIODequeueCompletion()</code>으로 여러 건을 한 번에 꺼내옵니다.</li>
+      <li><strong>4대 구성요소</strong> — 함수 테이블(진입점), 등록된 버퍼(RIO_BUFFERID), 완료 큐(RIO_CQ),
+        요청 큐(RIO_RQ)가 서로 맞물려 동작하며, RIO_BUF는 등록된 버퍼의 특정 구간을 가리키는 뷰입니다.</li>
+      <li><strong>핵심 API</strong> — 초기화(RIORegisterBuffer, RIOCreateCompletionQueue,
+        RIOCreateRequestQueue), 송수신(RIOReceive, RIOSend), 결과 처리(RIONotify, RIODequeueCompletion),
+        정리(RIODeregisterBuffer, RIOCloseCompletionQueue) 함수의 역할과 시그니처를 살펴봤습니다.</li>
+      <li><strong>성능 튜닝 체크리스트</strong> — 버퍼 크기, 큐 크기, 통지 전략, 메모리 정렬, CPU
+        친화성 — 이 다섯 가지는 앞으로의 장에서 하나씩 실제로 구현하며 다시 다룹니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>3장. RIO 환경 설정 및 기본 구현</h4>
+    <p>
+      이번 장의 <code>RioServer</code> 예제가 가진 한계(고정된 최대 연결 수, 슬롯 재활용 불가 등)를
+      실제로 해결하며, 프로젝트에 필요한 헤더·라이브러리 설정부터 RIO 함수 포인터를 안전하게
+      초기화하는 방법, 그리고 견고한 서버 클래스 골격까지 단계별로 직접 구현합니다.
+      <a href="ch03.html">3장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch01.html">← 1장. 네트워크 프로그래밍 기초</a>
+  <span class="kicker-num">2 / 9</span>
+  <a href="ch03.html">3장. RIO 환경 설정 및 기본 구현 →</a>
+</footer>
+
+</div>
+</body>
+</html>

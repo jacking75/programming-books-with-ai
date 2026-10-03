@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6장. 모던 C++을 활용한 RIO 래퍼 클래스 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch05.html">← 5장</a>
+    <a href="index.html">목차</a>
+    <a href="ch07.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 06</div>
+  <h1>모던 C++을 활용한 RIO 래퍼 클래스</h1>
+  <p class="hero-lead">
+    1장부터 5장까지 우리는 <code>RIORegisterBuffer</code>·<code>RIOCreateRequestQueue</code> 같은
+    RIO 함수를 거의 매 장 손으로 다시 호출하고, 실패를 검사하고, RAII로 정리했습니다. 이번 장에서는
+    그 반복을 한 번에 정리해 <strong>재사용 가능한 라이브러리</strong>로 묶습니다. C++20의
+    concept, C++23의 <code>std::expected</code>·<code>std::print</code>를 적극 활용해, RIO의 날것
+    그대로의 C API를 안전하고 읽기 쉬운 C++ 인터페이스로 감쌉니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>이동 전용(move-only) RAII 클래스로 소켓·버퍼·큐를 감싸는 표준 패턴</li>
+      <li>C++20 concept으로 "바이트로 다룰 수 있는 타입"을 컴파일 타임에 제약하는 법</li>
+      <li>임의의 구조체를 담는 템플릿 버퍼와, 버퍼를 재사용하는 풀의 함정</li>
+      <li><code>std::span</code> 기반 버퍼 뷰로 복사 없이 버퍼 일부를 슬라이싱하기</li>
+      <li><code>std::expected</code>·<code>std::print</code>로 오류 처리와 로깅을 통일하기</li>
+      <li><code>std::atomic</code> 멤버가 있는 클래스는 왜 이동조차 안 되는지, 그리고 이를
+        올바르게 설계하는 법</li>
+      <li>지금까지 만든 모든 조각을 묶은 통합 <code>RIOManager</code>와 에코 서버 완성</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="raii">
+  <h2><span class="num">6.1</span> RAII 패턴을 이용한 리소스 관리</h2>
+  <p class="sec-sub">소켓, 버퍼 ID, 완료 큐, 요청 큐 — RIO가 다루는 자원 넷을 각각 하나의 클래스로 감쌉니다.</p>
+
+  <h3>WSA 초기화 및 소켓 관리</h3>
+  <p>
+    <code>WSAManager</code>는 1장부터 반복했던 <code>WSAStartup</code>/<code>WSACleanup</code> 쌍을
+    생성자·소멸자로 옮긴 가장 단순한 RAII 클래스입니다. 생성 뒤에는 반드시
+    <code>IsInitialized()</code>를 확인해야 하며, 성공한 인스턴스가 살아있는 동안에만 Winsock 정리 시점을
+    한 곳에 묶을 수 있습니다.
+  </p>
+  <pre><code>#include &lt;winsock2.h&gt;  // windows.h보다 먼저 포함해야 한다
+#include &lt;windows.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;array&gt;
+#include &lt;chrono&gt;
+#include &lt;cstddef&gt;
+#include &lt;cstdint&gt;
+#include &lt;cstring&gt;
+#include &lt;expected&gt;
+#include &lt;functional&gt;
+#include &lt;iostream&gt;
+#include &lt;limits&gt;
+#include &lt;string&gt;
+#include &lt;string_view&gt;
+#include &lt;type_traits&gt;
+#include &lt;utility&gt;
+#include &lt;format&gt;
+#include &lt;print&gt;
+#include &lt;memory&gt;
+#include &lt;span&gt;
+#include &lt;vector&gt;
+#include &lt;mutex&gt;
+#include &lt;thread&gt;
+#include &lt;atomic&gt;
+#include &lt;stdexcept&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "mswsock.lib")
+
+class WSAManager {
+private:
+    bool initialized_ = false;
+
+public:
+    WSAManager() {
+        WSADATA wsa_data{};
+        int result = WSAStartup(MAKEWORD(2, 2), &amp;wsa_data);
+        if (result == 0) {
+            initialized_ = true;
+            std::print("WSA 초기화 성공\n");
+        } else {
+            std::print("WSA 초기화 실패: {}\n", result);
+        }
+    }
+
+    ~WSAManager() {
+        if (initialized_) {
+            WSACleanup();
+            std::print("WSA 정리 완료\n");
+        }
+    }
+
+    bool IsInitialized() const { return initialized_; }
+
+    WSAManager(const WSAManager&amp;) = delete;
+    WSAManager&amp; operator=(const WSAManager&amp;) = delete;
+    WSAManager(WSAManager&amp;&amp;) = delete;
+    WSAManager&amp; operator=(WSAManager&amp;&amp;) = delete;
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">std::print — 간결한 형식 기반 출력</p>
+    <p>
+      이 장부터는 <code>std::cout &lt;&lt; std::format(...)</code> 대신 C++23의
+      <code>std::print()</code>를 씁니다. <code>std::format</code>으로 문자열을 만든 뒤 스트림에
+      흘려보내는 두 단계를 한 번에 처리합니다. 컴파일 타임 형식 문자열을 사용할 때는 인자와 형식의
+      호환성도 검사합니다. 다만 iostream보다 항상 빠르다는 성능 보장은 없습니다. 이 예제는
+      <code>&lt;print&gt;</code>를 지원하는 C++23 표준 라이브러리를 전제로 합니다.
+    </p>
+  </div>
+
+  <p>
+    <code>Socket</code>은 소켓 핸들 하나를 감싸는 클래스입니다. 여기서부터 이 장 전체에 반복되는
+    패턴이 등장합니다 — <strong>복사는 금지하고, 이동만 허용</strong>합니다.
+  </p>
+  <pre><code>class Socket {
+private:
+    SOCKET socket_ = INVALID_SOCKET;
+
+public:
+    Socket() = default;
+
+    explicit Socket(SOCKET socket) : socket_(socket) {
+        std::print("소켓 생성됨: {}\n", static_cast&lt;UINT_PTR&gt;(socket_));
+    }
+
+    ~Socket() { Close(); }
+
+    // 이동은 허용 — 소유권만 옮겨감
+    Socket(Socket&amp;&amp; other) noexcept : socket_(other.socket_) {
+        other.socket_ = INVALID_SOCKET;
+    }
+    Socket&amp; operator=(Socket&amp;&amp; other) noexcept {
+        if (this != &amp;other) {
+            Close();
+            socket_ = other.socket_;
+            other.socket_ = INVALID_SOCKET;
+        }
+        return *this;
+    }
+
+    // 복사는 금지 — 같은 핸들을 두 객체가 "소유"하면 이중 해제(double close) 위험
+    Socket(const Socket&amp;) = delete;
+    Socket&amp; operator=(const Socket&amp;) = delete;
+
+    std::expected&lt;void, std::string&gt; Create() {
+        Close();
+        socket_ = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);
+        if (socket_ == INVALID_SOCKET) {
+            return std::unexpected(std::format("RIO 소켓 생성 실패: {}", WSAGetLastError()));
+        }
+        std::print("RIO 소켓 생성 성공: {}\n", static_cast&lt;UINT_PTR&gt;(socket_));
+        return {};
+    }
+
+    void Close() {
+        if (socket_ != INVALID_SOCKET) {
+            // RIO 세션에서는 이 전에 새 I/O를 막고 모든 완료를 회수해야 한다.
+            closesocket(socket_);
+            std::print("소켓 닫힘: {}\n", static_cast&lt;UINT_PTR&gt;(socket_));
+            socket_ = INVALID_SOCKET;
+        }
+    }
+
+    SOCKET Get() const { return socket_; }
+    bool IsValid() const { return socket_ != INVALID_SOCKET; }
+
+    std::expected&lt;void, std::string&gt; BindAndListen(uint16_t port, int backlog = SOMAXCONN) {
+        if (!IsValid()) return std::unexpected("유효하지 않은 소켓");
+
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_port = htons(port);
+
+        if (bind(socket_, reinterpret_cast&lt;sockaddr*&gt;(&amp;addr), sizeof(addr)) == SOCKET_ERROR) {
+            return std::unexpected(std::format("소켓 바인딩 실패: {}", WSAGetLastError()));
+        }
+        if (listen(socket_, backlog) == SOCKET_ERROR) {
+            return std::unexpected(std::format("리스닝 실패: {}", WSAGetLastError()));
+        }
+        std::print("소켓 바인드 및 리스닝 시작 - 포트: {}\n", port);
+        return {};
+    }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">왜 "복사 금지 + 이동 허용"이 RIO 리소스의 표준 패턴인가</p>
+    <p>
+      <code>SOCKET</code>, <code>RIO_BUFFERID</code>, <code>RIO_CQ</code>, <code>RIO_RQ</code>는
+      모두 운영체제가 관리하는 <strong>단 하나의 자원을 가리키는 핸들</strong>입니다. 이 핸들을
+      복사하면 두 C++ 객체가 "내가 이 자원의 주인이다"라고 동시에 착각하게 되고, 둘 다 소멸자에서
+      해제를 시도하면 이미 닫힌 자원을 또 닫는 이중 해제가 발생합니다. 반면 이동은 "소유권을
+      한쪽에서 다른 쪽으로 넘기고, 원래 쪽은 빈 상태(<code>INVALID_SOCKET</code> 등)로 만든다"는
+      뜻이라 안전합니다. 이후 나올 <code>RIOBuffer</code>·<code>RIOCompletionQueue</code>·
+      <code>RIORequestQueue</code>도 전부 이 패턴을 따르므로, 한 번 이해해두면 나머지는 같은 구조가
+      반복될 뿐입니다.
+    </p>
+  </div>
+
+  <h3>RIO 함수 테이블 관리</h3>
+  <p>
+    <code>RIOFunctionTable</code>은 2~5장에서 반복했던 <code>WSAIoctl()</code> 호출을 감쌉니다.
+    이번에는 <strong>RIO 지원 소켓</strong>을 넘겨 함수 테이블을 채웁니다. 함수 테이블은 프로세스에서
+    재사용할 수 있지만, RIO 요청 큐는 뒤에서 보듯 반드시 실제 통신에 사용할 등록 I/O 소켓마다 만듭니다.
+  </p>
+  <pre><code>class RIOFunctionTable {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE functions_{};
+    bool initialized_ = false;
+
+public:
+    RIOFunctionTable() = default;
+
+    std::expected&lt;void, std::string&gt; Initialize(SOCKET socket) {
+        if (initialized_) return {};
+
+        GUID function_table_id = WSAID_MULTIPLE_RIO;
+        DWORD bytes = 0;
+
+        int result = WSAIoctl(
+            socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+            &amp;function_table_id, sizeof(function_table_id),
+            &amp;functions_, sizeof(functions_),
+            &amp;bytes, NULL, NULL
+        );
+
+        if (result == SOCKET_ERROR) {
+            return std::unexpected(std::format("RIO 함수 테이블 초기화 실패: {}", WSAGetLastError()));
+        }
+
+        initialized_ = true;
+        std::print("RIO 함수 테이블 초기화 성공\n");
+        return {};
+    }
+
+    const RIO_EXTENSION_FUNCTION_TABLE&amp; Get() const { return functions_; }
+    bool IsInitialized() const { return initialized_; }
+};</code></pre>
+
+  <h3>RIO 버퍼 관리</h3>
+  <p>
+    <code>RIOBuffer</code>는 4장의 <code>RIOBufferManager</code>와 같은 역할(등록·해제 RAII)을
+    하지만, 이동 생성자·이동 대입 연산자까지 갖춰 <code>std::vector</code>나 다른 클래스의 멤버로
+    자유롭게 담을 수 있도록 다듬었습니다. 또한 <code>CreateRIOBuf()</code>를 오버로드해 "전체
+    버퍼"와 "부분 구간"을 모두 간단히 <code>RIO_BUF</code>로 변환할 수 있게 했습니다.
+  </p>
+  <pre><code>class RIOBuffer {
+private:
+    std::vector&lt;char&gt; buffer_;
+    RIO_BUFFERID buffer_id_ = RIO_INVALID_BUFFERID;
+    const RIO_EXTENSION_FUNCTION_TABLE* functions_ = nullptr;
+
+public:
+    RIOBuffer() = default;
+
+    RIOBuffer(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions, size_t size)
+        : functions_(&amp;functions) {
+        if (size == 0 || size &gt; (std::numeric_limits&lt;DWORD&gt;::max)()) {
+            throw std::invalid_argument("RIO 버퍼 크기는 1 이상 DWORD 범위여야 합니다");
+        }
+        buffer_.resize(size);
+        std::print("RIO 버퍼 생성: {}바이트\n", size);
+    }
+
+    ~RIOBuffer() { Deregister(); }
+
+    RIOBuffer(RIOBuffer&amp;&amp; other) noexcept
+        : buffer_(std::move(other.buffer_)), buffer_id_(other.buffer_id_), functions_(other.functions_) {
+        other.buffer_id_ = RIO_INVALID_BUFFERID;
+        other.functions_ = nullptr;
+    }
+    RIOBuffer&amp; operator=(RIOBuffer&amp;&amp; other) noexcept {
+        if (this != &amp;other) {
+            Deregister();
+            buffer_ = std::move(other.buffer_);
+            buffer_id_ = other.buffer_id_;
+            functions_ = other.functions_;
+            other.buffer_id_ = RIO_INVALID_BUFFERID;
+            other.functions_ = nullptr;
+        }
+        return *this;
+    }
+
+    RIOBuffer(const RIOBuffer&amp;) = delete;
+    RIOBuffer&amp; operator=(const RIOBuffer&amp;) = delete;
+
+    std::expected&lt;void, std::string&gt; Register() {
+        if (buffer_id_ != RIO_INVALID_BUFFERID) return {};   // 이미 등록됨
+        if (!functions_ || buffer_.empty()) {
+            return std::unexpected("RIO 함수 테이블이 초기화되지 않았거나 버퍼가 비어있습니다");
+        }
+
+        buffer_id_ = functions_-&gt;RIORegisterBuffer(buffer_.data(), static_cast&lt;DWORD&gt;(buffer_.size()));
+        if (buffer_id_ == RIO_INVALID_BUFFERID) {
+            return std::unexpected(std::format("RIO 버퍼 등록 실패: {}", WSAGetLastError()));
+        }
+        std::print("RIO 버퍼 등록 성공: {} 바이트\n", buffer_.size());
+        return {};
+    }
+
+    void Deregister() {
+        if (buffer_id_ != RIO_INVALID_BUFFERID &amp;&amp; functions_) {
+            functions_-&gt;RIODeregisterBuffer(buffer_id_);   // 4장에서 놓쳤던 해제를 여기서는 항상 수행
+            std::print("RIO 버퍼 등록 해제\n");
+            buffer_id_ = RIO_INVALID_BUFFERID;
+        }
+    }
+
+    RIO_BUFFERID GetId() const { return buffer_id_; }
+    char* GetData() { return buffer_.data(); }
+    const char* GetData() const { return buffer_.data(); }
+    size_t GetSize() const { return buffer_.size(); }
+
+    RIO_BUF CreateRIOBuf() const {
+        if (buffer_id_ == RIO_INVALID_BUFFERID) {
+            throw std::logic_error("등록되지 않은 RIO 버퍼입니다");
+        }
+        RIO_BUF rio_buf{};
+        rio_buf.BufferId = buffer_id_;
+        rio_buf.Offset = 0;
+        rio_buf.Length = static_cast&lt;ULONG&gt;(buffer_.size());
+        return rio_buf;
+    }
+
+    RIO_BUF CreateRIOBuf(size_t offset, size_t length) const {
+        if (buffer_id_ == RIO_INVALID_BUFFERID) {
+            throw std::logic_error("등록되지 않은 RIO 버퍼입니다");
+        }
+        if (offset &gt; buffer_.size() || length &gt; buffer_.size() - offset) {
+            throw std::out_of_range("RIO 버퍼 범위 초과");
+        }
+        RIO_BUF rio_buf{};
+        rio_buf.BufferId = buffer_id_;
+        rio_buf.Offset = static_cast&lt;ULONG&gt;(offset);
+        rio_buf.Length = static_cast&lt;ULONG&gt;(length);
+        return rio_buf;
+    }
+};</code></pre>
+
+  <h3>RIO 완료 큐와 요청 큐</h3>
+  <p>
+    <code>RIOCompletionQueue</code>·<code>RIORequestQueue</code>는 5장의 매니저 클래스들을 이동
+    전용 RAII 형태로 다듬은 버전입니다. <code>RIORequestQueue</code>는 이제 <code>Send()</code>/
+    <code>Receive()</code> 메서드까지 내장해, 호출하는 쪽이 <code>RIO_BUF</code>를 직접 채우지
+    않고도 바로 송수신을 요청할 수 있습니다.
+  </p>
+  <pre><code>class RIOCompletionQueue {
+private:
+    RIO_CQ completion_queue_ = RIO_INVALID_CQ;
+    const RIO_EXTENSION_FUNCTION_TABLE* functions_ = nullptr;
+    HANDLE notification_event_ = NULL;
+    bool using_event_notification_ = false;
+
+public:
+    RIOCompletionQueue() = default;
+
+    RIOCompletionQueue(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions,
+                      DWORD queue_size, bool use_event_notification = false)
+        : functions_(&amp;functions), using_event_notification_(use_event_notification) {
+        auto result = Create(queue_size);
+        if (!result) throw std::runtime_error(result.error());
+    }
+
+    ~RIOCompletionQueue() { Close(); }
+
+    RIOCompletionQueue(RIOCompletionQueue&amp;&amp; other) noexcept
+        : completion_queue_(other.completion_queue_), functions_(other.functions_),
+          notification_event_(other.notification_event_),
+          using_event_notification_(other.using_event_notification_) {
+        other.completion_queue_ = RIO_INVALID_CQ;
+        other.functions_ = nullptr;
+        other.notification_event_ = NULL;
+    }
+    RIOCompletionQueue&amp; operator=(RIOCompletionQueue&amp;&amp; other) noexcept {
+        if (this != &amp;other) {
+            Close();
+            completion_queue_ = other.completion_queue_;
+            functions_ = other.functions_;
+            notification_event_ = other.notification_event_;
+            using_event_notification_ = other.using_event_notification_;
+            other.completion_queue_ = RIO_INVALID_CQ;
+            other.functions_ = nullptr;
+            other.notification_event_ = NULL;
+        }
+        return *this;
+    }
+
+    RIOCompletionQueue(const RIOCompletionQueue&amp;) = delete;
+    RIOCompletionQueue&amp; operator=(const RIOCompletionQueue&amp;) = delete;
+
+    std::expected&lt;void, std::string&gt; Create(DWORD queue_size) {
+        if (!functions_) return std::unexpected("RIO 함수 테이블이 초기화되지 않았습니다");
+        if (queue_size == 0 || queue_size &gt; RIO_MAX_CQ_SIZE) {
+            return std::unexpected("완료 큐 크기가 RIO 허용 범위를 벗어났습니다");
+        }
+        Close();
+
+        if (using_event_notification_) {
+            notification_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
+            if (notification_event_ == NULL) {
+                return std::unexpected(std::format("이벤트 생성 실패: {}", GetLastError()));
+            }
+            RIO_NOTIFICATION_COMPLETION notification{};
+            notification.Type = RIO_EVENT_COMPLETION;
+            notification.Event.EventHandle = notification_event_;
+            notification.Event.NotifyReset = TRUE;
+            completion_queue_ = functions_-&gt;RIOCreateCompletionQueue(queue_size, &amp;notification);
+        } else {
+            completion_queue_ = functions_-&gt;RIOCreateCompletionQueue(queue_size, NULL);
+        }
+
+        if (completion_queue_ == RIO_INVALID_CQ) {
+            if (notification_event_ != NULL) {
+                CloseHandle(notification_event_);
+                notification_event_ = NULL;
+            }
+            return std::unexpected(std::format("RIO 완료 큐 생성 실패: {}", WSAGetLastError()));
+        }
+
+        std::print("RIO 완료 큐 생성 성공 - 크기: {}, 알림 방식: {}\n",
+                   queue_size, using_event_notification_ ? "이벤트" : "폴링");
+        return {};
+    }
+
+    void Close() {
+        if (completion_queue_ != RIO_INVALID_CQ &amp;&amp; functions_) {
+            // 이 호출 전에 이 CQ를 쓰는 요청 큐를 멈추고 모든 완료를 회수해야 한다.
+            functions_-&gt;RIOCloseCompletionQueue(completion_queue_);
+            std::print("RIO 완료 큐 닫힘\n");
+            completion_queue_ = RIO_INVALID_CQ;
+        }
+        if (notification_event_ != NULL) {
+            CloseHandle(notification_event_);
+            notification_event_ = NULL;
+        }
+    }
+
+    bool RequestNotification() {
+        if (!using_event_notification_ || completion_queue_ == RIO_INVALID_CQ || !functions_) return false;
+        return functions_-&gt;RIONotify(completion_queue_) == ERROR_SUCCESS;
+    }
+
+    std::expected&lt;ULONG, std::string&gt; DequeueCompletions(RIORESULT* results, ULONG result_count) {
+        if (completion_queue_ == RIO_INVALID_CQ || !functions_) {
+            return std::unexpected("완료 큐가 유효하지 않거나 함수 테이블이 초기화되지 않았습니다");
+        }
+        ULONG num_results = functions_-&gt;RIODequeueCompletion(completion_queue_, results, result_count);
+        if (num_results == RIO_CORRUPT_CQ) {
+            return std::unexpected(std::format("완료 큐 손상됨: {}", WSAGetLastError()));
+        }
+        return num_results;
+    }
+
+    RIO_CQ Get() const { return completion_queue_; }
+    HANDLE GetNotificationEvent() const { return notification_event_; }
+    bool IsUsingEventNotification() const { return using_event_notification_; }
+    bool IsValid() const { return completion_queue_ != RIO_INVALID_CQ; }
+};
+
+class RIORequestQueue {
+private:
+    RIO_RQ request_queue_ = RIO_INVALID_RQ;
+    const RIO_EXTENSION_FUNCTION_TABLE* functions_ = nullptr;
+    SOCKET socket_ = INVALID_SOCKET;
+
+public:
+    RIORequestQueue() = default;
+
+    RIORequestQueue(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions,
+                   SOCKET socket, DWORD max_pending_recvs, DWORD max_pending_sends,
+                   RIO_CQ completion_queue)
+        : functions_(&amp;functions), socket_(socket) {
+        auto result = Create(max_pending_recvs, max_pending_sends, completion_queue, completion_queue);
+        if (!result) throw std::runtime_error(result.error());
+    }
+
+    ~RIORequestQueue() { request_queue_ = RIO_INVALID_RQ; }   // 3장에서 확인했듯 별도 해제 함수가 없음
+
+    RIORequestQueue(RIORequestQueue&amp;&amp; other) noexcept
+        : request_queue_(other.request_queue_), functions_(other.functions_), socket_(other.socket_) {
+        other.request_queue_ = RIO_INVALID_RQ;
+        other.functions_ = nullptr;
+        other.socket_ = INVALID_SOCKET;
+    }
+    RIORequestQueue&amp; operator=(RIORequestQueue&amp;&amp; other) noexcept {
+        if (this != &amp;other) {
+            request_queue_ = other.request_queue_;
+            functions_ = other.functions_;
+            socket_ = other.socket_;
+            other.request_queue_ = RIO_INVALID_RQ;
+            other.functions_ = nullptr;
+            other.socket_ = INVALID_SOCKET;
+        }
+        return *this;
+    }
+
+    RIORequestQueue(const RIORequestQueue&amp;) = delete;
+    RIORequestQueue&amp; operator=(const RIORequestQueue&amp;) = delete;
+
+    std::expected&lt;void, std::string&gt; Create(DWORD max_pending_recvs, DWORD max_pending_sends,
+                                              RIO_CQ recv_cq, RIO_CQ send_cq) {
+        if (!functions_ || socket_ == INVALID_SOCKET) {
+            return std::unexpected("RIO 함수 테이블이 초기화되지 않았거나 소켓이 유효하지 않습니다");
+        }
+        if (request_queue_ != RIO_INVALID_RQ) {
+            return std::unexpected("요청 큐는 소켓마다 한 번만 생성할 수 있습니다");
+        }
+        if (max_pending_recvs == 0 || max_pending_sends == 0 ||
+            recv_cq == RIO_INVALID_CQ || send_cq == RIO_INVALID_CQ) {
+            return std::unexpected("요청 큐 생성 인자가 유효하지 않습니다");
+        }
+
+        request_queue_ = functions_-&gt;RIOCreateRequestQueue(
+            socket_, max_pending_recvs, 1, max_pending_sends, 1, recv_cq, send_cq, NULL
+        );
+        if (request_queue_ == RIO_INVALID_RQ) {
+            return std::unexpected(std::format("RIO 요청 큐 생성 실패: {}", WSAGetLastError()));
+        }
+        std::print("RIO 요청 큐 생성 성공 - 최대 수신: {}, 최대 송신: {}\n", max_pending_recvs, max_pending_sends);
+        return {};
+    }
+
+    std::expected&lt;void, std::string&gt; Send(RIO_BUF buffer, void* context = nullptr) {
+        if (request_queue_ == RIO_INVALID_RQ || !functions_) {
+            return std::unexpected("요청 큐가 유효하지 않거나 함수 테이블이 초기화되지 않았습니다");
+        }
+        if (!functions_-&gt;RIOSend(request_queue_, &amp;buffer, 1, 0, context)) {
+            return std::unexpected(std::format("데이터 전송 실패: {}", WSAGetLastError()));
+        }
+        return {};
+    }
+
+    std::expected&lt;void, std::string&gt; Receive(RIO_BUF buffer, void* context = nullptr) {
+        if (request_queue_ == RIO_INVALID_RQ || !functions_) {
+            return std::unexpected("요청 큐가 유효하지 않거나 함수 테이블이 초기화되지 않았습니다");
+        }
+        if (!functions_-&gt;RIOReceive(request_queue_, &amp;buffer, 1, 0, context)) {
+            return std::unexpected(std::format("데이터 수신 실패: {}", WSAGetLastError()));
+        }
+        return {};
+    }
+
+    RIO_RQ Get() const { return request_queue_; }
+    bool IsValid() const { return request_queue_ != RIO_INVALID_RQ; }
+};</code></pre>
+</section>
+
+<section class="sec" id="template-buffer">
+  <h2><span class="num">6.2</span> 템플릿을 활용한 유연한 버퍼 관리</h2>
+  <p class="sec-sub">지금까지의 버퍼는 항상 char 배열이었습니다 — 게임 패킷 구조체를 직접 담을 수 있게 확장합니다.</p>
+
+  <h3>"바이트로 다룰 수 있는 타입"을 concept으로 제약하기</h3>
+  <p>
+    <code>RIORegisterBuffer()</code>는 결국 메모리를 바이트 단위로 다룹니다. 아무 타입이나 이
+    방식으로 다뤄도 안전한 것은 아닙니다 — 예를 들어 <code>std::string</code>이나 가상 함수가
+    있는 클래스는 내부에 포인터를 가지고 있어, 그 메모리를 통째로 네트워크로 복사하면 의미가
+    깨집니다. C++20의 <strong>concept</strong>을 사용하면 "이런 성질을 가진 타입만 허용한다"는
+    제약을 컴파일 타임에 걸 수 있습니다.
+  </p>
+  <pre><code>// 바이트로 다룰 수 있는 데이터 타입 개념 정의
+template&lt;typename T&gt;
+concept ByteData = std::is_trivially_copyable_v&lt;T&gt;;</code></pre>
+  <p>
+    <code>std::is_trivially_copyable_v&lt;T&gt;</code>는 "이 타입의 객체 표현을 <code>memcpy</code>로 복사해도
+    생성자·소멸자·가상 함수 테이블 등이 깨지지 않는가"를 검사합니다. 순수하게 값만 담은 구조체
+    (POD에 가까운 타입)는 통과하고, <code>std::string</code>이나 <code>std::vector</code>를
+    멤버로 가진 타입은 통과하지 못합니다. 다만 원시 포인터를 가진 구조체는 통과할 수 있으므로, 이를
+    다른 프로세스나 다른 버전에 그대로 전송 가능한 패킷이라고 보장하지는 않습니다. 이 조건을 <code>ByteData</code>라는 이름의 concept으로
+    정의해두면, 아래처럼 템플릿 매개변수에 제약을 걸어 <strong>잘못된 타입을 쓰면 실행이 아니라
+    컴파일 시점에 바로 오류</strong>가 나게 만들 수 있습니다.
+  </p>
+
+  <h3>템플릿화된 RIO 버퍼 클래스</h3>
+  <pre><code>template&lt;ByteData T&gt;
+class RIOTypedBuffer {
+private:
+    std::vector&lt;T&gt; elements_;
+    RIO_BUFFERID buffer_id_ = RIO_INVALID_BUFFERID;
+    const RIO_EXTENSION_FUNCTION_TABLE* functions_ = nullptr;
+
+public:
+    RIOTypedBuffer() = default;
+
+    RIOTypedBuffer(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions, size_t element_count)
+        : elements_(element_count), functions_(&amp;functions) {
+        if (element_count == 0 || element_count &gt; (std::numeric_limits&lt;DWORD&gt;::max)() / sizeof(T)) {
+            throw std::invalid_argument("RIO 형식 버퍼 크기가 DWORD 범위를 벗어났습니다");
+        }
+    }
+
+    ~RIOTypedBuffer() { Deregister(); }
+
+    RIOTypedBuffer(RIOTypedBuffer&amp;&amp;) = delete;
+    RIOTypedBuffer&amp; operator=(RIOTypedBuffer&amp;&amp;) = delete;
+
+    RIOTypedBuffer(const RIOTypedBuffer&amp;) = delete;
+    RIOTypedBuffer&amp; operator=(const RIOTypedBuffer&amp;) = delete;
+
+    std::expected&lt;void, std::string&gt; Register() {
+        if (buffer_id_ != RIO_INVALID_BUFFERID) return {};
+        if (!functions_ || elements_.empty()) return std::unexpected("형식 버퍼가 초기화되지 않았습니다");
+        buffer_id_ = functions_-&gt;RIORegisterBuffer(
+            reinterpret_cast&lt;char*&gt;(elements_.data()), static_cast&lt;DWORD&gt;(GetByteSize()));
+        if (buffer_id_ == RIO_INVALID_BUFFERID) {
+            return std::unexpected(std::format("RIO 형식 버퍼 등록 실패: {}", WSAGetLastError()));
+        }
+        return {};
+    }
+
+    void Deregister() {
+        if (buffer_id_ != RIO_INVALID_BUFFERID &amp;&amp; functions_) {
+            functions_-&gt;RIODeregisterBuffer(buffer_id_);
+            buffer_id_ = RIO_INVALID_BUFFERID;
+        }
+    }
+
+    T* GetData() { return elements_.data(); }
+    const T* GetData() const { return elements_.data(); }
+    size_t GetElementCount() const { return elements_.size(); }
+    size_t GetByteSize() const { return elements_.size() * sizeof(T); }
+    RIO_BUFFERID GetId() const { return buffer_id_; }
+
+    T&amp; operator[](size_t index) {
+        if (index &gt;= elements_.size()) throw std::out_of_range("버퍼 인덱스 범위 초과");
+        return GetData()[index];
+    }
+    const T&amp; operator[](size_t index) const {
+        if (index &gt;= elements_.size()) throw std::out_of_range("버퍼 인덱스 범위 초과");
+        return GetData()[index];
+    }
+
+    RIO_BUF CreateRIOBuf() const { return CreateRIOBuf(0, elements_.size()); }
+
+    RIO_BUF CreateRIOBuf(size_t offset_elements, size_t length_elements) const {
+        if (buffer_id_ == RIO_INVALID_BUFFERID || offset_elements &gt; elements_.size() ||
+            length_elements &gt; elements_.size() - offset_elements) {
+            throw std::out_of_range("버퍼 범위 초과");
+        }
+        return RIO_BUF{buffer_id_, static_cast&lt;ULONG&gt;(offset_elements * sizeof(T)),
+                       static_cast&lt;ULONG&gt;(length_elements * sizeof(T))};
+    }
+};
+
+// 게임 패킷 예시 — 고정 크기, 포인터 없음 → ByteData 조건을 만족
+struct GamePacket {
+    uint32_t packet_id;
+    uint32_t client_id;
+    uint64_t timestamp;
+    float position_x;
+    float position_y;
+    float position_z;
+    float rotation;
+    uint32_t action_flags;
+    char payload[1024];
+};
+
+void TypedBufferExample(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions) {
+    // 최대 100개의 GamePacket을 저장할 수 있는 버퍼
+    RIOTypedBuffer&lt;GamePacket&gt; packet_buffer(functions, 100);
+    if (auto registered = packet_buffer.Register(); !registered) {
+        throw std::runtime_error(registered.error());
+    }
+
+    auto&amp; packet = packet_buffer[0];
+    packet.packet_id = 1;
+    packet.client_id = 42;
+    packet.timestamp = 123456789;
+    packet.position_x = 100.5f;
+    packet.position_y = 200.3f;
+    packet.position_z = 300.7f;
+    packet.rotation = 45.0f;
+    packet.action_flags = 0x03;
+    std::strcpy(packet.payload, "Hello RIO World!");
+
+    RIO_BUF rio_buf = packet_buffer.CreateRIOBuf(0, 1);   // 첫 번째 패킷만 가리키는 RIO_BUF
+    std::print("GamePacket 버퍼 생성 및 설정 완료 - 총 용량: {} 패킷\n", packet_buffer.GetElementCount());
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">이제 char 버퍼가 아니라 구조체 배열입니다</p>
+    <p>
+      <code>RIOTypedBuffer&lt;GamePacket&gt;</code>는 <code>std::vector&lt;GamePacket&gt;</code>으로 정렬된
+      객체 배열을 만들고 그 저장 공간을 등록합니다. 따라서 바깥에서는
+      <code>packet_buffer[0].position_x</code>처럼 <strong>구조체 필드에 직접 접근</strong>할 수
+      있습니다. 4장까지 계속 등장했던 "받은 <code>char*</code>를 원하는 구조체로 캐스팅"하는
+      작업을 클래스 내부로 감춘 것입니다.
+    </p>
+  </div>
+
+  <h3>메모리 풀을 이용한 유연한 버퍼 관리</h3>
+  <p>
+    <code>RIOBufferPool</code>은 4장의 <code>RIOBufferRing</code>과 비슷하게 고정 개수의 슬롯을
+    재사용합니다. 모든 슬롯이 사용 중이면 이미 I/O에 사용 중일 수 있는 메모리를 절대 재사용하지 않고
+    실패를 반환합니다. 슬롯은 해당 RIO 완료를 처리한 뒤에만 반납해야 합니다.
+  </p>
+  <pre><code>template&lt;ByteData T, size_t PoolSize&gt;
+class RIOBufferPool {
+private:
+    struct BufferInfo {
+        bool in_use = false;
+    };
+
+    RIOTypedBuffer&lt;T&gt; buffer_;
+    std::array&lt;BufferInfo, PoolSize&gt; buffer_info_;
+    std::mutex mutex_;
+
+public:
+    RIOBufferPool(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions)
+        : buffer_(functions, PoolSize) {
+        static_assert(PoolSize &gt; 0);
+        if (auto registered = buffer_.Register(); !registered) {
+            throw std::runtime_error(registered.error());
+        }
+        std::print("RIO 버퍼 풀 생성 - 크기: {} 요소\n", PoolSize);
+    }
+
+    std::expected&lt;std::pair&lt;T*, size_t&gt;, std::string&gt; Allocate() {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+
+        for (size_t i = 0; i &lt; PoolSize; ++i) {
+            if (!buffer_info_[i].in_use) {
+                buffer_info_[i].in_use = true;
+                return std::pair(buffer_.GetData() + i, i);
+            }
+        }
+
+        return std::unexpected("사용 가능한 RIO 버퍼 슬롯이 없습니다");
+    }
+
+    std::expected&lt;void, std::string&gt; Release(size_t index) {
+        if (index &gt;= PoolSize) return std::unexpected("버퍼 풀 인덱스 범위 초과");
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+        if (!buffer_info_[index].in_use) return std::unexpected("이미 반납된 버퍼 슬롯입니다");
+        buffer_info_[index].in_use = false;
+        return {};
+    }
+
+    RIO_BUF CreateRIOBuf(size_t index) {
+        if (index &gt;= PoolSize) throw std::out_of_range("버퍼 풀 인덱스 범위 초과");
+        return buffer_.CreateRIOBuf(index, 1);
+    }
+
+    RIO_BUFFERID GetBufferId() const { return buffer_.GetId(); }
+    size_t GetPoolSize() const { return PoolSize; }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">완료 전에는 절대 재사용하지 않는다</p>
+    <p>
+      <code>RIOSend()</code>나 <code>RIOReceive()</code>가 성공해도 I/O는 아직 진행 중이다. 따라서
+      해당 슬롯은 연결이 끊기거나 오류가 나도 <strong>그 요청의 완료를 회수하기 전</strong>에는 반납할 수
+      없다. 풀이 가득 찼을 때 <code>Allocate()</code>가 실패하는 것은 데이터 손상을 막는 의도된
+      backpressure다. 완료 콜백에서 요청 컨텍스트를 통해 정확한 슬롯을 확인한 뒤 <code>Release()</code>한다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="span-view">
+  <h2><span class="num">6.3</span> std::span을 이용한 버퍼 뷰</h2>
+  <p class="sec-sub">등록된 버퍼 전체가 아니라, 그 일부를 가리키는 가벼운 "뷰"를 만듭니다.</p>
+
+  <p>
+    1장에서 소개했던 <code>std::span</code>을 이번에는 RIO 버퍼 전용으로 응용합니다.
+    <code>RIOBufferView</code>는 <code>(버퍼 ID, 오프셋, 길이)</code> 세 값만 들고 있는 아주 가벼운
+    클래스로, 등록된 버퍼의 소유권은 전혀 갖지 않습니다 — 그저 "그 버퍼의 이 구간을 이렇게
+    쓰겠다"는 좌표만 표현합니다.
+  </p>
+  <pre><code>class RIOBufferView {
+private:
+    RIO_BUFFERID buffer_id_;
+    ULONG offset_;
+    ULONG length_;
+
+public:
+    RIOBufferView(RIO_BUFFERID buffer_id, ULONG offset, ULONG length)
+        : buffer_id_(buffer_id), offset_(offset), length_(length) {}
+
+    explicit RIOBufferView(const RIOBuffer&amp; buffer)
+        : buffer_id_(buffer.GetId()), offset_(0), length_(static_cast&lt;ULONG&gt;(buffer.GetSize())) {
+        if (buffer_id_ == RIO_INVALID_BUFFERID) throw std::logic_error("등록되지 않은 RIO 버퍼입니다");
+    }
+
+    RIOBufferView(const RIOBuffer&amp; buffer, ULONG offset, ULONG length)
+        : buffer_id_(buffer.GetId()), offset_(offset), length_(length) {
+        if (buffer_id_ == RIO_INVALID_BUFFERID || offset &gt; buffer.GetSize() ||
+            length &gt; buffer.GetSize() - offset) {
+            throw std::out_of_range("RIO 버퍼 뷰 범위 초과");
+        }
+    }
+
+    RIO_BUF CreateRIOBuf() const {
+        RIO_BUF rio_buf{};
+        rio_buf.BufferId = buffer_id_;
+        rio_buf.Offset = offset_;
+        rio_buf.Length = length_;
+        return rio_buf;
+    }
+
+    RIO_BUFFERID GetBufferId() const { return buffer_id_; }
+    ULONG GetOffset() const { return offset_; }
+    ULONG GetLength() const { return length_; }
+
+    // 뷰의 부분 구간을 다시 뷰로 — 슬라이싱
+    RIOBufferView Slice(ULONG slice_offset, ULONG slice_length) const {
+        if (slice_offset &gt; length_ || slice_length &gt; length_ - slice_offset) {
+            throw std::out_of_range("버퍼 뷰 슬라이스 범위 초과");
+        }
+        return RIOBufferView(buffer_id_, offset_ + slice_offset, slice_length);
+    }
+};</code></pre>
+
+  <p>
+    <code>Slice()</code>가 이 클래스의 핵심입니다. "전체 버퍼의 뷰"에서 "그중 앞부분 128바이트만
+    가리키는 뷰"를 만들 때, 실제 메모리를 복사하지도, 새 버퍼를 등록하지도 않습니다 — 그저 오프셋과
+    길이를 다시 계산한 새 <code>RIOBufferView</code> 값을 반환할 뿐입니다.
+  </p>
+
+  <h3>std::span과 함께 사용하기</h3>
+  <p>
+    원시 <code>RIOBuffer</code>는 바이트 단위로만 뷰를 만듭니다. 임의의 <code>T</code>로 캐스팅하면
+    정렬과 객체 수명 규칙을 깨뜨릴 수 있기 때문입니다. 구조체 배열이 필요하면 앞 절의
+    <code>RIOTypedBuffer&lt;T&gt;</code>를 사용합니다.
+  </p>
+  <pre><code>std::expected&lt;void, std::string&gt; SendView(
+    RIORequestQueue&amp; request_queue, const RIOBufferView&amp; view, void* context = nullptr) {
+    // view는 실제 등록 버퍼의 좌표다. 임의의 span 주소를 RIO에 전달할 수는 없다.
+    return request_queue.Send(view.CreateRIOBuf(), context);
+}
+
+std::span&lt;std::byte&gt; CreateBufferSpan(RIOBuffer&amp; buffer, size_t offset = 0, size_t count = 0) {
+    if (offset &gt; buffer.GetSize()) throw std::out_of_range("버퍼 span 오프셋 범위 초과");
+    size_t available = buffer.GetSize() - offset;
+    size_t actual_count = (count == 0) ? available : count;
+    if (actual_count &gt; available) throw std::out_of_range("버퍼 span 길이 범위 초과");
+    return {reinterpret_cast&lt;std::byte*&gt;(buffer.GetData() + offset), actual_count};
+}
+
+void SpanExample(RIORequestQueue&amp; request_queue, RIOBuffer&amp; buffer) {
+    auto bytes = CreateBufferSpan(buffer, 0, sizeof(GamePacket));
+    std::memset(bytes.data(), 0, bytes.size());        // 등록 버퍼 안에 데이터를 채운다
+    RIOBufferView packet_view(buffer, 0, static_cast&lt;ULONG&gt;(bytes.size()));
+    auto sent = SendView(request_queue, packet_view);
+    if (!sent) throw std::runtime_error(sent.error());
+
+    std::print("std::span을 이용한 버퍼 관리 및 전송 예시 완료\n");
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">RIOBufferView와 std::span, 언제 무엇을 쓸까</p>
+    <p>
+      <code>std::span</code>은 <strong>등록 버퍼 안에 있는 바이트 범위</strong>를 안전하게 가리킬 때 쓰고,
+      <code>RIOBufferView</code>는 <strong>RIO에 전달할 (버퍼 ID, 오프셋, 길이) 좌표</strong> 그
+      자체를 값으로 들고 다니거나 <code>Slice()</code>로 잘라 재사용할 때 씁니다. 실전에서는 보통
+      <code>std::span</code>으로 데이터를 채운 뒤, 마지막에 <code>RIOBufferView</code>로 같은 범위를
+      지정해 전송을 요청하는 흐름을 씁니다. 어느 경우든 완료를 회수할 때까지 원본 버퍼와 뷰의 소유
+      버퍼를 파괴하거나 덮어쓰면 안 됩니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="cpp23-features">
+  <h2><span class="num">6.4</span> C++23 기능 활용</h2>
+  <p class="sec-sub">지금까지 흩어져 있던 오류 처리·로깅 방식을 통일합니다.</p>
+
+  <h3>std::expected를 활용한 오류 처리</h3>
+  <p>
+    지금까지 오류는 대부분 <code>std::string</code>으로만 표현했습니다. 어떤 종류의 오류인지
+    (타임아웃인지, 큐 손상인지, 잘못된 인자인지) 코드로 분기하려면 문자열을 파싱해야 했는데,
+    이는 취약하고 느립니다. <code>RIOErrorCode</code>는 오류의 "종류"를, <code>RIOError</code>는
+    그 종류에 사람이 읽을 메시지와 시스템 오류 코드를 더한 값을 표현합니다.
+  </p>
+  <pre><code>enum class RIOErrorCode {
+    Success,
+    WSAInitFailed,
+    SocketCreationFailed,
+    BufferRegistrationFailed,
+    CompletionQueueCreationFailed,
+    RequestQueueCreationFailed,
+    SendFailed,
+    ReceiveFailed,
+    Timeout,
+    Cancelled,
+    QueueCorrupted,
+    InvalidParameter,
+    SystemError
+};
+
+struct RIOError {
+    RIOErrorCode code;
+    std::string message;
+    int system_error_code = 0;
+
+    std::string ToString() const {
+        if (system_error_code != 0) {
+            return std::format("RIO 오류 [{}]: {} (시스템 오류 코드: {})",
+                              static_cast&lt;int&gt;(code), message, system_error_code);
+        }
+        return std::format("RIO 오류 [{}]: {}", static_cast&lt;int&gt;(code), message);
+    }
+};</code></pre>
+
+  <p>
+    <code>RIOResultProcessor</code>는 완료 큐에서 결과를 꺼내오는 방식 세 가지 — <strong>즉시
+    한 번만 조회</strong>, <strong>이벤트로 대기했다가 조회</strong>, <strong>콜백으로 결과
+    전달</strong> — 를 정적 메서드로 제공합니다. 5장의 여러 프로세서 클래스가 하던 일을 함수
+    호출 하나로 압축한 것입니다.
+  </p>
+  <pre><code>class RIOResultProcessor {
+public:
+    using ResultCallback = std::function&lt;void(const RIORESULT&amp;)&gt;;
+
+    static std::expected&lt;std::vector&lt;RIORESULT&gt;, RIOError&gt; ProcessCompletions(
+        RIOCompletionQueue&amp; completion_queue, ULONG max_results = 32) {
+
+        if (max_results == 0) {
+            return std::unexpected(RIOError{RIOErrorCode::InvalidParameter, "완료 결과 개수는 1 이상이어야 합니다"});
+        }
+
+        std::vector&lt;RIORESULT&gt; results(max_results);
+        auto dequeue_result = completion_queue.DequeueCompletions(results.data(), max_results);
+        if (!dequeue_result) {
+            return std::unexpected(RIOError{RIOErrorCode::QueueCorrupted, dequeue_result.error(), WSAGetLastError()});
+        }
+
+        ULONG num_results = *dequeue_result;
+        results.resize(num_results);
+        return results;
+    }
+
+    static std::expected&lt;std::vector&lt;RIORESULT&gt;, RIOError&gt; WaitForCompletions(
+        RIOCompletionQueue&amp; completion_queue, DWORD timeout_ms = INFINITE, ULONG max_results = 32) {
+
+        if (!completion_queue.IsUsingEventNotification()) {
+            return std::unexpected(RIOError{RIOErrorCode::InvalidParameter, "완료 큐가 이벤트 알림을 사용하도록 구성되지 않았습니다"});
+        }
+        if (!completion_queue.RequestNotification()) {
+            return std::unexpected(RIOError{RIOErrorCode::SystemError, "알림 요청 실패", WSAGetLastError()});
+        }
+
+        DWORD wait_result = WaitForSingleObject(completion_queue.GetNotificationEvent(), timeout_ms);
+        if (wait_result == WAIT_TIMEOUT) {
+            // 이 시점에는 RIONotify가 아직 걸려 있다. 같은 CQ에 다시 RIONotify를 호출하지 말고
+            // 기존 이벤트를 계속 기다리거나, 알림 상태를 별도로 추적해야 한다.
+            return std::unexpected(RIOError{RIOErrorCode::Timeout, "완료 대기 타임아웃(알림은 계속 대기 중)"});
+        } else if (wait_result != WAIT_OBJECT_0) {
+            return std::unexpected(RIOError{RIOErrorCode::SystemError, "이벤트 대기 실패", static_cast&lt;int&gt;(GetLastError())});
+        }
+
+        return ProcessCompletions(completion_queue, max_results);
+    }
+
+    static std::expected&lt;void, RIOError&gt; ProcessWithCallback(
+        RIOCompletionQueue&amp; completion_queue, const ResultCallback&amp; callback, ULONG max_results = 32) {
+
+        auto results = ProcessCompletions(completion_queue, max_results);
+        if (!results) return std::unexpected(results.error());
+
+        for (const auto&amp; result : *results) callback(result);
+        return {};
+    }
+};</code></pre>
+
+  <h3>print 및 format 라이브러리 활용</h3>
+  <p>
+    <code>RIOLogger</code>는 로그 레벨별로 <code>Debug()</code>/<code>Info()</code>/<code>Warning()</code>/
+    <code>Error()</code>/<code>Fatal()</code> 메서드를 제공합니다. 각 메서드는 가변 인자
+    템플릿(<code>Args&amp;&amp;... args</code>)으로 <code>std::format()</code>과 똑같은 방식의
+    형식 문자열을 받습니다.
+  </p>
+  <pre><code>class RIOLogger {
+public:
+    enum class LogLevel { Debug, Info, Warning, Error, Fatal };
+
+private:
+    std::atomic&lt;LogLevel&gt; current_level_{LogLevel::Info};
+    std::mutex log_mutex_;
+
+public:
+    void SetLogLevel(LogLevel level) { current_level_.store(level, std::memory_order_relaxed); }
+    LogLevel GetLogLevel() const { return current_level_.load(std::memory_order_relaxed); }
+
+    template&lt;typename... Args&gt;
+    void Debug(std::format_string&lt;Args...&gt; fmt, Args&amp;&amp;... args) {
+        if (GetLogLevel() &lt;= LogLevel::Debug) Log("[디버그]", fmt, std::forward&lt;Args&gt;(args)...);
+    }
+    template&lt;typename... Args&gt;
+    void Info(std::format_string&lt;Args...&gt; fmt, Args&amp;&amp;... args) {
+        if (GetLogLevel() &lt;= LogLevel::Info) Log("[정보]", fmt, std::forward&lt;Args&gt;(args)...);
+    }
+    template&lt;typename... Args&gt;
+    void Warning(std::format_string&lt;Args...&gt; fmt, Args&amp;&amp;... args) {
+        if (GetLogLevel() &lt;= LogLevel::Warning) Log("[경고]", fmt, std::forward&lt;Args&gt;(args)...);
+    }
+    template&lt;typename... Args&gt;
+    void Error(std::format_string&lt;Args...&gt; fmt, Args&amp;&amp;... args) {
+        if (GetLogLevel() &lt;= LogLevel::Error) Log("[오류]", fmt, std::forward&lt;Args&gt;(args)...);
+    }
+    template&lt;typename... Args&gt;
+    void Fatal(std::format_string&lt;Args...&gt; fmt, Args&amp;&amp;... args) {
+        if (GetLogLevel() &lt;= LogLevel::Fatal) Log("[심각]", fmt, std::forward&lt;Args&gt;(args)...);
+    }
+
+private:
+    template&lt;typename... Args&gt;
+    void Log(std::string_view prefix, std::format_string&lt;Args...&gt; fmt, Args&amp;&amp;... args) {
+        std::lock_guard&lt;std::mutex&gt; lock(log_mutex_);
+
+        auto now = std::chrono::system_clock::now();
+        auto now_time_t = std::chrono::system_clock::to_time_t(now);
+        std::tm now_tm{};
+        localtime_s(&amp;now_tm, &amp;now_time_t);
+
+        std::string time_str = std::format("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}",
+            now_tm.tm_year + 1900, now_tm.tm_mon + 1, now_tm.tm_mday,
+            now_tm.tm_hour, now_tm.tm_min, now_tm.tm_sec);
+
+        std::string message = std::format(fmt, std::forward&lt;Args&gt;(args)...);
+        std::print("{} {} {}\n", time_str, prefix, message);
+    }
+};
+
+inline RIOLogger g_logger;   // 전역 로거 — 이 장의 모든 예제가 공유해서 사용
+
+std::string FormatRIOResult(const RIORESULT&amp; result) {
+    return std::format("RIORESULT - 바이트 수: {}, 컨텍스트: {}",
+                        result.BytesTransferred, static_cast&lt;const void*&gt;(result.RequestContext));
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">std::format_string과 포인터 포맷팅</p>
+    <p>
+      <code>std::format_string&lt;Args...&gt;</code>를 매개변수 타입으로 쓰면, 형식 문자열의
+      <code>{}</code> 개수와 실제 인자 개수가 맞는지를 <strong>컴파일 타임에</strong> 검사합니다
+      — 런타임에야 발견되는 <code>printf</code> 스타일 형식 문자열 버그를 원천 차단합니다. 또한
+      <code>FormatRIOResult()</code>는 <code>result.RequestContext</code>를 포인터로 명시해
+      포맷팅합니다. <code>RIORESULT::RequestContext</code>의 형식은 <code>PVOID</code>이며, 요청을
+      넣을 때 전달한 식별자다. 포인터를 컨텍스트로 썼다면 실제 타입으로 되돌리기 전에 그 객체가
+      완료 처리 때까지 살아 있음을 보장해야 한다.
+    </p>
+  </div>
+
+  <h3>통합 RIO 관리자 클래스</h3>
+  <p>
+    <code>RIOManager</code>는 Winsock·리스닝 소켓·함수 테이블·공유 완료 큐의 수명을 묶습니다.
+    <strong>리스닝 소켓에는 RIO 요청 큐를 만들지 않습니다.</strong> TCP 요청 큐와 송수신 버퍼는
+    accept한 연결 소켓마다 세션이 소유합니다. <code>Initialize()</code>는 아래 공용 기반만 준비합니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 160" role="img" aria-labelledby="mgr-title mgr-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="mgr-title">RIOManager::Initialize()의 조립 순서</title>
+      <desc id="mgr-desc">RIOManager가 초기화될 때 리스닝 소켓 생성, 함수 테이블 초기화, 완료 큐 생성, 바인딩과 리스닝 순서로 공용 기반을 조립하는 흐름도. 연결별 요청 큐와 버퍼는 accept 후 세션이 만든다.</desc>
+      <defs>
+        <marker id="mgr-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="28" y="32" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="84" y="58" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">소켓 생성</text>
+      <text x="84" y="74" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">Socket::Create()</text>
+
+      <line x1="140" y1="64" x2="156" y2="64" stroke="#6b6259" stroke-width="1.2" marker-end="url(#mgr-arrow)"/>
+
+      <rect x="156" y="32" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="212" y="52" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">함수 테이블</text>
+      <text x="212" y="66" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">초기화</text>
+      <text x="212" y="82" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">RIOFunctionTable</text>
+
+      <line x1="268" y1="64" x2="284" y2="64" stroke="#6b6259" stroke-width="1.2" marker-end="url(#mgr-arrow)"/>
+
+      <rect x="284" y="32" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="340" y="58" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">완료 큐 생성</text>
+      <text x="340" y="74" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">RIO_CQ</text>
+
+      <line x1="396" y1="64" x2="412" y2="64" stroke="#6b6259" stroke-width="1.2" marker-end="url(#mgr-arrow)"/>
+
+      <rect x="412" y="32" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="468" y="52" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">세션 준비</text>
+      <text x="468" y="66" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">(accept 이후)</text>
+      <text x="468" y="82" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">RQ + buffers</text>
+
+      <line x1="524" y1="64" x2="540" y2="64" stroke="#6b6259" stroke-width="1.2" marker-end="url(#mgr-arrow)"/>
+
+      <rect x="540" y="32" width="112" height="64" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="596" y="58" text-anchor="middle" fill="#8f5f1e" font-size="11" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">바인딩·리스닝</text>
+      <text x="596" y="74" text-anchor="middle" fill="#8f5f1e" font-size="8" font-family="'Geist Mono',monospace">BindAndListen()</text>
+
+      <line x1="40" y1="120" x2="640" y2="120" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="138" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="160" y="130" width="14" height="14" rx="2" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="182" y="141" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">이 단계 이후 클라이언트 연결을 받을 준비 완료</text>
+    </svg>
+    <p class="dcap">그림 6-1. Initialize()는 리스너와 공용 완료 큐를 준비한다. 연결별 요청 큐와 버퍼는 accept 성공 뒤 세션이 만든다</p>
+  </div>
+
+  <pre><code>class RIOManager {
+private:
+    WSAManager wsa_manager_;
+    Socket socket_;
+    RIOFunctionTable rio_functions_;
+    std::unique_ptr&lt;RIOCompletionQueue&gt; completion_queue_;
+    mutable std::mutex completion_queue_mutex_;
+    std::jthread worker_thread_;
+    std::atomic&lt;bool&gt; running_ = false;
+    bool initialized_ = false;
+
+public:
+    struct Config {
+        uint16_t port = 8888;
+        DWORD completion_queue_size = 1024;
+        DWORD max_outstanding_sends = 1024;
+        DWORD max_outstanding_recvs = 1024;
+        bool use_event_notification = true;
+        std::chrono::milliseconds poll_interval{10};
+    };
+
+private:
+    Config config_;
+    using CompletionCallback = std::function&lt;void(const RIORESULT&amp;)&gt;;
+    CompletionCallback completion_callback_;
+
+public:
+    explicit RIOManager(Config config = Config{}) : config_(config) {}
+    ~RIOManager() { Stop(); }
+
+    // 이 클래스는 이동도, 복사도 되지 않습니다 — 바로 아래에서 그 이유를 설명합니다
+    RIOManager(RIOManager&amp;&amp;) = delete;
+    RIOManager&amp; operator=(RIOManager&amp;&amp;) = delete;
+    RIOManager(const RIOManager&amp;) = delete;
+    RIOManager&amp; operator=(const RIOManager&amp;) = delete;
+
+    std::expected&lt;void, std::string&gt; Initialize() {
+        if (initialized_) return {};
+        if (!wsa_manager_.IsInitialized()) return std::unexpected("WSA 초기화 실패");
+
+        auto socket_result = socket_.Create();
+        if (!socket_result) return std::unexpected(socket_result.error());
+
+        auto rio_init_result = rio_functions_.Initialize(socket_.Get());
+        if (!rio_init_result) return std::unexpected(rio_init_result.error());
+
+        completion_queue_ = std::make_unique&lt;RIOCompletionQueue&gt;(
+            rio_functions_.Get(), config_.completion_queue_size, config_.use_event_notification);
+
+        auto bind_result = socket_.BindAndListen(config_.port);
+        if (!bind_result) return std::unexpected(bind_result.error());
+
+        g_logger.Info("RIO 관리자 초기화 완료 - 포트: {}", config_.port);
+        initialized_ = true;
+        return {};
+    }
+
+    void SetCompletionCallback(CompletionCallback callback) { completion_callback_ = std::move(callback); }
+
+    std::expected&lt;void, std::string&gt; Start() {
+        if (!initialized_ || !completion_queue_ || !completion_queue_-&gt;IsValid()) {
+            return std::unexpected("RIO 관리자가 초기화되지 않았습니다");
+        }
+        if (running_.exchange(true)) return {};
+        worker_thread_ = std::jthread([this](std::stop_token stop_token) { this-&gt;ProcessCompletions(stop_token); });
+        g_logger.Info("RIO 관리자 시작됨");
+        return {};
+    }
+
+    void Stop() {
+        if (!running_.exchange(false)) return;
+        if (worker_thread_.joinable()) {
+            worker_thread_.request_stop();
+            if (completion_queue_ &amp;&amp; completion_queue_-&gt;IsUsingEventNotification()) {
+                if (completion_queue_-&gt;GetNotificationEvent() != NULL) {
+                    SetEvent(completion_queue_-&gt;GetNotificationEvent());
+                }
+            }
+            worker_thread_.join();
+        }
+        g_logger.Info("RIO 관리자 중지됨");
+    }
+
+    std::expected&lt;std::unique_ptr&lt;RIORequestQueue&gt;, std::string&gt; CreateRequestQueue(
+        SOCKET connected_socket, DWORD max_pending_recvs, DWORD max_pending_sends) const {
+        // 이 CQ를 쓰는 완료 스레드와 RIOCreateRequestQueue 호출을 직렬화한다.
+        std::lock_guard&lt;std::mutex&gt; lock(completion_queue_mutex_);
+        if (!completion_queue_ || !completion_queue_-&gt;IsValid()) {
+            return std::unexpected("완료 큐가 초기화되지 않았습니다");
+        }
+        try {
+            return std::make_unique&lt;RIORequestQueue&gt;(
+                rio_functions_.Get(), connected_socket, max_pending_recvs, max_pending_sends,
+                completion_queue_-&gt;Get());
+        } catch (const std::exception&amp; e) {
+            return std::unexpected(e.what());
+        }
+    }
+
+    Socket&amp; GetSocket() { return socket_; }
+    RIOCompletionQueue* GetCompletionQueue() { return completion_queue_.get(); }
+    const RIO_EXTENSION_FUNCTION_TABLE&amp; GetRIOFunctions() const { return rio_functions_.Get(); }
+
+private:
+    void ProcessCompletions(std::stop_token stop_token) {
+        while (!stop_token.stop_requested() &amp;&amp; running_) {
+            if (config_.use_event_notification) {
+                {   // RIONotify와 RIOCreateRequestQueue가 같은 CQ를 동시에 건드리지 않게 한다.
+                    std::lock_guard&lt;std::mutex&gt; lock(completion_queue_mutex_);
+                    if (!completion_queue_-&gt;RequestNotification()) {
+                        g_logger.Error("완료 알림 요청 실패: {}", WSAGetLastError());
+                        continue;
+                    }
+                }
+                if (WaitForSingleObject(completion_queue_-&gt;GetNotificationEvent(), INFINITE) != WAIT_OBJECT_0) {
+                    g_logger.Error("완료 이벤트 대기 실패: {}", GetLastError());
+                    continue;
+                }
+                std::expected&lt;std::vector&lt;RIORESULT&gt;, RIOError&gt; results;
+                {
+                    std::lock_guard&lt;std::mutex&gt; lock(completion_queue_mutex_);
+                    results = RIOResultProcessor::ProcessCompletions(*completion_queue_);
+                }
+                if (!results) {
+                    g_logger.Error("완료 처리 실패: {}", results.error().ToString());
+                    continue;
+                }
+                for (const auto&amp; result : *results) {
+                    if (completion_callback_) completion_callback_(result);
+                }
+            } else {
+                std::expected&lt;std::vector&lt;RIORESULT&gt;, RIOError&gt; results;
+                {
+                    std::lock_guard&lt;std::mutex&gt; lock(completion_queue_mutex_);
+                    results = RIOResultProcessor::ProcessCompletions(*completion_queue_);
+                }
+                if (!results) {
+                    g_logger.Error("완료 처리 실패: {}", results.error().ToString());
+                    continue;
+                }
+                for (const auto&amp; result : *results) {
+                    if (completion_callback_) completion_callback_(result);
+                }
+                if (results-&gt;empty()) std::this_thread::sleep_for(config_.poll_interval);
+            }
+        }
+    }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">중요 — std::atomic 멤버가 있으면 클래스는 이동조차 되지 않습니다</p>
+    <p>
+      <code>RIOManager</code>에는 <code>std::atomic&lt;bool&gt; running_</code>이 있습니다.
+      <code>std::atomic</code>은 복사 생성자와 이동 생성자가 모두 <strong>명시적으로
+      삭제</strong>되어 있는 타입입니다 — 원자적 연산의 정합성을 보장하려면 "값만 슬쩍 복사"하는
+      방식이 근본적으로 성립하지 않기 때문입니다. 그런데 C++ 규칙상, 멤버 중 하나라도 이동/복사가
+      불가능하면 그 멤버를 담은 클래스 전체의 이동·복사 생성자도 자동으로
+      <strong>암묵적으로 삭제</strong>됩니다. <code>std::jthread</code> 멤버 역시 이동은 되지만
+      복사는 안 되므로, 이 클래스는 결국 <strong>암묵 이동이 삭제된 타입</strong>이 됩니다.
+      실행 중인 워커가 있는 관리자는 자원과 콜백이 이미 자신의 주소를 참조할 수 있으므로, 억지로
+      이동을 구현하기보다 이동·복사를 명시적으로 금지하는 편이 안전합니다. 필요한 설정값은
+      <code>RIOManager</code>를 생성하기 전에 준비해 생성자에 전달합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="echo-example">
+  <h2><span class="num">6.5</span> 세션 조립: 에코 서버의 안전 조건</h2>
+  <p class="sec-sub">완결된 에코 루프는 다음 장에서 구현한다. 여기서는 잘못된 공유 구조를 피하는 세션의 소유 관계를 확정한다.</p>
+
+  <p>
+    RIO는 <strong>연결 소켓마다 요청 큐 하나</strong>를 만들어야 한다. 리스닝 소켓의 요청 큐를
+    클라이언트가 공유하거나, 전송 완료 전에 같은 버퍼 조각에 다음 수신 데이터를 쓰면 안 된다.
+    또한 RIO 요청 큐의 기반 소켓은 <code>WSASocket</code>에서 <code>WSA_FLAG_REGISTERED_IO</code>로 만든
+    소켓이어야 한다. 단순 <code>accept()</code>로 얻은 소켓을 여기서 RIO 소켓으로 간주하면 안 되며,
+    실전 TCP 수락은 미리 RIO 플래그로 만든 accept 소켓을 사용하는 <code>AcceptEx</code> 흐름이 필요하다.
+    다음 세션은 각 연결의 소켓·요청 큐·송수신 버퍼를 한 묶음으로 소유한다.
+  </p>
+
+  <h3>1) accept 뒤 세션을 만들기</h3>
+  <pre><code>struct ClientSession;
+
+struct OperationContext {
+    enum class Type { Receive, Send };
+    ClientSession* session = nullptr;
+    Type type;
+    size_t buffer_slot;
+};
+
+struct ClientSession {
+    Socket socket;                              // accept한 연결 소켓의 유일한 소유자
+    std::unique_ptr&lt;RIORequestQueue&gt; request_queue;
+    RIOBuffer recv_buffer;
+    RIOBuffer send_buffer;
+    OperationContext receive{this, OperationContext::Type::Receive, 0};
+    OperationContext send{this, OperationContext::Type::Send, 0};
+    size_t outstanding_operations = 0;
+    bool closing = false;
+
+    ClientSession(const RIO_EXTENSION_FUNCTION_TABLE&amp; functions, SOCKET accepted_socket,
+                  std::unique_ptr&lt;RIORequestQueue&gt; queue, size_t buffer_size)
+        : socket(accepted_socket), request_queue(std::move(queue)),
+          recv_buffer(functions, buffer_size), send_buffer(functions, buffer_size) {
+        if (auto r = recv_buffer.Register(); !r) throw std::runtime_error(r.error());
+        if (auto r = send_buffer.Register(); !r) throw std::runtime_error(r.error());
+    }
+
+    ClientSession(const ClientSession&amp;) = delete;
+    ClientSession&amp; operator=(const ClientSession&amp;) = delete;
+    ClientSession(ClientSession&amp;&amp;) = delete;            // OperationContext가 this를 가리킨다
+    ClientSession&amp; operator=(ClientSession&amp;&amp;) = delete;
+};
+
+std::expected&lt;std::unique_ptr&lt;ClientSession&gt;, std::string&gt; MakeSession(
+    RIOManager&amp; manager, SOCKET accepted_rio_socket, size_t buffer_size = 4096) {
+    auto queue = manager.CreateRequestQueue(accepted_rio_socket, 1, 1);
+    if (!queue) {
+        closesocket(accepted_rio_socket);       // 이 함수는 전달받은 소켓 소유권을 항상 소비한다
+        return std::unexpected(queue.error());
+    }
+    try {
+        return std::make_unique&lt;ClientSession&gt;(
+            manager.GetRIOFunctions(), accepted_rio_socket, std::move(*queue), buffer_size);
+    } catch (const std::exception&amp; e) {
+        closesocket(accepted_rio_socket);       // 아직 Socket 소유권을 넘기기 전의 실패 경로
+        return std::unexpected(e.what());
+    }
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">세션보다 오래 살아야 하는 것</p>
+    <p>
+      <code>RIOManager</code>의 함수 테이블과 완료 큐는 모든 <code>ClientSession</code>보다 오래
+      살아야 한다. 요청 큐는 별도 close 함수가 없고 기반 소켓을 닫을 때 함께 해제된다. 따라서 종료는
+      새 요청 중단 → 완료 drain → 세션 파괴(버퍼 등록 해제·소켓 close) → 완료 큐 파괴 순서로 진행한다.
+    </p>
+  </div>
+
+  <div class="callout info">
+    <p class="ctitle">MakeSession()의 소유권 이전</p>
+    <p>
+      <code>MakeSession()</code>는 요청 큐를 먼저 만들고, 성공했을 때만 그 큐와 accept한 소켓의
+      소유권을 <code>ClientSession</code>으로 옮긴다. RIO 요청 큐의 기반 소켓은 세션보다 먼저 닫히면
+      안 되며, 세션 버퍼도 모든 요청 완료를 회수한 뒤에만 등록 해제할 수 있다.
+    </p>
+  </div>
+
+  <h3>2) 종료 순서</h3>
+  <pre><code>// 서버 종료 시에는 accept를 깨운 뒤 accept 스레드를 join하고,
+// 각 세션의 새 I/O 제출을 막은 다음 모든 완료를 회수한다.
+// outstanding_operations가 0인 세션만 컨테이너에서 제거할 수 있다.
+bool CanDestroy(const ClientSession&amp; session) {
+    return session.closing &amp;&amp; session.outstanding_operations == 0;
+}</code></pre>
+
+  <h3>3) 연결 수락과 수신 예약</h3>
+  <p>
+    <code>AcceptEx</code>가 완료된 RIO 소켓을 <code>MakeSession()</code>에 넘기면 세션별 요청 큐와 독립 버퍼가 만들어진다.
+    아래 함수는 종료 중이 아닐 때 수신 하나를 예약한다.
+  </p>
+  <pre><code>std::expected&lt;void, std::string&gt; PostReceive(ClientSession&amp; session) {
+    if (session.closing) return std::unexpected("종료 중인 세션에는 수신을 예약할 수 없습니다");
+    auto result = session.request_queue-&gt;Receive(
+        session.recv_buffer.CreateRIOBuf(), &amp;session.receive);
+    if (!result) return std::unexpected(result.error());
+    ++session.outstanding_operations;
+    return {};
+}</code></pre>
+
+  <h3>4) 완료 처리 — 전송 완료 뒤에만 다음 수신을 예약하기</h3>
+  <pre><code>std::expected&lt;void, std::string&gt; HandleCompletion(const RIORESULT&amp; result) {
+    auto* operation = static_cast&lt;OperationContext*&gt;(result.RequestContext);
+    if (!operation || !operation-&gt;session) return std::unexpected("유효하지 않은 요청 컨텍스트");
+    ClientSession&amp; session = *operation-&gt;session;
+    if (session.outstanding_operations == 0) return std::unexpected("완료 수 카운터 불일치");
+    --session.outstanding_operations;
+
+    if (result.Status != NO_ERROR || result.BytesTransferred == 0) {
+        session.closing = true;                 // 즉시 파괴하지 말고 남은 완료를 기다린다
+        return {};
+    }
+    if (operation-&gt;type == OperationContext::Type::Receive) {
+        std::memcpy(session.send_buffer.GetData(), session.recv_buffer.GetData(), result.BytesTransferred);
+        auto sent = session.request_queue-&gt;Send(
+            session.send_buffer.CreateRIOBuf(0, result.BytesTransferred), &amp;session.send);
+        if (!sent) { session.closing = true; return std::unexpected(sent.error()); }
+        ++session.outstanding_operations;
+        return {};
+    }
+    auto next_receive = PostReceive(session);   // 송신 버퍼를 다시 쓰기 안전한 시점
+    if (!next_receive) session.closing = true;
+    return next_receive;
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">요청별 컨텍스트와 세션 수명</p>
+    <p>
+      <code>RequestContext</code>에는 세션 포인터만이 아니라 수신/송신 종류를 포함한
+      <code>OperationContext</code>의 주소를 넣는다. 그래야 완료 처리에서 다음 상태 전이를 정확히
+      선택할 수 있다. 더 중요한 규칙은 완료 콜백 안에서 세션을 즉시 삭제하지 않는 것이다. 남은
+      요청이 그 세션과 컨텍스트를 계속 가리킬 수 있으므로, <code>CanDestroy()</code>가 참일 때만
+      세션 소유 컨테이너에서 제거한다.
+    </p>
+  </div>
+
+  <h3>5) 다음 장에서 완성할 부분</h3>
+
+  <p>
+    이 절은 안전한 세션 조립과 완료 상태 전이만 다룬다. accept 루프, 세션 컨테이너의 동기화,
+    오류·취소 완료의 drain, graceful shutdown을 하나의 실행 가능한 서버로 묶는 작업은 7장에서
+    다룬다. 따라서 이 장의 코드만 빌드해 텔넷 에코 서버가 완성된다고 주장하면 안 된다.
+  </p>
+
+  <div class="callout">
+    <p class="ctitle">생성자 예외와 std::expected의 경계</p>
+    <p>
+      이 장의 생성자는 부분 생성 상태를 남기지 않기 위해 실패 시 <code>std::runtime_error</code>를
+      던지고, I/O 제출처럼 정상 제어 흐름에서 실패할 수 있는 작업은 <code>std::expected</code>로
+      돌려준다. 실제 프로그램의 최상위 경계에서는 두 방식을 모두 처리해야 한다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">6.6</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>이동 전용 RAII</strong> — 소켓·버퍼·완료 큐·요청 큐를 "복사 금지, 이동만 허용"
+        패턴으로 감싸, 핸들 이중 해제를 원천 차단했습니다.</li>
+      <li><strong>concept으로 제약된 템플릿</strong> — <code>ByteData</code> concept으로 안전하게
+        바이트로 다룰 수 있는 타입만 버퍼에 담을 수 있게 했습니다.</li>
+      <li><strong>버퍼 풀의 수명 규칙</strong> — 용량 초과 시 실패를 반환하고, 요청 완료를 회수한
+        뒤에만 슬롯을 반납해야 함을 확인했습니다.</li>
+      <li><strong>std::span 기반 뷰</strong> — 원시 등록 버퍼는 바이트 span으로 다루고, RIO에는
+        정확한 버퍼 좌표를 가진 view만 전달해야 함을 확인했습니다.</li>
+      <li><strong>std::expected·std::print</strong> — 오류를 종류별로 구분하고, 형식 문자열을
+        컴파일 타임에 검증하는 로깅 체계를 갖췄습니다.</li>
+      <li><strong>세션별 RIO 소유권</strong> — 리스너가 아닌 연결 소켓마다 요청 큐와 버퍼를 두고,
+        모든 완료를 회수한 뒤 세션을 파괴해야 함을 확인했습니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>7장. 간단한 에코 서버 구현</h4>
+    <p>
+      이번 장에서 완성한 래퍼 클래스들을 발판 삼아, 클라이언트 연결 관리와 오류 처리를 한층 더
+      다듬은 완결된 에코 서버를 처음부터 끝까지 다시 정리합니다.
+      <a href="ch07.html">7장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch05.html">← 5장. RIO 큐 및 완료 알림</a>
+  <span class="kicker-num">6 / 9</span>
+  <a href="ch07.html">7장. 간단한 에코 서버 구현 →</a>
+</footer>
+
+</div>
+</body>
+</html>

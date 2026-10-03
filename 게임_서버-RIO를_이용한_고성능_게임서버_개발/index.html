@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RIO를 이용한 고성능 게임 서버 개발 — 목차</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:880px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:80px 0 48px; border-bottom:1px solid var(--rule); text-align:center;}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.28em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:22px;
+}
+.eyebrow::before, .eyebrow::after{content:""; width:28px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.9rem;
+  line-height:1.28; margin:0 0 24px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.1rem; color:var(--muted); max-width:640px; margin:0 auto 8px;}
+.hero-refs{
+  font-family:var(--font-mono); font-size:12px; color:var(--soft); margin-top:28px;
+}
+.hero-refs a{color:var(--link); text-decoration:none;}
+.hero-refs a:hover{text-decoration:underline;}
+
+.toc{padding:56px 0;}
+.toc-label{
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+  color:var(--soft); margin:0 0 24px;
+}
+.chapter-list{display:flex; flex-direction:column; gap:14px;}
+.chapter-card{
+  display:flex; align-items:center; gap:22px;
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:22px 26px; text-decoration:none; color:inherit;
+  transition:border-color 0.15s ease, transform 0.15s ease;
+}
+.chapter-card:hover{border-color:var(--accent); transform:translateX(2px);}
+.chapter-num{
+  font-family:var(--font-mono); font-size:1.6rem; font-weight:700; color:var(--accent-ink);
+  min-width:52px; text-align:center;
+}
+.chapter-body{flex:1;}
+.chapter-title{font-size:1.12rem; font-weight:700; color:var(--ink); margin:0 0 6px;}
+.chapter-desc{font-size:0.92rem; color:var(--muted); margin:0;}
+.chapter-arrow{font-family:var(--font-mono); color:var(--soft); font-size:1.1rem;}
+
+.part-divider{
+  display:flex; align-items:center; gap:14px; margin:36px 0 14px;
+  font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--soft);
+}
+.part-divider::after{content:""; flex:1; height:1px; background:var(--rule);}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:24px;
+  text-align:center; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">RIO 고성능 게임 서버</span>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">신입 개발자를 위한 실습형 가이드</div>
+  <h1>RIO를 이용한<br>고성능 게임 서버 개발</h1>
+  <p class="hero-lead">
+    Windows Registered I/O(RIO)로 시작해, 모던 C++23 기법을 더해 실제로 동작하는 오목 게임
+    서버까지 완성하는 9장짜리 실습 여정입니다. 소켓 프로그래밍 기초부터 시작하므로 네트워크
+    프로그래밍이 처음이어도 순서대로 따라올 수 있고, 후반부에서는 실전 게임 서버 개발에 바로
+    쓸 수 있는 고성능 API 활용법까지 다룹니다.
+  </p>
+  <p class="hero-refs">
+    참고 · <a href="https://github.com/zeliard/RIOTcpServer" target="_blank" rel="noopener">RIOTcpServer</a>
+    · <a href="https://github.com/jacking75/cpp_RIONetLib" target="_blank" rel="noopener">cpp_RIONetLib</a>
+  </p>
+</header>
+
+<section class="toc">
+  <p class="toc-label">PART 1 · 기초 다지기</p>
+  <div class="chapter-list">
+    <a class="chapter-card" href="ch01.html">
+      <span class="chapter-num">01</span>
+      <span class="chapter-body">
+        <p class="chapter-title">네트워크 프로그래밍 기초</p>
+        <p class="chapter-desc">TCP/UDP, Winsock 소켓 API, 블로킹·논블로킹 I/O, 블로킹 소켓 기반 에코 서버 실습</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+    <a class="chapter-card" href="ch02.html">
+      <span class="chapter-num">02</span>
+      <span class="chapter-body">
+        <p class="chapter-title">Windows Registered I/O(RIO) 소개</p>
+        <p class="chapter-desc">RIO의 개념과 제로 카피, 전통적 소켓과의 차이, 아키텍처 4대 구성요소, 주요 API 개요</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+  </div>
+
+  <p class="toc-label" style="margin-top:40px;">PART 2 · RIO 서버 구현</p>
+  <div class="chapter-list">
+    <a class="chapter-card" href="ch03.html">
+      <span class="chapter-num">03</span>
+      <span class="chapter-body">
+        <p class="chapter-title">RIO 환경 설정 및 기본 구현</p>
+        <p class="chapter-desc">세션 기반 RIO 서버 설계, SO_REUSEADDR·TCP_NODELAY, 멀티 워커 스레드 구조</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+    <a class="chapter-card" href="ch04.html">
+      <span class="chapter-num">04</span>
+      <span class="chapter-body">
+        <p class="chapter-title">RIO 버퍼 관리</p>
+        <p class="chapter-desc">버퍼 링 순환 재사용, 오브젝트 풀, 메모리 정렬, 메모리 맵 파일을 이용한 진짜 제로 카피</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+    <a class="chapter-card" href="ch05.html">
+      <span class="chapter-num">05</span>
+      <span class="chapter-body">
+        <p class="chapter-title">RIO 큐 및 완료 알림</p>
+        <p class="chapter-desc">요청 큐·완료 큐 관리자화, 이벤트 vs 폴링, 스레드별 전용 완료 큐, 적응형 폴링</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+  </div>
+
+  <p class="toc-label" style="margin-top:40px;">PART 3 · 모던 C++로 다듬기</p>
+  <div class="chapter-list">
+    <a class="chapter-card" href="ch06.html">
+      <span class="chapter-num">06</span>
+      <span class="chapter-body">
+        <p class="chapter-title">모던 C++을 활용한 RIO 래퍼 클래스</p>
+        <p class="chapter-desc">이동 전용 RAII, concept 제약 템플릿, std::span 뷰, std::expected·std::print, 통합 관리자</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+    <a class="chapter-card" href="ch07.html">
+      <span class="chapter-num">07</span>
+      <span class="chapter-body">
+        <p class="chapter-title">간단한 에코 서버 구현</p>
+        <p class="chapter-desc">선언과 구현을 나눠 완결된 서버 완성, FormatMessageA 오류 메시지, 실전 오류 대응표</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+  </div>
+
+  <p class="toc-label" style="margin-top:40px;">PART 4 · 실전 프로젝트</p>
+  <div class="chapter-list">
+    <a class="chapter-card" href="ch08.html">
+      <span class="chapter-num">08</span>
+      <span class="chapter-body">
+        <p class="chapter-title">패킷 처리 및 직렬화</p>
+        <p class="chapter-desc">패킷 구조 설계, 바이너리 직렬화(std::bit_cast 엔디안 처리), zlib·델타 압축</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+    <a class="chapter-card" href="ch09.html">
+      <span class="chapter-num">09</span>
+      <span class="chapter-body">
+        <p class="chapter-title">오목 게임 서버 개발 가이드</p>
+        <p class="chapter-desc">RIO 네트워크 라이브러리 + 게임 로직 + OpenSiv3D 클라이언트로 완성하는 종합 실습</p>
+      </span>
+      <span class="chapter-arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  RIO를 이용한 고성능 게임 서버 개발 · 전 9장
+</footer>
+
+</div>
+</body>
+</html>

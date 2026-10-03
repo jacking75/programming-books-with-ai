@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>9장. 오목 게임 서버 개발 가이드 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch08.html">← 8장</a>
+    <a href="index.html">목차</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 09 · 마지막 장</div>
+  <h1>오목 게임 서버 개발 가이드</h1>
+  <p class="hero-lead">
+    1장의 소켓 기초부터 8장의 패킷 직렬화까지 — 지금까지 배운 모든 것을 하나의 완결된 프로젝트로
+    조립합니다. 두 사람이 번갈아 돌을 놓는 오목(오목, Gomoku)은 실시간성 요구가 낮고 규칙이
+    단순해서, "네트워크 계층이 게임 로직과 어떻게 맞물리는지"에 온전히 집중하기 좋은 소재입니다.
+    RIO 기반 네트워크 라이브러리, 게임 규칙, 메시지 프로토콜, 그리고 OpenSiv3D로 만든 클라이언트까지
+    — 서버와 클라이언트를 처음부터 끝까지 완성합니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>RIO 네트워크 라이브러리를 재사용 가능한 형태로 감싸는 방법</li>
+      <li>오목 규칙(5목 판정)을 순수 게임 로직 클래스로 분리하는 설계</li>
+      <li>"돌을 놓는다"는 사용자 행동이 클릭 → 검증 → 직렬화 → 전송 → 서버 검증 → 브로드캐스트로
+        이어지는 전체 파이프라인</li>
+      <li>OpenSiv3D로 게임 보드를 그리고 입력을 처리하는 클라이언트 기초</li>
+      <li>재사용 가능한 <code>ByteBuffer</code> 직렬화 클래스와, 그 메모리 관리 전략</li>
+      <li>부분 수신(TCP 스트림 분할) 문제를 처리하는 실전 패턴</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="rio-library">
+  <h2><span class="num">9.1</span> RIO를 이용한 네트워크 라이브러리 개발</h2>
+  <p class="sec-sub">2~6장에서 만든 조각들을 이번 프로젝트 전용으로 한 번 더 정리합니다.</p>
+
+  <p>
+    <code>RioNetworkLibrary</code>는 WSA 초기화, RIO 함수 테이블 획득, 완료 큐 생성, 워커 스레드의
+    관계를 보여주는 <strong>설계 골격</strong>입니다. <code>AcceptEx()</code> 함수 포인터도 얻지만,
+    아래 축약 코드에는 AcceptEx 요청·OVERLAPPED 완료 처리까지 구현되어 있지 않습니다. 실제 동작
+    서버에는 7장의 <code>accept()</code>+<code>RIOCreateRequestQueue()</code> 구현을 넣거나,
+    AcceptEx용 IOCP/OVERLAPPED 파이프라인을 별도로 완성해야 합니다.
+  </p>
+
+  <pre><code>#include &lt;winsock2.h&gt; // windows.h보다 먼저 포함
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;Windows.h&gt;
+#include &lt;algorithm&gt;
+#include &lt;atomic&gt;
+#include &lt;format&gt;
+#include &lt;iostream&gt;
+#include &lt;memory&gt;
+#include &lt;mutex&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;thread&gt;
+#include &lt;unordered_map&gt;
+#include &lt;vector&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "mswsock.lib")
+
+class RioNetworkLibrary {
+public:
+    struct ClientContext {
+        SOCKET socket;
+        RIO_RQ requestQueue;
+        RIO_BUFFERID bufferId;
+        std::vector&lt;RIO_BUF&gt; sendBuffers;
+        std::vector&lt;RIO_BUF&gt; recvBuffers;
+        ULONG id;
+    };
+
+private:
+    RIO_EXTENSION_FUNCTION_TABLE rioFunctionTable{};
+    LPFN_ACCEPTEX lpfnAcceptEx = nullptr;
+    std::mutex clientsMutex;
+    std::unordered_map&lt;ULONG, std::unique_ptr&lt;ClientContext&gt;&gt; clients;
+    SOCKET listenSocket = INVALID_SOCKET;
+    int port;
+    std::atomic&lt;bool&gt; running = false;
+    std::jthread workerThread;
+    RIO_CQ completionQueue = RIO_INVALID_CQ;
+    HANDLE completionEvent = NULL;
+
+public:
+    RioNetworkLibrary(int port) : port(port), running(false) {
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &amp;wsaData) != 0) {
+            throw std::runtime_error("WSAStartup 실패");
+        }
+
+        GUID functionTableId = WSAID_MULTIPLE_RIO;
+        DWORD bytes = 0;
+
+        listenSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);
+        if (listenSocket == INVALID_SOCKET) throw std::runtime_error("소켓 생성 실패");
+
+        int result = WSAIoctl(
+            listenSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+            &amp;functionTableId, sizeof(GUID),
+            &amp;rioFunctionTable, sizeof(RIO_EXTENSION_FUNCTION_TABLE),
+            &amp;bytes, NULL, NULL);
+        if (result == SOCKET_ERROR) throw std::runtime_error("RIO 함수 테이블 초기화 실패");
+
+        // AcceptEx도 RIO 함수처럼 WSAIoctl로 받아오는 확장 함수입니다
+        GUID guidAcceptEx = WSAID_ACCEPTEX;
+        result = WSAIoctl(
+            listenSocket, SIO_GET_EXTENSION_FUNCTION_POINTER,
+            &amp;guidAcceptEx, sizeof(GUID),
+            &amp;lpfnAcceptEx, sizeof(lpfnAcceptEx),
+            &amp;bytes, NULL, NULL);
+        if (result == SOCKET_ERROR) throw std::runtime_error("AcceptEx 함수 포인터 가져오기 실패");
+
+        completionEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+        if (completionEvent == NULL) throw std::runtime_error("이벤트 생성 실패");
+
+        // RIOCreateCompletionQueue()의 두 번째 인자는 이벤트 핸들이 아니라
+        // RIO_NOTIFICATION_COMPLETION 구조체의 주소여야 합니다 (2장 참고)
+        RIO_NOTIFICATION_COMPLETION notificationCompletion{};
+        notificationCompletion.Type = RIO_EVENT_COMPLETION;
+        notificationCompletion.Event.EventHandle = completionEvent;
+        notificationCompletion.Event.NotifyReset = TRUE;
+
+        completionQueue = rioFunctionTable.RIOCreateCompletionQueue(1000, &amp;notificationCompletion);
+        if (completionQueue == RIO_INVALID_CQ) throw std::runtime_error("RIO Completion Queue 생성 실패");
+    }
+
+    ~RioNetworkLibrary() {
+        Stop();
+        if (completionQueue != RIO_INVALID_CQ) rioFunctionTable.RIOCloseCompletionQueue(completionQueue);
+        if (completionEvent != NULL) CloseHandle(completionEvent);
+        if (listenSocket != INVALID_SOCKET) closesocket(listenSocket);
+        WSACleanup();
+    }
+
+    void Start() {
+        if (running.exchange(true)) return;
+
+        sockaddr_in serverAddr{};
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+        serverAddr.sin_port = htons(static_cast&lt;u_short&gt;(port));
+
+        if (bind(listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+            running = false;
+            throw std::runtime_error("소켓 바인딩 실패");
+        }
+        if (listen(listenSocket, SOMAXCONN) == SOCKET_ERROR) {
+            running = false;
+            throw std::runtime_error("리스닝 실패");
+        }
+
+        workerThread = std::jthread([this](std::stop_token stoken) { this-&gt;WorkerThread(stoken); });
+        std::cout &lt;&lt; std::format("서버가 포트 {}에서 시작되었습니다.", port) &lt;&lt; std::endl;
+    }
+
+    void Stop() {
+        if (!running) return;
+        running = false;
+
+        if (completionEvent != NULL) SetEvent(completionEvent);
+
+        if (workerThread.joinable()) {
+            workerThread.request_stop();
+            workerThread.join();
+        }
+
+        std::lock_guard&lt;std::mutex&gt; lock(clientsMutex);
+        clients.clear();
+    }
+
+private:
+    void WorkerThread(std::stop_token stoken) {
+        while (!stoken.stop_requested() &amp;&amp; running) {
+            AcceptNewConnections();
+
+            // 완료 이벤트를 기다리기 전에 매번 다시 통지를 예약해야 합니다(2장 참고) — 이
+            // 호출이 없으면 completionEvent는 결코 신호되지 않고, 아래 대기는 항상 100ms
+            // 타임아웃으로만 풀려나는 사실상의 폴링이 되어버립니다.
+            const int notifyResult = rioFunctionTable.RIONotify(completionQueue);
+            if (notifyResult != ERROR_SUCCESS) {
+                std::cerr &lt;&lt; std::format("RIONotify 실패: {}", notifyResult) &lt;&lt; std::endl;
+                break;
+            }
+            const DWORD waitResult = WaitForSingleObject(completionEvent, 100);
+            if (waitResult != WAIT_OBJECT_0 &amp;&amp; waitResult != WAIT_TIMEOUT) break;
+
+            RIORESULT results[16];
+            ULONG numResults = rioFunctionTable.RIODequeueCompletion(completionQueue, results, 16);
+            if (numResults == RIO_CORRUPT_CQ) {
+                std::cerr &lt;&lt; "RIO Completion Queue가 손상되었습니다." &lt;&lt; std::endl;
+                break;
+            }
+
+            for (ULONG i = 0; i &lt; numResults; i++) ProcessCompletion(results[i]);
+        }
+    }
+
+    void AcceptNewConnections() {
+        // 3장의 accept() + RIOCreateRequestQueue() 패턴을 그대로 적용하면 충분합니다.
+        // AcceptEx()는 연결 수락 자체를 오버랩(비동기) 처리로 만들어 accept() 대기 중에도
+        // 스레드가 블로킹되지 않게 해주지만, 그 이벤트 루프 배선은 이 책의 범위를 넘어서므로
+        // 여기서는 3장 AcceptConnections()를 재사용하는 것으로 충분합니다.
+    }
+
+    void ProcessCompletion(const RIORESULT&amp; result) {
+        // RequestContext는 ULONGLONG이므로 포인터로 되돌릴 때는 reinterpret_cast를 씁니다(3장 참고).
+        ClientContext* client = reinterpret_cast&lt;ClientContext*&gt;(result.RequestContext);
+
+        std::lock_guard&lt;std::mutex&gt; lock(clientsMutex);
+        auto it = std::find_if(clients.begin(), clients.end(),
+            [client](const auto&amp; entry) { return entry.second.get() == client; });
+        if (it == clients.end()) return;
+
+        // 이후 처리는 3장 HandleCompletion()과 동일한 패턴을 따릅니다
+        // (수신 완료 시 게임 메시지 파싱 → 9.5절, 송신 완료 시 다음 수신 예약)
+    }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">이 골격이 일부러 비워둔 부분</p>
+    <p>
+      <code>AcceptNewConnections()</code>가 비어 있으므로 이 클래스만 복사해서 실행하면 클라이언트를
+      받지 못합니다. 이를 완성하려면 7장의 <code>accept()</code>+<code>RIOCreateRequestQueue()</code>
+      경로를 연결해야 합니다. <code>AcceptEx()</code>를 선택한다면 RIO 완료 큐가 아니라
+      <code>OVERLAPPED</code> 완료를 받는 별도 IOCP 또는 이벤트 경로까지 구현해야 합니다. 이 장의
+      목적은 그 네트워크 계층 위에 오목 로직을 올리는 구조를 설명하는 데 있다.
+    </p>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">AcceptEx()</span></div>
+    <div class="api-body">
+      <p>
+        표준 <code>accept()</code>는 연결이 들어올 때까지 스레드를 블로킹합니다. <code>AcceptEx()</code>는
+        연결 수락 자체를 오버랩 I/O로 등록해두고, 완료되면(1장의 Overlapped I/O 모델처럼) 통지를
+        받는 비동기 버전입니다. RIO의 송수신 함수들과 마찬가지로 표준 Winsock API가 아니라
+        <strong>확장 함수</strong>라서, <code>WSAID_ACCEPTEX</code> GUID와
+        <code>SIO_GET_EXTENSION_FUNCTION_POINTER</code>로 함수 포인터를 직접 받아와야 호출할 수
+        있습니다 — 2장에서 RIO 함수 테이블을 받아온 것과 같은 메커니즘입니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="game-logic">
+  <h2><span class="num">9.2</span> 오목 게임 로직</h2>
+  <p class="sec-sub">네트워크 코드와 완전히 독립된, 순수한 게임 규칙 클래스를 먼저 만듭니다.</p>
+
+  <p>
+    <code>GomokuGame</code>은 소켓이나 RIO를 전혀 알지 못합니다. 19×19 보드에 돌을 놓고, 다섯 개가
+    연속으로 이어지는지 확인하는 순수한 규칙만 담당합니다. 이렇게 <strong>게임 로직과 네트워크
+    계층을 분리</strong>해두면, 나중에 콘솔 버전이나 자동 테스트를 만들 때도 이 클래스를 그대로
+    재사용할 수 있습니다.
+  </p>
+  <div class="callout info">
+    <p class="ctitle">이 예제의 규칙은 자유 오목(freestyle Gomoku)이다</p>
+    <p>
+      <code>CheckWin()</code>은 돌이 <strong>5개 이상</strong> 이어지면 승리로 판정한다. 따라서
+      육목도 승리이며, 흑의 3·3·4·4·장목 금수 같은 렌주 규칙은 구현하지 않았다. 렌주 서버를
+      만들려면 <code>PlaceStone()</code>에 금수 판정과 정확히 다섯 규칙을 별도로 추가해야 한다.
+    </p>
+  </div>
+  <pre><code>#include &lt;array&gt;
+#include &lt;optional&gt;
+
+enum class StoneColor { None, Black, White };
+
+class GomokuGame {
+private:
+    static constexpr int BOARD_SIZE = 19;
+    std::array&lt;std::array&lt;StoneColor, BOARD_SIZE&gt;, BOARD_SIZE&gt; board;
+    StoneColor currentTurn;
+    bool gameEnded;
+    std::optional&lt;StoneColor&gt; winner;
+
+public:
+    GomokuGame() : currentTurn(StoneColor::Black), gameEnded(false), winner(std::nullopt) {
+        for (auto&amp; row : board) row.fill(StoneColor::None);
+    }
+
+    bool PlaceStone(int x, int y, StoneColor color) {
+        if (gameEnded || x &lt; 0 || x &gt;= BOARD_SIZE || y &lt; 0 || y &gt;= BOARD_SIZE ||
+            board[y][x] != StoneColor::None || color != currentTurn) {
+            return false;
+        }
+
+        board[y][x] = color;
+
+        if (CheckWin(x, y, color)) {
+            gameEnded = true;
+            winner = color;
+        } else {
+            currentTurn = (currentTurn == StoneColor::Black) ? StoneColor::White : StoneColor::Black;
+        }
+        return true;
+    }
+
+    bool CheckWin(int x, int y, StoneColor color) {
+        // 4개 축(가로/세로/두 대각선)을 정방향+역방향으로 나눠 8방향 확인
+        const std::array&lt;std::pair&lt;int, int&gt;, 8&gt; directions = {{
+            {1, 0}, {0, 1}, {1, 1}, {1, -1},
+            {-1, 0}, {0, -1}, {-1, -1}, {-1, 1}
+        }};
+
+        for (int i = 0; i &lt; 4; ++i) {
+            int count = 1;   // 방금 놓은 돌 자신
+
+            count += CountStonesInDirection(x, y, directions[i].first, directions[i].second, color);
+            count += CountStonesInDirection(x, y, directions[i + 4].first, directions[i + 4].second, color);
+
+            if (count &gt;= 5) return true;
+        }
+        return false;
+    }
+
+    int CountStonesInDirection(int x, int y, int dx, int dy, StoneColor color) {
+        int count = 0;
+        int nx = x + dx, ny = y + dy;
+
+        while (nx &gt;= 0 &amp;&amp; nx &lt; BOARD_SIZE &amp;&amp; ny &gt;= 0 &amp;&amp; ny &lt; BOARD_SIZE &amp;&amp; board[ny][nx] == color) {
+            count++;
+            nx += dx; ny += dy;
+        }
+        return count;
+    }
+
+    StoneColor GetCurrentTurn() const { return currentTurn; }
+    bool IsGameEnded() const { return gameEnded; }
+    std::optional&lt;StoneColor&gt; GetWinner() const { return winner; }
+    const std::array&lt;std::array&lt;StoneColor, BOARD_SIZE&gt;, BOARD_SIZE&gt;&amp; GetBoard() const { return board; }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">왜 4방향을 정방향·역방향으로 나눠 세는가</p>
+    <p>
+      "가로" 한 줄은 왼쪽으로 뻗는 것과 오른쪽으로 뻗는 것이 사실 같은 축입니다.
+      <code>directions</code> 배열은 8칸이지만, 앞의 4개(<code>{1,0}</code>, <code>{0,1}</code>,
+      <code>{1,1}</code>, <code>{1,-1}</code>)와 뒤의 4개가 정확히 반대 방향 쌍을 이룹니다.
+      <code>CheckWin()</code>은 같은 축의 두 반대 방향으로 각각 몇 개가 이어지는지 세어 더하고,
+      방금 놓은 돌 1개를 더해 5개 이상이면 승리로 판정합니다 — 방향을 4번만 순회하면서도 8방향을
+      모두 검사하는 짧은 트릭입니다.
+    </p>
+  </div>
+
+  <div class="callout">
+    <p class="ctitle">PlaceStone()의 검증 순서를 눈여겨보세요</p>
+    <p>
+      <code>if</code>문 한 줄에 <strong>게임 종료 여부, 좌표 범위, 중복 배치, 턴 검증</strong> 네
+      가지를 한꺼번에 검사합니다. 이 검증은 클라이언트가 아니라 <strong>서버에서</strong> 반드시
+      다시 수행되어야 합니다 — 클라이언트가 보내는 좌표를 서버가 그대로 믿으면, 조작된 클라이언트가
+      턴이 아닐 때 돌을 놓거나 존재하지 않는 좌표를 보내는 부정행위를 막을 수 없습니다. 9.3절의
+      서버 코드가 클라이언트 요청을 받고도 <code>game-&gt;PlaceStone()</code>을 다시 호출해
+      검증하는 이유가 여기 있습니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="game-server">
+  <h2><span class="num">9.3</span> 오목 게임 서버 개발</h2>
+  <p class="sec-sub">RioNetworkLibrary와 GomokuGame을 매칭·메시지 처리 로직으로 엮습니다.</p>
+
+  <pre><code>#include &lt;atomic&gt;
+#include &lt;format&gt;
+#include &lt;memory&gt;
+#include &lt;mutex&gt;
+#include &lt;optional&gt;
+#include &lt;queue&gt;
+#include &lt;unordered_map&gt;
+#include &lt;utility&gt;
+
+class GomokuGameServer {
+private:
+    RioNetworkLibrary network;
+    std::mutex gamesMutex;
+    std::unordered_map&lt;uint32_t, std::shared_ptr&lt;GomokuGame&gt;&gt; games;
+    struct GamePlayer { StoneColor color; };
+    std::unordered_map&lt;uint32_t, std::unordered_map&lt;uint32_t, GamePlayer&gt;&gt; gamePlayers;
+    std::queue&lt;uint32_t&gt; waitingPlayers;
+    std::mutex waitingPlayersMutex;
+    std::atomic&lt;uint32_t&gt; nextGameId{1};
+    std::atomic&lt;uint32_t&gt; nextPlayerId{1};
+
+    struct MessageHeader {
+        uint32_t messageType;
+        uint32_t messageSize;
+    };
+
+    enum MessageType {
+        JOIN_GAME = 1, GAME_STARTED = 2, PLACE_STONE = 3,
+        STONE_PLACED = 4, GAME_ENDED = 5, ERROR = 6
+    };
+
+public:
+    GomokuGameServer(int port) : network(port) { RegisterMessageHandlers(); }
+
+    void Start() { network.Start(); }
+    void Stop() { network.Stop(); }
+
+private:
+    void RegisterMessageHandlers() {
+        // 각 메시지 타입에 대한 핸들러 등록 (9.5절에서 완성합니다)
+    }
+
+    void HandleJoinGame(uint32_t playerId) {
+        std::optional&lt;std::pair&lt;uint32_t, uint32_t&gt;&gt; matchedPlayers;
+        {
+            std::lock_guard&lt;std::mutex&gt; lock(waitingPlayersMutex);
+            waitingPlayers.push(playerId);
+            if (waitingPlayers.size() &gt;= 2) {
+                const uint32_t player1 = waitingPlayers.front(); waitingPlayers.pop();
+                const uint32_t player2 = waitingPlayers.front(); waitingPlayers.pop();
+                matchedPlayers = std::make_pair(player1, player2);
+            }
+        }
+        if (matchedPlayers) StartNewGame(matchedPlayers-&gt;first, matchedPlayers-&gt;second);
+        else SendWaitingForOpponentMessage(playerId);
+    }
+
+    void StartNewGame(uint32_t player1Id, uint32_t player2Id) {
+        uint32_t gameId = nextGameId++;
+
+        {
+            std::lock_guard&lt;std::mutex&gt; lock(gamesMutex);
+            games[gameId] = std::make_shared&lt;GomokuGame&gt;();
+            gamePlayers[gameId] = {
+                { player1Id, { StoneColor::Black } },
+                { player2Id, { StoneColor::White } }
+            };
+        }
+
+        // 네트워크 전송은 gamesMutex를 잡지 않은 상태에서 수행한다.
+        SendGameStartedMessage(player1Id, player2Id, gameId, StoneColor::Black);
+        SendGameStartedMessage(player2Id, player1Id, gameId, StoneColor::White);
+    }
+
+    void HandlePlaceStone(uint32_t playerId, uint32_t gameId, int x, int y) {
+        std::string error;
+        std::optional&lt;StoneColor&gt; winner;
+        StoneColor placedColor = StoneColor::None;
+        {
+            std::lock_guard&lt;std::mutex&gt; lock(gamesMutex); // 이 간단한 예제에서는 게임 상태 갱신을 직렬화한다.
+            auto it = games.find(gameId);
+            if (it == games.end()) {
+                error = "게임을 찾을 수 없습니다.";
+            } else {
+                auto playersIt = gamePlayers.find(gameId);
+                if (playersIt == gamePlayers.end() || !playersIt-&gt;second.contains(playerId)) {
+                    error = "이 게임에 참여하지 않은 플레이어입니다.";
+                } else {
+                    placedColor = playersIt-&gt;second.at(playerId).color;
+                    auto&amp; game = it-&gt;second;
+                    if (game-&gt;GetCurrentTurn() != placedColor) {
+                        error = "당신의 턴이 아닙니다.";
+                    } else if (!game-&gt;PlaceStone(x, y, placedColor)) {
+                        error = "해당 위치에 돌을 놓을 수 없습니다.";
+                    } else if (game-&gt;IsGameEnded()) {
+                        winner = game-&gt;GetWinner();
+                    }
+                }
+            }
+        }
+
+        if (!error.empty()) {
+            SendErrorMessage(playerId, error);
+            return;
+        }
+        BroadcastStonePlacedMessage(gameId, x, y, placedColor);
+        if (winner) BroadcastGameEndedMessage(gameId, winner);
+    }
+
+    void SendWaitingForOpponentMessage(uint32_t playerId) { /* 9.5절에서 완성 */ }
+    void SendGameStartedMessage(uint32_t playerId, uint32_t opponentId, uint32_t gameId, StoneColor playerColor) { /* 9.5절에서 완성 */ }
+    void SendErrorMessage(uint32_t playerId, const std::string&amp; message) { /* 9.5절에서 완성 */ }
+    void BroadcastStonePlacedMessage(uint32_t gameId, int x, int y, StoneColor color) { /* 9.5절에서 완성 */ }
+    void BroadcastGameEndedMessage(uint32_t gameId, std::optional&lt;StoneColor&gt; winner) { /* 9.5절에서 완성 */ }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">8장의 PacketType과는 다른, 이 장만의 메시지 체계</p>
+    <p>
+      이 서버는 8장에서 만든 <code>PacketHeader</code>/<code>PacketType</code>/<code>PacketFactory</code>
+      체계를 재사용하지 않고, <code>MessageHeader</code>/<code>MessageType</code>이라는 훨씬 단순한
+      자체 형식을 새로 정의합니다. 실전 프로젝트라면 이렇게 프로토콜을 이중으로 두기보다,
+      8장의 <code>PacketType</code> enum에 <code>PLACE_STONE</code> 등 오목 전용 값을 추가하고
+      <code>PacketFactory::RegisterPacket&lt;PlaceStonePacket&gt;()</code>으로 등록해 <strong>한
+      체계로 통일</strong>하는 편이 일관성 있습니다. 이 장에서는 두 장의 예제가 각자 독립적으로도
+      읽힐 수 있도록 원문의 단순한 형식을 그대로 유지했습니다.
+    </p>
+  </div>
+
+  <div class="callout">
+    <p class="ctitle">HandlePlaceStone()이 클라이언트를 신뢰하지 않는 지점</p>
+    <p>
+      서버는 먼저 게임 참가자 목록에서 해당 <code>playerId</code>에 배정한 색을 찾고, 그 <strong>서버
+      배정 색</strong>이 현재 턴인지(<code>game-&gt;GetCurrentTurn() != color</code>)와 그 좌표에 정말
+      돌을 놓을 수 있는지(<code>game-&gt;PlaceStone(...)</code>의 반환값)를 검사합니다. 패킷에 든
+      <code>color</code> 값은 검증용 힌트일 뿐 권한 판단의 근거가 되어서는 안 됩니다. 검사에 실패하면
+      <code>SendErrorMessage()</code>만 보내고 <strong>보드 상태는 절대 바뀌지
+      않습니다</strong> — "클라이언트를 믿지 않는다"는 원칙이 실제 코드로 구현된 지점입니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="client">
+  <h2><span class="num">9.4</span> OpenSiv3D를 이용한 클라이언트 개발</h2>
+  <p class="sec-sub">보드를 그리고, 클릭을 좌표로 바꾸고, 서버 메시지를 화면에 반영하는 얇은 클라이언트입니다.</p>
+
+  <p>
+    <strong>OpenSiv3D</strong>는 2D 그래픽·오디오·입력 처리를 손쉽게 다룰 수 있는 C++ 프레임워크로,
+    <code>Main()</code> 함수 하나에 게임 루프 전체를 담는 구조가 특징입니다. 이 절에서는 소켓
+    통신 부분은 뼈대만 두고(9.5절에서 완성), 화면을 그리고 입력을 받는 부분에 집중합니다.
+  </p>
+  <pre><code>#include &lt;Siv3D.hpp&gt;
+#include &lt;winsock2.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;array&gt;
+#include &lt;atomic&gt;
+#include &lt;chrono&gt;
+#include &lt;functional&gt;
+#include &lt;mutex&gt;
+#include &lt;optional&gt;
+#include &lt;queue&gt;
+#include &lt;string&gt;
+#include &lt;thread&gt;
+#include &lt;utility&gt;
+#include &lt;vector&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+
+enum class StoneColor { None, Black, White };
+
+class GomokuClient {
+private:
+    static constexpr int BOARD_SIZE = 19;
+    static constexpr int CELL_SIZE = 30;
+    static constexpr int STONE_RADIUS = 13;
+    static constexpr int BOARD_MARGIN = 20;
+
+    SOCKET clientSocket = INVALID_SOCKET;
+    std::array&lt;std::array&lt;StoneColor, BOARD_SIZE&gt;, BOARD_SIZE&gt; board;
+    StoneColor playerColor;
+    StoneColor currentTurn;
+    bool gameStarted;
+    bool gameEnded;
+    std::optional&lt;StoneColor&gt; winner;
+    std::atomic&lt;bool&gt; connected;
+    std::jthread networkThread;
+    std::queue&lt;std::function&lt;void()&gt;&gt; mainThreadTasks;
+    std::mutex taskMutex;
+
+public:
+    GomokuClient() : gameStarted(false), gameEnded(false), playerColor(StoneColor::None),
+                   currentTurn(StoneColor::Black), connected(false), winner(std::nullopt) {
+        for (auto&amp; row : board) row.fill(StoneColor::None);
+
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &amp;wsaData) != 0) throw std::runtime_error("WSAStartup 실패");
+    }
+
+    ~GomokuClient() { Disconnect(); WSACleanup(); }
+
+    bool Connect(const std::string&amp; serverAddress, int port) {
+        if (connected) return true;
+
+        clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (clientSocket == INVALID_SOCKET) return false;
+
+        sockaddr_in serverAddr{};
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_port = htons(static_cast&lt;u_short&gt;(port));
+        if (inet_pton(AF_INET, serverAddress.c_str(), &amp;serverAddr.sin_addr) != 1) {
+            closesocket(clientSocket);
+            clientSocket = INVALID_SOCKET;
+            return false;
+        }
+
+        if (connect(clientSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+            closesocket(clientSocket);
+            clientSocket = INVALID_SOCKET;
+            return false;
+        }
+
+        connected = true;
+        networkThread = std::jthread([this](std::stop_token stoken) { this-&gt;NetworkThread(stoken); });
+        SendJoinGameRequest();
+        return true;
+    }
+
+    void Disconnect() {
+        connected = false;
+
+        if (clientSocket != INVALID_SOCKET) {
+            shutdown(clientSocket, SD_BOTH); // blocking recv를 깨워 네트워크 스레드가 종료할 수 있게 한다.
+            closesocket(clientSocket);
+            clientSocket = INVALID_SOCKET;
+        }
+        if (networkThread.joinable()) {
+            networkThread.request_stop();
+            networkThread.join();
+        }
+    }
+
+    // 네트워크 스레드가 쌓아둔 작업을 메인(렌더링) 스레드에서 안전하게 실행
+    void Update() {
+        std::queue&lt;std::function&lt;void()&gt;&gt; tasks;
+        {
+            std::lock_guard&lt;std::mutex&gt; lock(taskMutex);
+            tasks.swap(mainThreadTasks);
+        }
+        while (!tasks.empty()) {
+            auto task = std::move(tasks.front());
+            tasks.pop();
+            task();
+        }
+    }
+
+    void Draw() const {
+        Rect(BOARD_MARGIN, BOARD_MARGIN, CELL_SIZE * BOARD_SIZE, CELL_SIZE * BOARD_SIZE).draw(ColorF(0.8, 0.7, 0.5));
+
+        for (int i = 0; i &lt; BOARD_SIZE; ++i) {
+            int pos = BOARD_MARGIN + i * CELL_SIZE;
+            Line(pos, BOARD_MARGIN, pos, BOARD_MARGIN + CELL_SIZE * BOARD_SIZE).draw(1.0, ColorF(0.0, 0.0, 0.0));
+            Line(BOARD_MARGIN, pos, BOARD_MARGIN + CELL_SIZE * BOARD_SIZE, pos).draw(1.0, ColorF(0.0, 0.0, 0.0));
+        }
+
+        const std::array&lt;std::pair&lt;int, int&gt;, 9&gt; starPoints = {{
+            {3, 3}, {9, 3}, {15, 3}, {3, 9}, {9, 9}, {15, 9}, {3, 15}, {9, 15}, {15, 15}
+        }};
+        for (const auto&amp; [x, y] : starPoints) {
+            Circle(BOARD_MARGIN + x * CELL_SIZE, BOARD_MARGIN + y * CELL_SIZE, 3).draw(ColorF(0.0, 0.0, 0.0));
+        }
+
+        for (int y = 0; y &lt; BOARD_SIZE; ++y) {
+            for (int x = 0; x &lt; BOARD_SIZE; ++x) {
+                if (board[y][x] != StoneColor::None) {
+                    Color color = (board[y][x] == StoneColor::Black) ? Color(0, 0, 0) : Color(255, 255, 255);
+                    Circle(BOARD_MARGIN + x * CELL_SIZE, BOARD_MARGIN + y * CELL_SIZE, STONE_RADIUS).draw(color);
+                }
+            }
+        }
+
+        if (!gameStarted) {
+            FontAsset(U"Popup")(U"상대방 대기 중...").drawAt(Scene::Center(), ColorF(0.0, 0.0, 0.0));
+        } else if (gameEnded) {
+            String message = winner ? ((winner.value() == playerColor) ? U"승리했습니다!" : U"패배했습니다!") : U"무승부!";
+            FontAsset(U"Popup")(message).drawAt(Scene::Center(), ColorF(0.0, 0.0, 0.0));
+        } else {
+            String turnText = (currentTurn == playerColor) ? U"당신의 턴입니다" : U"상대방 턴입니다";
+            FontAsset(U"Status")(turnText).draw(10, 10, ColorF(0.0, 0.0, 0.0));
+        }
+    }
+
+    bool HandleClick(const Point&amp; pos) {
+        if (!gameStarted || gameEnded || currentTurn != playerColor) return false;
+
+        int x = (pos.x - BOARD_MARGIN + CELL_SIZE / 2) / CELL_SIZE;
+        int y = (pos.y - BOARD_MARGIN + CELL_SIZE / 2) / CELL_SIZE;
+        if (x &lt; 0 || x &gt;= BOARD_SIZE || y &lt; 0 || y &gt;= BOARD_SIZE || board[y][x] != StoneColor::None) {
+            return false;
+        }
+
+        SendPlaceStoneRequest(x, y);
+        return true;
+    }
+
+private:
+    void NetworkThread(std::stop_token stoken) {
+        while (!stoken.stop_requested() &amp;&amp; connected) {
+            // 메시지 수신 및 처리 — 9.5절의 ClientConnection 패턴으로 완성합니다
+            std::this_thread::sleep_for(std::chrono::milliseconds(1)); // 수신 루프를 붙이기 전까지 CPU 독점을 막는다.
+        }
+    }
+
+    void SendJoinGameRequest() { /* 9.5절에서 완성 */ }
+    void SendPlaceStoneRequest(int x, int y);   // 9.5절에서 완성
+
+    void HandleGameStarted(StoneColor color, bool isFirstTurn) {
+        AddMainThreadTask([this, color]() {
+            gameStarted = true;
+            playerColor = color;
+            currentTurn = StoneColor::Black;
+        });
+    }
+
+    void HandleStonePlaced(int x, int y, StoneColor color) {
+        AddMainThreadTask([this, x, y, color]() {
+            board[y][x] = color;
+            currentTurn = (color == StoneColor::Black) ? StoneColor::White : StoneColor::Black;
+        });
+    }
+
+    void HandleGameEnded(std::optional&lt;StoneColor&gt; winnerColor) {
+        AddMainThreadTask([this, winnerColor]() { gameEnded = true; winner = winnerColor; });
+    }
+
+    void AddMainThreadTask(std::function&lt;void()&gt; task) {
+        std::lock_guard&lt;std::mutex&gt; lock(taskMutex);
+        mainThreadTasks.push(task);
+    }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">왜 네트워크 스레드가 직접 보드를 바꾸지 않을까</p>
+    <p>
+      <code>HandleStonePlaced()</code>는 보드를 그 자리에서 바로 바꾸지 않고,
+      <code>AddMainThreadTask()</code>로 "나중에 메인 스레드에서 실행할 작업"만 큐에 쌓습니다.
+      OpenSiv3D 같은 그래픽 프레임워크는 대부분 <strong>렌더링과 관련된 상태를 메인 스레드에서만
+      안전하게 건드릴 수 있다</strong>는 제약이 있습니다. 네트워크 스레드(<code>NetworkThread</code>)에서
+      곧바로 <code>board[y][x] = color;</code>를 실행하면, 마침 같은 순간 메인 스레드가
+      <code>Draw()</code>에서 그 배열을 읽고 있을 수 있어 경쟁 상태(race condition)가 됩니다.
+      <code>Update()</code>가 매 프레임 메인 스레드에서 큐를 비워주므로, 실제 상태 변경은 항상
+      안전한 시점에 일어납니다.
+    </p>
+  </div>
+
+  <pre><code>void Main() {
+    Window::SetTitle(U"오목 게임");
+    Scene::SetBackground(ColorF(0.9, 0.9, 0.9));
+
+    FontAsset::Register(U"Popup", 36, Typeface::Bold);
+    FontAsset::Register(U"Status", 20);
+
+    GomokuClient client;
+
+    String serverAddress = U"127.0.0.1";
+    int serverPort = 8765;
+
+    if (!client.Connect(serverAddress.narrow(), serverPort)) {
+        System::MessageBoxOK(U"오류", U"서버 연결에 실패했습니다.");
+        return;
+    }
+
+    while (System::Update()) {
+        client.Update();
+
+        if (MouseL.down()) {
+            client.HandleClick(Cursor::Pos());
+        }
+
+        client.Draw();
+
+        if (KeyEscape.down()) break;
+    }
+
+    client.Disconnect();
+}</code></pre>
+</section>
+
+<section class="sec" id="place-stone-flow">
+  <h2><span class="num">9.5</span> 클라이언트에서 서버로 — 돌 배치 요청의 전체 파이프라인</h2>
+  <p class="sec-sub">"보드를 클릭한다"는 행동 하나가 실제로 거치는 여섯 단계를 끝까지 완성합니다.</p>
+
+  <p>
+    지금까지 여러 절에서 <code>/* 9.5절에서 완성 */</code>로 미뤄둔 함수들을 여기서 채웁니다.
+    사용자 클릭 하나는 <strong>①유효성 검증 → ②메시지 포맷팅 → ③직렬화 → ④소켓 전송 → ⑤서버
+    검증·처리 → ⑥양쪽 클라이언트에 브로드캐스트</strong>라는 여섯 단계를 거칩니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 340" role="img" aria-labelledby="place-title place-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="place-title">돌 배치 요청의 클라이언트-서버 메시지 흐름</title>
+      <desc id="place-desc">클라이언트 A가 서버에 PLACE_STONE 요청을 보내면 서버가 턴과 좌표를 검증한 뒤 PlaceStone을 호출하고, 성공하면 STONE_PLACED 메시지를 요청자 A와 상대방 B 양쪽에 브로드캐스트하는 시퀀스 다이어그램.</desc>
+      <defs>
+        <marker id="ps-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+        <marker id="ps-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#c8862e"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="24" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="94" y="47" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트 A</text>
+
+      <rect x="270" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="340" y="47" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">서버</text>
+
+      <rect x="516" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="586" y="47" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트 B</text>
+
+      <line x1="94" y1="64" x2="94" y2="280" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="340" y1="64" x2="340" y2="280" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="586" y1="64" x2="586" y2="280" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <rect x="336" y="100" width="8" height="124" fill="rgba(32,29,26,0.06)" stroke="#6b6259" stroke-width="0.8"/>
+
+      <line x1="94" y1="100" x2="332" y2="100" stroke="#6b6259" stroke-width="1.2" marker-end="url(#ps-arrow)"/>
+      <rect x="150" y="80" width="132" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="216" y="89" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">① PLACE_STONE 요청</text>
+
+      <rect x="270" y="124" width="140" height="28" rx="4" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="340" y="142" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">턴·좌표 검증 → PlaceStone()</text>
+
+      <line x1="344" y1="180" x2="98" y2="180" stroke="#c8862e" stroke-width="1.4" marker-end="url(#ps-arrow-accent)"/>
+      <rect x="150" y="160" width="132" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="216" y="169" text-anchor="middle" fill="#8f5f1e" font-size="8" font-weight="600" font-family="'Geist Mono',monospace">② STONE_PLACED</text>
+
+      <line x1="344" y1="216" x2="582" y2="216" stroke="#c8862e" stroke-width="1.4" marker-end="url(#ps-arrow-accent)"/>
+      <rect x="398" y="196" width="132" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="464" y="205" text-anchor="middle" fill="#8f5f1e" font-size="8" font-weight="600" font-family="'Geist Mono',monospace">③ STONE_PLACED</text>
+
+      <line x1="40" y1="296" x2="640" y2="296" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="314" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <line x1="160" y1="311" x2="184" y2="311" stroke="#6b6259" stroke-width="1.2" marker-end="url(#ps-arrow)"/>
+      <text x="192" y="314" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">요청</text>
+      <line x1="280" y1="311" x2="304" y2="311" stroke="#c8862e" stroke-width="1.4" marker-end="url(#ps-arrow-accent)"/>
+      <text x="312" y="314" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">검증 통과 후 양쪽에 브로드캐스트</text>
+    </svg>
+    <p class="dcap">그림 9-1. 요청자 A뿐 아니라 상대방 B에게도 STONE_PLACED를 보내야 두 클라이언트의 보드가 동기화됩니다</p>
+  </div>
+
+  <h3>1) 메시지 프로토콜 정의</h3>
+  <pre><code>struct MessageHeader {
+    uint32_t messageType;
+    uint32_t messageSize;   // 헤더 포함 전체 메시지 크기
+};
+
+enum class MessageType : uint32_t {
+    JOIN_GAME = 1, GAME_STARTED = 2, PLACE_STONE = 3,
+    STONE_PLACED = 4, GAME_ENDED = 5, ERROR = 6
+};
+
+struct PlaceStoneRequest {
+    MessageHeader header;
+    uint32_t gameId;
+    uint32_t playerId;
+    int32_t x;
+    int32_t y;
+    uint8_t stoneColor;   // 1: 흑, 2: 백
+};</code></pre>
+
+  <h3>2) 구조체를 그대로 보내는 레거시 예시</h3>
+  <p>
+    아래 코드는 패딩·엔디안이 같은 환경에서만 동작하는 비교용 예시다. 실제 클라이언트가 호출하는
+    <code>SendPlaceStoneRequest()</code>의 완성본은 9.6절의 <code>ByteBuffer</code> 버전이며, 아래 함수는
+    같은 번역 단위에서 중복 정의되지 않도록 <code>Legacy</code> 이름으로 분리했다.
+  </p>
+  <pre><code>void GomokuClient::SendPlaceStoneRequestLegacy(int x, int y) {
+    if (!connected || !gameStarted || gameEnded || currentTurn != playerColor) return;
+
+    PlaceStoneRequest request{};
+    request.header.messageType = static_cast&lt;uint32_t&gt;(MessageType::PLACE_STONE);
+    request.header.messageSize = sizeof(PlaceStoneRequest);
+    request.gameId = currentGameId;
+    request.playerId = playerId;
+    request.x = static_cast&lt;int32_t&gt;(x);
+    request.y = static_cast&lt;int32_t&gt;(y);
+    request.stoneColor = static_cast&lt;uint8_t&gt;(playerColor);
+
+    std::vector&lt;char&gt; sendBuffer(sizeof(PlaceStoneRequest));
+    std::memcpy(sendBuffer.data(), &amp;request, sizeof(PlaceStoneRequest));
+
+    // 1장에서 배운 대로 — send()가 요청 크기 전체를 한 번에 보낸다는 보장이 없으므로 반복 전송
+    int totalBytesSent = 0;
+    int bytesToSend = static_cast&lt;int&gt;(sendBuffer.size());
+
+    while (totalBytesSent &lt; bytesToSend) {
+        int bytesSent = send(clientSocket, sendBuffer.data() + totalBytesSent, bytesToSend - totalBytesSent, 0);
+
+        if (bytesSent == SOCKET_ERROR) {
+            int errorCode = WSAGetLastError();
+            if (errorCode != WSAEWOULDBLOCK) {
+                std::string errorMsg = std::format("송신 에러: {}", errorCode);
+                AddMainThreadTask([this, errorMsg]() { this-&gt;HandleError(errorMsg); });
+                connected = false;
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else if (bytesSent == 0) {
+            connected = false; // 정상 종료와 동일하게 더 이상 송신할 수 없다.
+            return;
+        } else {
+            totalBytesSent += bytesSent;
+        }
+    }
+
+    // 로컬 보드는 여기서 바로 바꾸지 않습니다 — 서버가 검증 후 STONE_PLACED를 보내와야 반영됩니다
+}
+
+void GomokuClient::HandleError(const std::string&amp; errorMessage) {
+    Console.WriteLine(Unicode::FromUTF8(errorMessage));
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">낙관적 업데이트를 하지 않는 이유</p>
+    <p>
+      클릭한 즉시 로컬 보드에 돌을 그려주면(낙관적 업데이트) 체감 반응은 빠르지만, 서버가 그 요청을
+      거부했을 때(턴이 아니었거나 동시에 같은 칸을 눌렀거나) 되돌리는 로직이 더 필요해집니다.
+      오목은 초당 여러 번 입력하는 액션 게임이 아니라 지연 시간에 민감하지 않으므로, 이 예제는
+      <strong>서버의 응답을 받은 뒤에만 보드를 바꾸는 단순하고 항상 일관된 방식</strong>을
+      택했습니다.
+    </p>
+  </div>
+
+  <h3>3) 서버 측 수신 처리</h3>
+  <pre><code>void GomokuGameServer::ProcessClientMessage(uint32_t clientId, const char* data, size_t length) {
+    if (length &lt; sizeof(MessageHeader)) return;   // 헤더보다 작으면 무시
+
+    MessageHeader header{};
+    std::memcpy(&amp;header, data, sizeof(header)); // 정렬되지 않은 char 버퍼를 포인터로 재해석하지 않는다.
+    if (header.messageSize != length) return;
+    MessageType messageType = static_cast&lt;MessageType&gt;(header.messageType);
+
+    switch (messageType) {
+        case MessageType::PLACE_STONE: {
+            if (length &lt; sizeof(PlaceStoneRequest)) return;   // 메시지 크기 불충분
+
+            PlaceStoneRequest request{};
+            std::memcpy(&amp;request, data, sizeof(request));
+
+            // 패킷의 stoneColor는 호환성을 위해 읽기만 하고 권한 판단에는 사용하지 않는다.
+            // HandlePlaceStone()이 gamesMutex 아래에서 참가자·턴·좌표를 검증하고, 잠금을 푼 뒤 전송한다.
+            HandlePlaceStone(clientId, request.gameId, request.x, request.y);
+            break;
+        }
+        // 다른 메시지 타입 처리...
+    }
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">레거시 구조체 형식도 포인터 재해석은 피해야 한다</p>
+    <p>
+      정렬되지 않은 <code>char*</code>를 <code>MessageHeader*</code>로 바꾸면 정렬·별칭 규칙을
+      위반할 수 있으므로, 예제는 우선 <code>std::memcpy</code>로 지역 구조체에 복사한다. 그래도 이
+      레거시 형식은 구조체 패딩과 엔디안이 송수신 양쪽에서 같다는 가정을 갖는다. 실제 네트워크
+      프로토콜에는 9.6절의 <code>ByteBuffer</code>처럼 필드를 명시적으로 직렬화하는 방식을 사용해야 한다.
+    </p>
+  </div>
+
+  <h3>4) 네트워크 데이터 전송 고려사항 — 바이트 오더링 복습</h3>
+  <pre><code>uint32_t ConvertToNetworkByteOrder(uint32_t value) { return htonl(value); }   // Host to Network Long
+uint32_t ConvertToHostByteOrder(uint32_t value) { return ntohl(value); }      // Network to Host Long</code></pre>
+  <p>
+    1장에서 포트 번호에 썼던 <code>htons()</code>의 32비트 버전입니다. 이 장의
+    <code>PlaceStoneRequest</code>는 같은 아키텍처(x86-64)의 클라이언트·서버 간 통신을 가정해
+    엔디안 변환을 생략했지만, 8장의 <code>BinarySerializer</code>나 다음 절의
+    <code>ByteBuffer</code>를 쓰면 이 변환을 자동으로 처리할 수 있습니다.
+  </p>
+</section>
+
+<section class="sec" id="bytebuffer">
+  <h2><span class="num">9.6</span> ByteBuffer — 재사용 가능한 직렬화 버퍼</h2>
+  <p class="sec-sub">8장의 BinarySerializer/Deserializer를 하나로 합치고, 읽기·쓰기 위치를 함께 관리하는 범용 클래스로 발전시킵니다.</p>
+
+  <pre><code>#include &lt;vector&gt;
+#include &lt;cstring&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;array&gt;
+#include &lt;bit&gt;
+#include &lt;algorithm&gt;
+#include &lt;cstdint&gt;
+#include &lt;limits&gt;
+#include &lt;type_traits&gt;
+
+class ByteBuffer {
+private:
+    std::vector&lt;char&gt; buffer;
+    size_t writePos = 0;
+    size_t readPos = 0;
+    bool networkByteOrder = true;
+
+public:
+    explicit ByteBuffer(size_t initialSize = 1024)
+        : buffer(std::max&lt;size_t&gt;(initialSize, 1)), writePos(0), readPos(0) {}
+
+    // 이미 채워진 원시 데이터로부터 바로 구성 — 아래 콜아웃에서 이 생성자가 필요한 이유를 설명합니다
+    ByteBuffer(const char* data, size_t length)
+        : buffer(data, data + length), writePos(length), readPos(0) {}
+
+    template &lt;typename T&gt;
+    void Write(const T&amp; data) {
+        static_assert(std::is_trivially_copyable_v&lt;T&gt;, "T must be trivially copyable");
+        size_t dataSize = sizeof(T);
+        EnsureCapacity(dataSize);
+
+        if (networkByteOrder &amp;&amp; std::endian::native == std::endian::little &amp;&amp; dataSize &gt; 1) {
+            // 8장에서 배운 방식 그대로 — 정수·부동소수점 모두 바이트 단위로 안전하게 스왑
+            auto bytes = std::bit_cast&lt;std::array&lt;uint8_t, sizeof(T)&gt;&gt;(data);
+            std::reverse(bytes.begin(), bytes.end());
+            std::memcpy(buffer.data() + writePos, bytes.data(), dataSize);
+        } else {
+            std::memcpy(buffer.data() + writePos, &amp;data, dataSize);
+        }
+        writePos += dataSize;
+    }
+
+    void WriteString(const std::string&amp; str) {
+        if (str.size() &gt; (std::numeric_limits&lt;uint32_t&gt;::max)()) {
+            throw std::length_error("문자열이 uint32 길이 필드 범위를 초과했습니다");
+        }
+        uint32_t length = static_cast&lt;uint32_t&gt;(str.length());
+        Write(length);
+        EnsureCapacity(str.length());
+        std::memcpy(buffer.data() + writePos, str.data(), str.length());
+        writePos += str.length();
+    }
+
+    template &lt;typename T&gt;
+    T Read() {
+        static_assert(std::is_trivially_copyable_v&lt;T&gt;, "T must be trivially copyable");
+        if (readPos &gt; writePos || sizeof(T) &gt; writePos - readPos) throw std::out_of_range("읽기 범위 초과");
+
+        T value;
+        if (networkByteOrder &amp;&amp; std::endian::native == std::endian::little &amp;&amp; sizeof(T) &gt; 1) {
+            std::array&lt;uint8_t, sizeof(T)&gt; bytes;
+            std::memcpy(bytes.data(), buffer.data() + readPos, sizeof(T));
+            std::reverse(bytes.begin(), bytes.end());
+            value = std::bit_cast&lt;T&gt;(bytes);
+        } else {
+            std::memcpy(&amp;value, buffer.data() + readPos, sizeof(T));
+        }
+        readPos += sizeof(T);
+        return value;
+    }
+
+    std::string ReadString() {
+        uint32_t length = Read&lt;uint32_t&gt;();
+        if (readPos &gt; writePos || length &gt; writePos - readPos) throw std::out_of_range("문자열 읽기 범위 초과");
+
+        std::string str(buffer.data() + readPos, length);
+        readPos += length;
+        return str;
+    }
+
+    void EnsureCapacity(size_t additionalSize) {
+        if (additionalSize &gt; (std::numeric_limits&lt;size_t&gt;::max)() - writePos) {
+            throw std::length_error("버퍼 크기 계산이 오버플로합니다");
+        }
+        const size_t required = writePos + additionalSize;
+        if (required &gt; buffer.size()) {
+            const size_t doubled = buffer.size() &gt; (std::numeric_limits&lt;size_t&gt;::max)() / 2
+                ? (std::numeric_limits&lt;size_t&gt;::max)() : buffer.size() * 2;
+            buffer.resize(std::max(doubled, required));
+        }
+    }
+
+    const char* Data() const { return buffer.data(); }
+    char* Data() { return buffer.data(); }
+    size_t Size() const { return writePos; }
+    size_t ReadableBytes() const { return writePos - readPos; }
+
+    void Clear() { writePos = 0; readPos = 0; }
+    void Compact() {
+        if (readPos != 0 &amp;&amp; readPos &lt; writePos) {
+            std::memmove(buffer.data(), buffer.data() + readPos, writePos - readPos);
+        }
+        writePos -= readPos;
+        readPos = 0;
+    }
+    void Reset() { Clear(); buffer.shrink_to_fit(); }
+    void ResetReadPosition() { readPos = 0; }
+    void SetNetworkByteOrder(bool enable) { networkByteOrder = enable; }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">원문의 두 가지 문제를 여기서 바로잡았습니다</p>
+    <p>
+      <strong>① 엔디안 변환이 uint32_t에만 적용되던 문제</strong> — 원문의 <code>Write&lt;T&gt;()</code>는
+      <code>std::is_same_v&lt;T, uint32_t&gt;</code> 조건 때문에 <code>int32_t</code>·<code>uint16_t</code>
+      같은 다른 정수 타입은 엔디안 변환 없이 그대로 저장했습니다. 실제로 9.5절의
+      <code>SendPlaceStoneRequest</code>가 이 클래스를 썼다면, <code>gameId</code>(uint32_t)는
+      빅 엔디안으로 바뀌는데 <code>x</code>·<code>y</code>(int32_t)는 리틀 엔디안 그대로 남아
+      <strong>같은 메시지 안에서 바이트 순서가 뒤섞이는</strong> 버그가 됩니다. 위 코드는 8장에서
+      배운 <code>std::bit_cast</code> 방식을 적용해 타입에 상관없이 일관되게 처리합니다.
+    </p>
+    <p style="margin-top:10px;">
+      <strong>② 원시 데이터로 초기화할 때 아무것도 읽을 수 없던 문제</strong> — 원문은
+      <code>ByteBuffer buffer(length); std::memcpy(buffer.Data(), data, length);</code>처럼 만든
+      뒤 바로 <code>Read()</code>를 호출했습니다. 하지만
+      <code>ByteBuffer(size_t initialSize)</code> 생성자는 <code>writePos</code>를 0으로 둔 채라,
+      <code>Read()</code>의 경계 검사(<code>readPos + sizeof(T) &gt; writePos</code>)가 항상 참이
+      되어 <strong>첫 번째 읽기부터 예외가 발생</strong>합니다. 위에 추가한
+      <code>ByteBuffer(const char* data, size_t length)</code> 생성자는 복사와 동시에
+      <code>writePos = length</code>로 설정해, 수신한 데이터를 즉시 읽을 수 있게 합니다.
+    </p>
+  </div>
+
+  <h3>사용 예시 1 — 오목 돌 배치 메시지 구성</h3>
+  <pre><code>void GomokuClient::SendPlaceStoneRequest(int x, int y) {
+    if (!connected || !gameStarted || gameEnded || currentTurn != playerColor) return;
+
+    ByteBuffer buffer;
+    buffer.Write&lt;uint32_t&gt;(static_cast&lt;uint32_t&gt;(MessageType::PLACE_STONE));
+    buffer.Write&lt;uint32_t&gt;(currentGameId);
+    buffer.Write&lt;uint32_t&gt;(playerId);
+    buffer.Write&lt;int32_t&gt;(x);
+    buffer.Write&lt;int32_t&gt;(y);
+    buffer.Write&lt;uint8_t&gt;(static_cast&lt;uint8_t&gt;(playerColor));
+
+    // 앞에 4바이트 크기 헤더를 붙인 최종 버퍼 구성
+    uint32_t messageSize = static_cast&lt;uint32_t&gt;(buffer.Size() + sizeof(uint32_t));
+    ByteBuffer finalBuffer;
+    finalBuffer.Write&lt;uint32_t&gt;(messageSize);
+    for (size_t i = 0; i &lt; buffer.Size(); ++i) {
+        finalBuffer.Write&lt;uint8_t&gt;(buffer.Data()[i]);
+    }
+
+    SendToServer(finalBuffer.Data(), finalBuffer.Size());
+
+    Console.WriteLine(U"서버로 돌 배치 요청 전송: ({}, {}), 색상: {}"_fmt(
+        x, y, (playerColor == StoneColor::Black) ? U"검은색" : U"흰색"));
+}
+
+void GomokuClient::SendToServer(const char* data, size_t length) {
+    int totalBytesSent = 0;
+    int bytesToSend = static_cast&lt;int&gt;(length);
+
+    while (totalBytesSent &lt; bytesToSend) {
+        int bytesSent = send(clientSocket, data + totalBytesSent, bytesToSend - totalBytesSent, 0);
+
+        if (bytesSent == SOCKET_ERROR) {
+            int errorCode = WSAGetLastError();
+            if (errorCode != WSAEWOULDBLOCK) {
+                std::string errorMsg = std::format("전송 오류: {}", errorCode);
+                AddMainThreadTask([this, errorMsg]() { this-&gt;HandleError(errorMsg); });
+                connected = false;
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            totalBytesSent += bytesSent;
+        }
+    }
+}</code></pre>
+
+  <h3>사용 예시 2 — 서버에서 메시지 수신 및 파싱</h3>
+  <pre><code>void GomokuGameServer::HandleClientData(uint32_t clientId, const char* data, size_t length) {
+    constexpr uint32_t MIN_MESSAGE_SIZE = sizeof(uint32_t) * 2;
+    constexpr uint32_t MAX_MESSAGE_SIZE = 64 * 1024;
+    if (!data || length &lt; MIN_MESSAGE_SIZE || length &gt; MAX_MESSAGE_SIZE) return;
+
+    ByteBuffer buffer(data, length);   // writePos가 자동으로 length로 설정됨
+
+    try {
+        uint32_t messageSize = buffer.Read&lt;uint32_t&gt;();
+        if (messageSize != length) return;   // 이 함수에는 프레이머가 잘라낸 메시지 하나만 전달한다.
+
+        uint32_t messageTypeRaw = buffer.Read&lt;uint32_t&gt;();
+        MessageType messageType = static_cast&lt;MessageType&gt;(messageTypeRaw);
+
+        switch (messageType) {
+            case MessageType::PLACE_STONE: {
+                uint32_t gameId = buffer.Read&lt;uint32_t&gt;();
+                uint32_t playerId = buffer.Read&lt;uint32_t&gt;();
+                int32_t x = buffer.Read&lt;int32_t&gt;();
+                int32_t y = buffer.Read&lt;int32_t&gt;();
+                StoneColor stoneColor = static_cast&lt;StoneColor&gt;(buffer.Read&lt;uint8_t&gt;());
+
+                ProcessPlaceStoneRequest(clientId, gameId, playerId, x, y, stoneColor);
+                break;
+            }
+            default:
+                std::cerr &lt;&lt; "알 수 없는 메시지 타입: " &lt;&lt; messageTypeRaw &lt;&lt; std::endl;
+                break;
+        }
+    } catch (const std::out_of_range&amp; e) {
+        std::cerr &lt;&lt; "메시지 파싱 오류: " &lt;&lt; e.what() &lt;&lt; std::endl;
+    }
+}</code></pre>
+
+  <h3>사용 예시 3 — 복합 데이터 구조 직렬화</h3>
+  <p>
+    <code>ByteBuffer</code>는 정수·문자열뿐 아니라, 이들을 조합한 더 큰 구조체도 필드 단위로
+    직렬화할 수 있습니다.
+  </p>
+  <pre><code>struct GameState {
+    int boardSize;
+    std::vector&lt;std::vector&lt;int&gt;&gt; board;
+    StoneColor currentTurn;
+    int moveCount;
+    std::string lastMoveInfo;
+};
+
+void SerializeGameState(const GameState&amp; state, ByteBuffer&amp; buffer) {
+    if (state.boardSize &lt;= 0 || state.boardSize &gt; 19 ||
+        state.board.size() != static_cast&lt;size_t&gt;(state.boardSize)) {
+        throw std::invalid_argument("유효하지 않은 보드 크기");
+    }
+    buffer.Write&lt;int32_t&gt;(state.boardSize);
+    buffer.Write&lt;uint8_t&gt;(static_cast&lt;uint8_t&gt;(state.currentTurn));
+    buffer.Write&lt;int32_t&gt;(state.moveCount);
+    buffer.WriteString(state.lastMoveInfo);
+
+    for (int y = 0; y &lt; state.boardSize; ++y) {
+        if (state.board[y].size() != static_cast&lt;size_t&gt;(state.boardSize)) {
+            throw std::invalid_argument("보드 행 크기가 일치하지 않습니다");
+        }
+        for (int x = 0; x &lt; state.boardSize; ++x) {
+            buffer.Write&lt;uint8_t&gt;(static_cast&lt;uint8_t&gt;(state.board[y][x]));
+        }
+    }
+}
+
+GameState DeserializeGameState(ByteBuffer&amp; buffer) {
+    GameState state;
+    state.boardSize = buffer.Read&lt;int32_t&gt;();
+    if (state.boardSize &lt;= 0 || state.boardSize &gt; 19) {
+        throw std::out_of_range("허용되지 않은 보드 크기");
+    }
+    state.currentTurn = static_cast&lt;StoneColor&gt;(buffer.Read&lt;uint8_t&gt;());
+    state.moveCount = buffer.Read&lt;int32_t&gt;();
+    state.lastMoveInfo = buffer.ReadString();
+
+    state.board.resize(state.boardSize, std::vector&lt;int&gt;(state.boardSize, 0));
+    for (int y = 0; y &lt; state.boardSize; ++y) {
+        for (int x = 0; x &lt; state.boardSize; ++x) {
+            state.board[y][x] = static_cast&lt;int&gt;(buffer.Read&lt;uint8_t&gt;());
+        }
+    }
+    return state;
+}</code></pre>
+
+  <h3>사용 예시 4 — 부분 수신(TCP 스트림 분할) 처리</h3>
+  <p>
+    TCP는 스트림 프로토콜이라, 클라이언트가 <code>send()</code>를 한 번 호출했다고 서버가
+    <code>recv()</code> 한 번에 그 메시지 전체를 받는다는 보장이 없습니다. 큰 메시지는 여러
+    번에 나뉘어 도착할 수 있고, 반대로 작은 메시지 여러 개가 한 번의 <code>recv()</code>에
+    뭉쳐 도착할 수도 있습니다. <code>ClientConnection</code>은 이 문제를 자체 누적 버퍼로
+    해결합니다.
+  </p>
+  <pre><code>class ClientConnection {
+private:
+    static constexpr uint32_t MIN_MESSAGE_SIZE = sizeof(uint32_t) * 2;
+    static constexpr uint32_t MAX_MESSAGE_SIZE = 64 * 1024;
+    SOCKET socket;
+    std::vector&lt;char&gt; receiveBuffer;
+    size_t bytesReceived = 0;
+    uint32_t expectedMessageSize = 0;
+
+public:
+    explicit ClientConnection(SOCKET s) : socket(s), receiveBuffer(4096) {}
+
+    bool ReceiveData() {
+        char tempBuffer[4096];
+        int received = recv(socket, tempBuffer, sizeof(tempBuffer), 0);
+        if (received == 0) return false;   // 정상 연결 종료
+        if (received == SOCKET_ERROR) {
+            return WSAGetLastError() == WSAEWOULDBLOCK; // 논블로킹 소켓이면 다음 호출에서 재시도
+        }
+
+        if (bytesReceived + received &gt; receiveBuffer.size()) {
+            receiveBuffer.resize((bytesReceived + received) * 2);
+        }
+        std::memcpy(receiveBuffer.data() + bytesReceived, tempBuffer, received);
+        bytesReceived += received;
+
+        try {
+            ProcessMessages();
+        } catch (const std::exception&amp;) {
+            // 잘못된 길이는 프로토콜 위반이므로 호출자가 연결을 정리하게 한다.
+            return false;
+        }
+        return true;
+    }
+
+    void ProcessMessages() {
+        while (true) {
+            if (expectedMessageSize == 0) {
+                if (bytesReceived &lt; sizeof(uint32_t)) return;   // 크기 헤더도 아직 다 안 옴
+
+                std::memcpy(&amp;expectedMessageSize, receiveBuffer.data(), sizeof(uint32_t));
+                expectedMessageSize = ntohl(expectedMessageSize);
+                if (expectedMessageSize &lt; MIN_MESSAGE_SIZE || expectedMessageSize &gt; MAX_MESSAGE_SIZE) {
+                    throw std::runtime_error("허용 범위를 벗어난 메시지 길이");
+                }
+            }
+
+            if (bytesReceived &lt; expectedMessageSize) return;   // 메시지 본문이 아직 다 안 옴
+
+            HandleCompleteMessage(receiveBuffer.data(), expectedMessageSize);
+
+            if (bytesReceived &gt; expectedMessageSize) {
+                // 다음 메시지의 일부가 이미 와 있으면 버퍼 앞쪽으로 당겨서 재사용
+                std::memmove(receiveBuffer.data(), receiveBuffer.data() + expectedMessageSize,
+                           bytesReceived - expectedMessageSize);
+            }
+            bytesReceived -= expectedMessageSize;
+            expectedMessageSize = 0;
+
+            if (bytesReceived &lt; sizeof(uint32_t)) return;
+        }
+    }
+
+    void HandleCompleteMessage(const char* data, uint32_t length) {
+        ByteBuffer buffer(data, length);
+        buffer.Read&lt;uint32_t&gt;();   // 크기 필드는 이미 알고 있으므로 건너뜀
+        uint32_t messageType = buffer.Read&lt;uint32_t&gt;();
+
+        switch (static_cast&lt;MessageType&gt;(messageType)) {
+            // 각 메시지 타입 처리...
+        }
+    }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">while(true) 루프가 여러 메시지를 한 번에 처리하는 이유</p>
+    <p>
+      <code>ProcessMessages()</code>의 <code>while(true)</code>는 한 번의 <code>recv()</code>로
+      메시지가 <strong>여러 개</strong> 한꺼번에 도착했을 가능성까지 대비합니다. 메시지 하나를
+      처리한 뒤 그만큼을 버퍼에서 걷어내고(<code>std::memmove</code>), 남은 데이터로 다음 메시지가
+      또 완전한지 다시 검사합니다. 완전한 메시지가 더 없으면(<code>return</code>) 다음
+      <code>ReceiveData()</code> 호출 때까지 대기합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="bytebuffer-memory">
+  <h2><span class="num">9.7</span> ByteBuffer의 메모리 관리 방식</h2>
+  <p class="sec-sub">내부의 std::vector&lt;char&gt; 하나를 읽은 영역·안 읽은 영역·미사용 공간 세 구간으로 나눠 관리합니다.</p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 170" role="img" aria-labelledby="bb-title bb-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="bb-title">ByteBuffer 내부 버퍼의 세 구간</title>
+      <desc id="bb-desc">ByteBuffer의 내부 벡터는 0부터 readPos까지의 이미 읽은 데이터, readPos부터 writePos까지의 아직 읽지 않은 데이터, writePos부터 capacity까지의 미사용 공간 세 구간으로 나뉜다.</desc>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="40" y="60" width="120" height="64" rx="4" fill="rgba(32,29,26,0.04)" stroke="rgba(32,29,26,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="100" y="88" text-anchor="middle" fill="#6b6259" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">읽은 데이터</text>
+      <text x="100" y="104" text-anchor="middle" fill="#877d70" font-size="8" font-family="'Geist Mono',monospace">[0, readPos)</text>
+
+      <rect x="160" y="60" width="280" height="64" rx="4" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="300" y="88" text-anchor="middle" fill="#8f5f1e" font-size="10.5" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">아직 읽지 않은 데이터</text>
+      <text x="300" y="104" text-anchor="middle" fill="#8f5f1e" font-size="8" font-family="'Geist Mono',monospace">[readPos, writePos)</text>
+
+      <rect x="440" y="60" width="160" height="64" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="520" y="88" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">미사용 공간</text>
+      <text x="520" y="104" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">[writePos, capacity)</text>
+
+      <text x="40" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">0</text>
+      <text x="160" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">readPos</text>
+      <text x="440" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">writePos</text>
+      <text x="600" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">capacity</text>
+    </svg>
+    <p class="dcap">그림 9-2. Write()는 writePos를, Read()는 readPos를 오른쪽으로 밀며 각자의 몫을 나눠 씁니다</p>
+  </div>
+
+  <h3>동적 크기 조정 — 더블링 전략</h3>
+  <pre><code>void EnsureCapacity(size_t additionalSize) {
+    if (writePos + additionalSize &gt; buffer.size()) {
+        buffer.resize(std::max(buffer.size() * 2, writePos + additionalSize));
+    }
+}</code></pre>
+  <p>
+    공간이 부족하면 <strong>현재 크기의 2배</strong>로 늘립니다 — <code>std::vector</code>가
+    내부적으로 쓰는 것과 같은 전략으로, 매번 정확히 필요한 만큼만 늘리는 것보다 재할당 횟수를
+    줄여 상환 분석(amortized analysis) 기준 O(1) 시간에 삽입할 수 있습니다. 다만
+    <code>resize()</code>는 "새 메모리 할당 → 기존 데이터 복사 → 기존 메모리 해제" 세 단계를
+    거치므로, 큰 버퍼일수록 이 재할당 자체의 비용이 커집니다. 처음부터 예상 크기에 맞춰
+    <code>initialSize</code>를 넉넉히 잡아두면 이 비용을 줄일 수 있습니다.
+  </p>
+
+  <h3>컴팩션(Compaction) — 읽은 공간 재활용</h3>
+  <p>
+    그림 9-2의 "읽은 데이터" 구간은 이미 다 쓴 공간이지만, 그냥 두면 계속 버려진 채로 남습니다.
+    <code>Compact()</code>는 "아직 읽지 않은 데이터"를 버퍼 맨 앞으로 밀어, 읽은 공간을 다시
+    쓰기 가능한 공간으로 되돌립니다.
+  </p>
+  <pre><code>void Compact() {
+    if (readPos &gt; 0) {
+        if (readPos &lt; writePos) {
+            std::memmove(buffer.data(), buffer.data() + readPos, writePos - readPos);
+        }
+        writePos -= readPos;
+        readPos = 0;
+    }
+}</code></pre>
+  <div class="callout info">
+    <p class="ctitle">memcpy 대신 memmove를 쓰는 이유</p>
+    <p>
+      복사할 원본 구간(<code>readPos</code>부터)과 대상 구간(<code>0</code>부터)이
+      <strong>겹칠 수 있습니다</strong>(예: readPos=10, writePos=30이면 0~19 구간과 10~29 구간이
+      겹침). <code>memcpy</code>는 구간이 겹치면 결과가 정의되지 않지만, <code>memmove</code>는
+      겹치는 영역도 안전하게 처리하도록 설계된 함수입니다. 버퍼를 "당겨오는" 이런 연산에는 항상
+      <code>memmove</code>를 써야 합니다.
+    </p>
+  </div>
+
+  <h3>버퍼 재설정 — Clear() vs Reset()</h3>
+  <pre><code>void Clear() { writePos = 0; readPos = 0; }              // 논리적으로만 비움 — 메모리는 유지 (빠른 재사용)
+void Reset() { Clear(); buffer.shrink_to_fit(); }          // 물리적으로 메모리까지 반환</code></pre>
+  <p>
+    같은 연결에서 메시지를 계속 주고받는 상황이라면 <code>Clear()</code>로 빠르게 재사용하는 것이
+    유리합니다. 반면 아주 큰 메시지 하나를 처리한 뒤 다시는 그만한 크기가 필요 없다면,
+    <code>Reset()</code>으로 메모리를 시스템에 돌려주는 것이 전체 메모리 사용량 관점에서
+    낫습니다.
+  </p>
+
+  <h3>대용량 데이터 처리 — 이동 의미론과 메모리 맵 파일</h3>
+  <pre><code>// 버퍼 내용을 복사 없이 꺼내오기
+std::vector&lt;char&gt; ExtractData() {
+    std::vector&lt;char&gt; result(buffer.data() + readPos, buffer.data() + writePos);
+    Clear();
+    return result;   // 이동 의미론(RVO/move)으로 불필요한 복사 없이 반환
+}
+
+// 이미 있는 데이터로 버퍼 자체를 교체
+void SetData(std::vector&lt;char&gt;&amp;&amp; data) {
+    buffer = std::move(data);
+    readPos = 0;
+    writePos = buffer.size();
+}</code></pre>
+  <p>
+    게임 리소스처럼 매우 큰 파일을 다뤄야 한다면, 4장에서 배운 메모리 맵 파일 기법을 여기서도
+    그대로 응용할 수 있습니다 — 파일 전체를 읽어 복사하는 대신 운영체제가 매핑해준 메모리를
+    직접 버퍼로 채웁니다.
+  </p>
+  <pre><code>#ifdef _WIN32
+bool MapFromFile(const std::string&amp; filename) {
+    HANDLE fileHandle = CreateFileA(filename.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                   NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (fileHandle == INVALID_HANDLE_VALUE) return false;
+
+    DWORD fileSize = GetFileSize(fileHandle, NULL);
+    HANDLE mapHandle = CreateFileMappingA(fileHandle, NULL, PAGE_READONLY, 0, 0, NULL);
+    if (!mapHandle) { CloseHandle(fileHandle); return false; }
+
+    void* mappedData = MapViewOfFile(mapHandle, FILE_MAP_READ, 0, 0, 0);
+    if (!mappedData) { CloseHandle(mapHandle); CloseHandle(fileHandle); return false; }
+
+    buffer.resize(fileSize);
+    std::memcpy(buffer.data(), mappedData, fileSize);
+    writePos = fileSize;
+    readPos = 0;
+
+    UnmapViewOfFile(mappedData);
+    CloseHandle(mapHandle);
+    CloseHandle(fileHandle);
+    return true;
+}
+#endif</code></pre>
+
+  <h3>메모리 안전성과 사용량 모니터링</h3>
+  <p>
+    <code>ByteBuffer</code>는 <code>std::vector</code>를 감싼 덕분에 RAII를 자동으로 상속받고
+    (생성자에서 메모리를 얻고, 소멸자에서 자동 해제), <code>Read&lt;T&gt;()</code>의 경계 검사가
+    버퍼 오버런을 막습니다. 운영 중에는 아래 통계로 버퍼 상태를 관찰할 수 있습니다.
+  </p>
+  <pre><code>struct MemoryStats {
+    size_t totalCapacity;
+    size_t usedBytes;
+    size_t readableBytes;
+    size_t writableBytes;
+};
+
+MemoryStats GetMemoryStats() const {
+    return { buffer.size(), writePos, writePos - readPos, buffer.size() - writePos };
+}</code></pre>
+
+  <h3>용도별 권장 설정</h3>
+  <table class="cmp">
+    <thead><tr><th>사용 사례</th><th>권장 설정</th></tr></thead>
+    <tbody>
+      <tr><td>소량, 빈번한 메시지 (채팅·이동 패킷)</td><td>작은 초기 크기(예: 256바이트), 완만한 성장 인자</td></tr>
+      <tr><td>대용량, 비정기적 메시지 (맵 데이터·리플레이)</td><td>큰 초기 크기(예: 1MB), 일정 비율 이상 읽혔을 때만 압축</td></tr>
+      <tr><td>메모리 제한 환경</td><td>작은 초기 크기 + 처리 직후 <code>Compact()</code>, 필요할 때만 <code>Reset()</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    이 방침을 반영한 확장판은 성장 인자(<code>growthFactor</code>)와 압축 임계값
+    (<code>compactionThreshold</code>)을 직접 설정할 수 있고, <code>EnsureCapacity()</code>가
+    공간을 늘리기 전에 <strong>먼저 컴팩션을 시도</strong>해 불필요한 재할당 자체를 줄입니다.
+  </p>
+  <pre><code>// 기존 버퍼 클래스에 추가할 멤버 조각이다. 클래스를 다시 선언하지 않는다.
+    float growthFactor = 2.0f;
+    float compactionThreshold = 0.25f;   // 읽은 데이터가 전체의 25% 이상이면 먼저 압축 시도
+
+    void SetGrowthFactor(float factor) { if (factor &gt;= 1.0f) growthFactor = factor; }
+    void SetCompactionThreshold(float threshold) {
+        if (threshold &gt; 0.0f &amp;&amp; threshold &lt; 1.0f) compactionThreshold = threshold;
+    }
+
+    void EnsureCapacity(size_t additionalSize) {
+        if (readPos &gt; 0 &amp;&amp; (static_cast&lt;float&gt;(readPos) / buffer.size() &gt; compactionThreshold)) {
+            Compact();   // 재할당 전에 읽은 공간부터 회수 시도
+        }
+        if (writePos + additionalSize &gt; buffer.size()) {
+            size_t newSize = static_cast&lt;size_t&gt;(buffer.size() * growthFactor);
+            buffer.resize(std::max(newSize, writePos + additionalSize));
+        }
+    }
+
+    float GetMemoryEfficiency() const {
+        return buffer.empty() ? 1.0f : static_cast&lt;float&gt;(writePos - readPos) / buffer.size();
+    }
+</code></pre>
+</section>
+
+<section class="sec" id="conclusion">
+  <h2><span class="num">9.8</span> 종합 결론</h2>
+  <p>
+    Windows Registered I/O(RIO)는 고성능 네트워크 서버 개발에 매우 적합하며, C++23의 최신 기능을
+    활용하면 더욱 효율적이고 안전한 코드를 작성할 수 있습니다. 오목 게임 서버는 비교적 간단한
+    게임 로직을 가지고 있어 네트워크 프로그래밍을 학습하기에 좋은 프로젝트였습니다.
+  </p>
+  <ol>
+    <li>RIO를 사용한 고성능 네트워크 프로그래밍</li>
+    <li>멀티스레드 프로그래밍과 동기화</li>
+    <li>게임 상태 관리와 클라이언트-서버 통신</li>
+    <li>OpenSiv3D를 활용한 게임 클라이언트 개발</li>
+  </ol>
+  <p>
+    이 프로젝트를 통해 실제 온라인 게임 서버 개발에 필요한 핵심 기술들을 배웠으며, 이를 기반으로
+    더 복잡한 게임 서버 개발로 확장할 수 있습니다.
+  </p>
+
+  <div class="summary-box">
+    <p class="label" style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 14px;">이 책 전체를 관통한 흐름</p>
+    <ol>
+      <li><strong>1~2장</strong> — 소켓 기초와 RIO가 왜 빠른지(제로 카피, 배치 처리).</li>
+      <li><strong>3~5장</strong> — 세션·버퍼·큐를 실전 구조로 다듬고, 스레드별로 부하를 분산.</li>
+      <li><strong>6~7장</strong> — 모던 C++로 안전하게 감싸고, 완결된 에코 서버로 정리.</li>
+      <li><strong>8장</strong> — 바이트를 의미 있는 게임 패킷으로 직렬화·압축.</li>
+      <li><strong>9장</strong> — 이 모든 것을 실제 게임(오목) 하나에 조립.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">책을 마치며</p>
+    <h4>여기서부터는 여러분의 프로젝트입니다</h4>
+    <p>
+      이 책의 목차로 돌아가 궁금했던 장을 다시 살펴보거나, 오목 서버에 관전 모드·재접속 처리·
+      랭킹 시스템을 직접 얹어보며 배운 내용을 확장해보세요.
+      <a href="index.html">목차로 돌아가기 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch08.html">← 8장. 패킷 처리 및 직렬화</a>
+  <span class="kicker-num">9 / 9</span>
+  <a href="index.html">목차로 →</a>
+</footer>
+
+</div>
+</body>
+</html>

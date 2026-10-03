@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4장. RIO 버퍼 관리 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch03.html">← 3장</a>
+    <a href="index.html">목차</a>
+    <a href="ch05.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 04</div>
+  <h1>RIO 버퍼 관리</h1>
+  <p class="hero-lead">
+    3장에서는 세션마다 버퍼를 <code>new</code>로 새로 만들었습니다. 연결이 수백 개만 되어도
+    등록·해제가 그만큼 반복된다는 뜻입니다. 이번 장에서는 큰 메모리 풀 하나를 미리 등록해두고,
+    그 안을 작은 조각으로 쪼개 재사용하는 <strong>버퍼 링(ring)</strong>과
+    <strong>오브젝트 풀</strong>을 만듭니다. 그리고 3장에서 "완전한 제로 카피는 아니다"라고
+    짚었던 애플리케이션 측 복사를 줄이는 방법과, 그 한계를 함께 다룹니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>큰 메모리 풀을 한 번만 등록하고 재사용하는 <code>RIOBufferManager</code></li>
+      <li>등록된 풀을 작은 청크로 나눠 순환 재사용하는 버퍼 링(<code>RIOBufferRing</code>)</li>
+      <li>RIO 버퍼의 실제 등록 조건과, 정렬을 별도 요구사항으로 다뤄야 하는 경우</li>
+      <li>placement new를 이용한 범용 오브젝트 풀(<code>ObjectPool</code>)</li>
+      <li>연결 수를 기준으로 필요한 메모리를 미리 계산해 할당하는 전략</li>
+      <li>메모리 맵 파일을 등록 버퍼로 활용할 때의 이점과 수명·성능상 주의점</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="buffer-register">
+  <h2><span class="num">4.1</span> 버퍼 등록 및 관리</h2>
+  <p class="sec-sub">등록·해제를 매번 반복하지 않도록, 큰 풀 하나를 서버 시작 시 한 번만 등록합니다.</p>
+
+  <h3>버퍼 등록 방법</h3>
+  <p>
+    <code>RIOBufferManager</code>는 지정한 크기의 메모리 풀을 <strong>한 번만</strong>
+    <code>RIORegisterBuffer()</code>로 등록하고, 소멸 시점에 <code>RIODeregisterBuffer()</code>로
+    해제하는 RAII 래퍼입니다 — 3장에서 남겨두었던 "등록만 하고 해제하지 않는" 문제를 이번에는
+    처음부터 바로잡습니다.
+  </p>
+
+  <pre><code>#include &lt;winsock2.h&gt;   // windows.h보다 먼저 포함해야 Winsock.h와 충돌하지 않습니다.
+#include &lt;windows.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;algorithm&gt;
+#include &lt;array&gt;
+#include &lt;atomic&gt;
+#include &lt;cstddef&gt;
+#include &lt;cstring&gt;
+#include &lt;iostream&gt;
+#include &lt;limits&gt;
+#include &lt;vector&gt;
+#include &lt;memory&gt;
+#include &lt;thread&gt;
+#include &lt;mutex&gt;
+#include &lt;new&gt;
+#include &lt;optional&gt;
+#include &lt;span&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;utility&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "mswsock.lib")
+
+class RIOBufferManager {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table_;   // 함수 테이블의 수명은 이 객체보다 길어야 합니다.
+    std::vector&lt;char&gt; buffer_pool_;                 // 실제 버퍼 메모리 풀
+    RIO_BUFFERID buffer_id_ = RIO_INVALID_BUFFERID;
+    size_t buffer_size_;
+    size_t chunk_size_;
+    std::mutex mutex_;
+
+public:
+    RIOBufferManager(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, size_t total_size, size_t chunk_size)
+        : rio_fn_table_(rio_fn_table), buffer_size_(total_size), chunk_size_(chunk_size) {
+        // RIORegisterBuffer와 RIO_BUF의 길이·오프셋은 DWORD/ULONG입니다.
+        if (total_size == 0 || total_size &gt; (std::numeric_limits&lt;DWORD&gt;::max)() ||
+            chunk_size == 0 || chunk_size &gt; total_size) {
+            throw std::invalid_argument("유효하지 않은 RIO 버퍼 풀 크기");
+        }
+        buffer_pool_.resize(total_size);
+
+        buffer_id_ = rio_fn_table_.RIORegisterBuffer(buffer_pool_.data(), static_cast&lt;DWORD&gt;(buffer_pool_.size()));
+        if (buffer_id_ == RIO_INVALID_BUFFERID) {
+            throw std::runtime_error("RIO 버퍼 등록 실패: " + std::to_string(WSAGetLastError()));
+        }
+
+        std::cout &lt;&lt; "RIO 버퍼 등록 성공 - 총 크기: " &lt;&lt; total_size &lt;&lt; ", 청크 크기: " &lt;&lt; chunk_size &lt;&lt; std::endl;
+    }
+
+    ~RIOBufferManager() {
+        // 이 시점에는 이 버퍼를 참조하는 모든 RIO 요청이 완료되어 있어야 합니다.
+        // RIO 문서는 outstanding 요청이 있는 동안 deregister하지 말 것을 요구합니다.
+        if (buffer_id_ != RIO_INVALID_BUFFERID) {
+            rio_fn_table_.RIODeregisterBuffer(buffer_id_);
+        }
+    }
+
+    RIOBufferManager(const RIOBufferManager&amp;) = delete;
+    RIOBufferManager&amp; operator=(const RIOBufferManager&amp;) = delete;
+
+    RIO_BUFFERID GetBufferId() const { return buffer_id_; }
+    char* GetBuffer() { return buffer_pool_.data(); }         // 버퍼 링이 실제 메모리 위치를 계산할 때 필요
+    size_t GetSize() const { return buffer_size_; }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">3장의 미해결 과제, 여기서 해결됩니다</p>
+    <p>
+      3장에서 <code>RioBuffer</code>는 소멸자 주석에 "등록 해제는 서버가 담당"이라고만 적어놓고
+      실제로는 아무도 <code>RIODeregisterBuffer()</code>를 호출하지 않았습니다.
+      <code>RIOBufferManager</code>는 함수 테이블 참조를 직접 멤버로 들고 있어, 자기 소멸자
+      안에서 스스로 등록을 해제할 수 있습니다. 단, 서버 종료 시에는 요청 큐를 먼저 중지하고 완료를
+      모두 회수한 다음 이 객체를 파괴해야 합니다. 진행 중인 요청이 있는 버퍼를 해제하면 안 됩니다.
+    </p>
+  </div>
+
+  <h3>버퍼 크기와 정렬</h3>
+  <p>
+    RIO의 필수 조건은 유효한 주소와 0보다 큰 <code>DWORD</code> 범위의 길이입니다. 등록하면 해당
+    가상 메모리 페이지가 물리 메모리에 고정되므로, 성능과 메모리 사용량에는 개별 청크 정렬보다
+    <strong>작은 버퍼를 여러 번 등록하지 않고 큰 연속 풀 하나를 등록하는 것</strong>이 더 직접적으로
+    중요합니다.
+  </p>
+  <div class="callout info">
+    <p class="ctitle">정렬을 RIO의 전제 조건으로 오해하지 마세요</p>
+    <p>
+      64바이트나 4KB 정렬은 특정 SIMD 처리, 캐시 설계, 또는 <code>FILE_FLAG_NO_BUFFERING</code> 파일 I/O에서
+      별도로 필요할 수 있습니다. 하지만 RIO 자체가 그런 정렬을 요구하거나 DMA 성능을 보장한다고 말할
+      근거는 없습니다. 실제 프로파일링이나 다른 API의 요구사항이 있을 때만, 그 요구사항에 맞는 정렬
+      할당자를 적용합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="buffer-ring">
+  <h2><span class="num">4.2</span> RIO 버퍼 링 구현</h2>
+  <p class="sec-sub">등록된 큰 풀을 고정 크기 청크로 나눠, "빈 칸을 찾아 쓰고 반납하는" 순환 방식으로 재사용합니다.</p>
+
+  <p>
+    버퍼 링(ring buffer)은 이름 그대로 청크들을 원형으로 배치했다고 "생각하는" 자료구조입니다.
+    <code>next_index_</code>가 마지막 칸을 지나면 다시 0번으로 돌아오는 것을 나머지 연산자
+    (<code>%</code>)로 구현하며, 이렇게 하면 매번 <code>new</code>/<code>delete</code>를 호출하지
+    않고도 청크를 계속 빌리고 반납할 수 있습니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 260" role="img" aria-labelledby="ring-title ring-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="ring-title">RIO 버퍼 링의 순환 재사용 구조</title>
+      <desc id="ring-desc">8개의 고정 크기 청크가 일렬로 배치되어 있고, next_index_ 포인터가 다음으로 검사할 칸을 가리키며, 마지막 칸 다음에는 나머지 연산으로 다시 첫 칸으로 돌아가는 순환 구조를 보여주는 다이어그램.</desc>
+      <defs>
+        <marker id="ring-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+        <marker id="ring-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#c8862e"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <text x="520" y="52" text-anchor="middle" fill="#8f5f1e" font-size="9" font-weight="600" font-family="'Geist Mono',monospace">next_index_</text>
+      <line x1="520" y1="58" x2="520" y2="76" stroke="#c8862e" stroke-width="1.4" marker-end="url(#ring-arrow-accent)"/>
+
+      <rect x="56" y="80" width="64" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="88" y="116" text-anchor="middle" fill="#201d1a" font-size="11" font-family="'Geist Mono',monospace">0</text>
+
+      <rect x="128" y="80" width="64" height="64" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="160" y="116" text-anchor="middle" fill="#8f5f1e" font-size="11" font-family="'Geist Mono',monospace">1</text>
+
+      <rect x="200" y="80" width="64" height="64" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="232" y="116" text-anchor="middle" fill="#8f5f1e" font-size="11" font-family="'Geist Mono',monospace">2</text>
+
+      <rect x="272" y="80" width="64" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="304" y="116" text-anchor="middle" fill="#201d1a" font-size="11" font-family="'Geist Mono',monospace">3</text>
+
+      <rect x="344" y="80" width="64" height="64" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="376" y="116" text-anchor="middle" fill="#8f5f1e" font-size="11" font-family="'Geist Mono',monospace">4</text>
+
+      <rect x="416" y="80" width="64" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="448" y="116" text-anchor="middle" fill="#201d1a" font-size="11" font-family="'Geist Mono',monospace">5</text>
+
+      <rect x="488" y="80" width="64" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1.4"/>
+      <text x="520" y="116" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="700" font-family="'Geist Mono',monospace">6</text>
+
+      <rect x="560" y="80" width="64" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="592" y="116" text-anchor="middle" fill="#201d1a" font-size="11" font-family="'Geist Mono',monospace">7</text>
+
+      <path d="M 592 144 L 592 180 L 88 180 L 88 144" fill="none" stroke="#6b6259" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#ring-arrow)"/>
+      <rect x="270" y="188" width="140" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="340" y="197" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">index % buffer_count_</text>
+
+      <line x1="40" y1="220" x2="640" y2="220" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="238" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="160" y="230" width="14" height="14" rx="2" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="182" y="241" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">사용 중 (in_use_[i] == true)</text>
+      <rect x="420" y="230" width="14" height="14" rx="2" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="442" y="241" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">사용 가능</text>
+    </svg>
+    <p class="dcap">그림 4-1. next_index_가 빈 칸을 찾아 이동하다가 마지막 칸(7) 다음에는 다시 0번으로 순환합니다</p>
+  </div>
+
+  <h3>순환 버퍼 구현</h3>
+  <p>
+    <code>BufferSegment</code>는 "등록된 풀 중 어느 구간을 빌렸는지"를 나타내는 작은 값 타입입니다.
+    2장의 <code>RIO_BUF</code>와 거의 같은 정보(<code>버퍼 ID</code>, <code>오프셋</code>,
+    <code>길이</code>)를 담지만, 실제 메모리 포인터(<code>data</code>)까지 함께 들고 있어
+    애플리케이션 코드에서 바로 <code>memcpy</code> 대상으로 쓸 수 있습니다.
+  </p>
+  <pre><code>class RIOBufferRing {
+private:
+    RIOBufferManager&amp; buffer_manager_;
+    size_t base_offset_;
+    size_t chunk_size_;
+    size_t buffer_count_;
+    std::vector&lt;bool&gt; in_use_;
+    std::mutex mutex_;
+    size_t next_index_ = 0;
+
+public:
+    struct BufferSegment {
+        RIO_BUFFERID buffer_id;
+        char* data;
+        size_t offset;
+        size_t size;
+    };
+
+    RIOBufferRing(RIOBufferManager&amp; buffer_manager, size_t chunk_size, size_t buffer_count)
+        : buffer_manager_(buffer_manager), base_offset_(0),
+          chunk_size_(chunk_size), buffer_count_(buffer_count) {
+        if (chunk_size == 0 || buffer_count == 0 ||
+            buffer_count &gt; buffer_manager_.GetSize() / chunk_size) {
+            throw std::invalid_argument("RIO 버퍼 링의 범위가 등록된 풀을 벗어납니다");
+        }
+        in_use_.resize(buffer_count, false);
+    }
+
+    // 서버 초기화 중, Allocate()가 호출되기 전에 링에 전용 범위를 배정합니다.
+    void SetBaseOffset(size_t base_offset) {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+        if (base_offset &gt; buffer_manager_.GetSize() ||
+            buffer_count_ &gt; (buffer_manager_.GetSize() - base_offset) / chunk_size_) {
+            throw std::invalid_argument("RIO 버퍼 링의 범위가 등록된 풀을 벗어납니다");
+        }
+        if (std::any_of(in_use_.begin(), in_use_.end(), [](bool used) { return used; })) {
+            throw std::logic_error("사용 중인 RIO 버퍼 링의 시작 위치는 바꿀 수 없습니다");
+        }
+        base_offset_ = base_offset;
+        next_index_ = 0;
+    }
+
+    // 사용 가능한 청크 하나를 빌림 — 모두 사용 중이면 std::nullopt
+    std::optional&lt;BufferSegment&gt; Allocate() {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+
+        size_t count = 0;
+        while (in_use_[next_index_] &amp;&amp; count &lt; buffer_count_) {
+            next_index_ = (next_index_ + 1) % buffer_count_;   // 순환: 마지막 칸 다음은 다시 0
+            count++;
+        }
+        if (count == buffer_count_) {
+            return std::nullopt;   // 모든 청크가 사용 중
+        }
+
+        in_use_[next_index_] = true;
+        BufferSegment segment;
+        segment.buffer_id = buffer_manager_.GetBufferId();
+        segment.offset = base_offset_ + next_index_ * chunk_size_;
+        segment.size = chunk_size_;
+        segment.data = buffer_manager_.GetBuffer() + segment.offset;
+
+        next_index_ = (next_index_ + 1) % buffer_count_;
+        return segment;
+    }
+
+    // 완료 통지를 받은 뒤에만 호출합니다. 잘못된 세그먼트·중복 반납은 false로 거절합니다.
+    bool Release(const BufferSegment&amp; segment) {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+        if (segment.buffer_id != buffer_manager_.GetBufferId() ||
+            segment.size != chunk_size_ || segment.offset &lt; base_offset_) return false;
+        const size_t relative_offset = segment.offset - base_offset_;
+        if (relative_offset % chunk_size_ != 0) return false;
+        const size_t index = relative_offset / chunk_size_;
+        if (index &gt;= buffer_count_ || !in_use_[index]) return false;
+        in_use_[index] = false;
+        return true;
+    }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">이 탐색은 O(N)입니다</p>
+    <p>
+      <code>Allocate()</code>는 빈 칸을 찾을 때까지 한 칸씩 순서대로 검사합니다. 청크 수가 수백
+      개 정도면 문제없지만, 수만 개로 늘어나고 대부분이 사용 중인 상황이 잦다면 이 선형 탐색이
+      병목이 될 수 있습니다. 그런 경우 "사용 가능한 인덱스만 모아둔 별도의 큐"를 유지하는 방식으로
+      O(1) 탐색이 가능하도록 개선할 수 있습니다.
+    </p>
+  </div>
+
+  <h3>멀티스레드 환경에서의 동기화</h3>
+  <p>
+    3장의 워커 스레드 여러 개가 동시에 버퍼를 요청할 수 있으므로, <code>in_use_</code> 배열 접근은
+    <code>std::mutex</code>로 보호했습니다. <code>Release(segment)</code>는 다른 링의 오프셋, 중복 반납,
+    청크 중간 주소를 거절합니다. 특히 송신 버퍼는 <strong>RIO 완료 통지를 받은 뒤에만</strong> 반납해야
+    합니다. <code>RIOSend()</code>가 <code>TRUE</code>를 반환한 것은 요청이 접수됐다는 뜻일 뿐,
+    네트워크 I/O가 끝났다는 뜻은 아닙니다.
+  </p>
+
+  <div class="callout">
+    <p class="ctitle">락프리 구현은 별도 설계가 필요합니다</p>
+    <p>
+      <code>std::atomic&lt;bool&gt;</code> 배열과 <code>compare_exchange_weak</code> 몇 줄만으로는 안전한
+      락프리 풀을 만들 수 없습니다. 반환 경로, ABA 방지, 메모리 순서, 종료 시점까지 함께 설계해야
+      합니다. 워커 스레드가 4~8개 수준이라면 <code>std::mutex</code> 기반으로 시작하고, 프로파일링에서
+      이 락이 병목으로 확인된 경우에만 검증된 동시 큐나 전용 락프리 free-list를 검토하는 편이 낫습니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="alloc-strategy">
+  <h2><span class="num">4.3</span> 효율적인 메모리 할당 전략</h2>
+  <p class="sec-sub">버퍼뿐 아니라, 버퍼를 감싸는 C++ 객체 자체도 재사용할 수 있습니다.</p>
+
+  <h3>메모리 풀 구현</h3>
+  <p>
+    <code>RIOBufferRing</code>이 원시 메모리 청크를 재사용했다면, <code>ObjectPool</code>은
+    C++ 객체(생성자·소멸자가 있는 타입) 자체를 재사용하는 범용 템플릿입니다. 핵심은
+    <strong>placement new</strong>입니다 — 이미 확보해둔 메모리 위에 객체를 "새로 생성"하는
+    문법으로, 메모리 할당과 객체 생성을 분리할 수 있게 해줍니다.
+  </p>
+  <pre><code>template &lt;typename T, size_t PoolSize&gt;
+class ObjectPool {
+private:
+    struct PoolItem {
+        alignas(T) std::byte storage[sizeof(T)];   // T 하나가 들어갈 만큼의 미가공 메모리
+        bool in_use = false;
+    };
+
+    std::array&lt;PoolItem, PoolSize&gt; pool_;
+    std::mutex mutex_;
+
+public:
+    static_assert(PoolSize &gt; 0, "ObjectPool의 크기는 1 이상이어야 합니다");
+
+    ObjectPool(const ObjectPool&amp;) = delete;
+    ObjectPool&amp; operator=(const ObjectPool&amp;) = delete;
+
+    ~ObjectPool() {
+        // 풀보다 먼저 모든 사용자가 객체를 반납하도록 서버 종료 순서를 보장해야 합니다.
+        for (auto&amp; item : pool_) {
+            if (item.in_use) {
+                std::launder(reinterpret_cast&lt;T*&gt;(item.storage))-&gt;~T();
+            }
+        }
+    }
+
+    template &lt;typename... Args&gt;
+    T* Allocate(Args&amp;&amp;... args) {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+
+        for (auto&amp; item : pool_) {
+            if (!item.in_use) {
+                T* object = new (item.storage) T(std::forward&lt;Args&gt;(args)...); // placement new
+                item.in_use = true;  // 생성자가 예외를 던지면 슬롯은 여전히 비어 있습니다.
+                return object;
+            }
+        }
+        return nullptr;   // 풀이 모두 사용 중
+    }
+
+    bool Deallocate(T* ptr) {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+
+        for (auto&amp; item : pool_) {
+            if (reinterpret_cast&lt;T*&gt;(item.storage) == ptr) {
+                if (!item.in_use) return false;  // 중복 반납
+                ptr-&gt;~T();          // 소멸자를 직접 호출 (메모리 자체는 해제하지 않음)
+                item.in_use = false;
+                return true;
+            }
+        }
+        return false;  // 이 풀이 소유하지 않는 포인터
+    }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">placement new란?</p>
+    <p>
+      일반적인 <code>new T(...)</code>는 "메모리를 새로 할당하면서 동시에 객체를 생성"합니다.
+      <code>new (주소) T(...)</code> 형태의 <strong>placement new</strong>는 이미 존재하는
+      메모리 위에 <strong>객체만 생성</strong>합니다 — <code>malloc</code>/<code>new</code>의
+      비용(힙 탐색, 시스템 호출 가능성)을 매번 치르지 않고, 미리 확보해둔 슬롯 위에 생성자만
+      호출하는 셈입니다. 반대로 소멸시킬 때는 <code>delete</code> 대신 소멸자를
+      <code>ptr-&gt;~T()</code>처럼 <strong>직접 호출</strong>해야 하고, 메모리 자체는 풀이
+      계속 소유합니다. "메모리 확보"와 "객체 생성"을 분리하는 이 기법은 이후 6장의 RIO 래퍼
+      클래스에서도 다시 등장합니다.
+    </p>
+  </div>
+
+  <h3>미리 할당을 통한 성능 향상</h3>
+  <p>
+    서버 시작 시점에 "최대 연결 수 × 연결당 동시 버퍼 상한"을 계산해 필요한 메모리를 한 번에
+    확보해두면, 운영 중에는 추가 할당이 거의 일어나지 않습니다. 상한은 실제 피크 트래픽과
+    완료 지연을 반영해 정해야 합니다.
+  </p>
+  <pre><code>class RIOServer {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table_;
+    std::unique_ptr&lt;RIOBufferManager&gt; buffer_manager_;
+    std::unique_ptr&lt;RIOBufferRing&gt; send_buffer_ring_;
+    std::unique_ptr&lt;RIOBufferRing&gt; recv_buffer_ring_;
+
+public:
+    explicit RIOServer(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table)
+        : rio_fn_table_(rio_fn_table) {}
+
+    void Initialize(size_t max_connections) {
+        if (buffer_manager_) {
+            throw std::logic_error("RIO 서버는 종료 후에만 다시 초기화할 수 있습니다");
+        }
+        constexpr size_t send_buffer_per_conn = 4;  // 연결당 동시 송신 상한
+        constexpr size_t recv_buffer_per_conn = 2;  // 연결당 동시 수신 상한
+        constexpr size_t buffer_size = 4096;
+        constexpr size_t buffers_per_conn = send_buffer_per_conn + recv_buffer_per_conn;
+
+        if (max_connections == 0 ||
+            max_connections &gt; (std::numeric_limits&lt;DWORD&gt;::max)() / (buffers_per_conn * buffer_size)) {
+            throw std::invalid_argument("최대 연결 수에 비해 RIO 버퍼 풀이 너무 큽니다");
+        }
+
+        size_t total_send_buffers = max_connections * send_buffer_per_conn;
+        size_t total_recv_buffers = max_connections * recv_buffer_per_conn;
+        size_t total_memory_size = (total_send_buffers + total_recv_buffers) * buffer_size;
+
+        buffer_manager_ = std::make_unique&lt;RIOBufferManager&gt;(rio_fn_table_, total_memory_size, buffer_size);
+
+        send_buffer_ring_ = std::make_unique&lt;RIOBufferRing&gt;(*buffer_manager_, buffer_size, total_send_buffers);
+        recv_buffer_ring_ = std::make_unique&lt;RIOBufferRing&gt;(*buffer_manager_, buffer_size, total_recv_buffers);
+        // 두 링이 같은 등록 풀을 쓰되, 서로 겹치지 않는 구간을 사용하게 합니다.
+        recv_buffer_ring_-&gt;SetBaseOffset(total_send_buffers * buffer_size);
+
+        std::cout &lt;&lt; "서버 메모리 초기화 완료 - 최대 연결: " &lt;&lt; max_connections
+                  &lt;&lt; ", 총 메모리: " &lt;&lt; total_memory_size / (1024 * 1024) &lt;&lt; "MB" &lt;&lt; std::endl;
+    }
+};</code></pre>
+
+  <p>
+    눈여겨볼 점은 <code>send_buffer_ring_</code>과 <code>recv_buffer_ring_</code>이
+    <strong>같은</strong> <code>buffer_manager_</code>가 등록한 하나의 큰 풀을 서로 다른 구간으로
+    나눠 쓴다는 것입니다 — 등록은 한 번만, 재사용은 두 개의 독립된 링으로. "얼마나 미리 할당할지"는
+    결국 <code>send_buffer_per_conn</code>·<code>recv_buffer_per_conn</code> 값을 얼마나
+    현실적으로 추정하느냐에 달려 있으며, 이 값은 실제 게임의 트래픽을 측정하며 조정해야 합니다.
+  </p>
+</section>
+
+<section class="sec" id="zero-copy">
+  <h2><span class="num">4.4</span> 복사 최소화 기법 활용</h2>
+  <p class="sec-sub">등록된 버퍼에 직접 데이터를 만들고, 불필요한 애플리케이션 측 복사를 줄입니다.</p>
+
+  <h3>제로 카피의 개념</h3>
+  <p>
+    전통적인 소켓 I/O에서 데이터가 애플리케이션 버퍼·Winsock 공급자·네트워크 장치를 거치는 방식과
+    실제 복사 횟수는 운영체제, 공급자, NIC에 따라 달라집니다. "제로 카피"는 그 경로의 복사 또는
+    애플리케이션이 수행하는 중간 복사를 줄이려는 기법의 총칭이며, API 이름만으로 복사 횟수가 0이라고
+    보장되지는 않습니다.
+  </p>
+
+  <h3>등록 버퍼에 직접 작성하기</h3>
+  <p>
+    아래 함수는 버퍼 링에서 빌린 세그먼트에 데이터를 담아 송신 요청을 넣습니다.
+    <code>RIOSend()</code>는 <strong><code>BOOL</code>을 반환</strong>하며, <code>FALSE</code>면 요청 자체가
+    접수되지 않은 것입니다. 요청이 접수된 뒤의 실제 I/O 성공 여부는 완료 큐에서 얻는
+    <code>RIORESULT::Status</code>로 확인해야 합니다.
+  </p>
+  <pre><code>struct SendOperation {
+    RIOBufferRing::BufferSegment segment;
+    // 이 객체는 완료 큐에서 RequestContext를 회수할 때까지 주소가 바뀌거나 파괴되면 안 됩니다.
+};
+
+bool QueueSend(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, RIO_RQ request_queue,
+               std::span&lt;const std::byte&gt; data, SendOperation&amp; operation) {
+    const auto&amp; segment = operation.segment;
+    if (data.size() &gt; segment.size) {
+        return false;   // 버퍼 크기 부족
+    }
+
+    // 애플리케이션 데이터를 등록된 버퍼로 복사 — 이 한 번의 복사는 여전히 필요합니다
+    std::memcpy(segment.data, data.data(), data.size());
+
+    RIO_BUF rio_buffer{};
+    rio_buffer.BufferId = segment.buffer_id;
+    rio_buffer.Offset = static_cast&lt;ULONG&gt;(segment.offset);
+    rio_buffer.Length = static_cast&lt;ULONG&gt;(data.size());
+
+    BOOL result = rio_fn_table.RIOSend(request_queue, &amp;rio_buffer, 1, 0, &amp;operation);
+    if (!result) {
+        std::cerr &lt;&lt; "RIOSend 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;  // 요청이 큐에 들어가지 않았으므로 호출자가 segment를 즉시 Release할 수 있습니다.
+    }
+    return true;
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">요청 컨텍스트와 버퍼의 수명을 함께 관리합니다</p>
+    <p>
+      성공적으로 큐에 넣은 <code>SendOperation</code>은 완료 큐에서 <code>RIORESULT::RequestContext</code>로
+      다시 받을 때까지 안정된 주소에 보관합니다. 완료 결과가 성공이든 실패든, 그 시점에
+      <code>operation-&gt;segment</code>를 해당 링에 반납하고 operation을 폐기합니다. 반대로
+      <code>QueueSend()</code>가 <code>false</code>를 반환하면 완료 통지는 오지 않으므로 호출자가 즉시
+      세그먼트를 반납해야 합니다.
+    </p>
+  </div>
+
+  <div class="callout">
+    <p class="ctitle">RIO를 절대적 의미의 "제로 카피"라고 부르면 안 됩니다</p>
+    <p>
+      애플리케이션이 원래 갖고 있던 데이터(예: 직렬화된 패킷)는 등록되지 않은 임의의 메모리에
+      있으므로, RIO로 보내려면 등록된 버퍼로 한 번은 옮겨야 합니다. RIO가 없애는 것은
+      매 요청마다 메모리를 등록하는 비용입니다. 실제 네트워크 경로에 복사가 있는지와 NIC가 DMA를
+      어떻게 사용하는지는 Winsock 공급자와 하드웨어 구현에 달려 있으므로, RIO가 모든 복사를
+      보장 없이 제거한다고 단정할 수는 없습니다. 애초에 데이터를 등록 버퍼 위에 직접 직렬화하면
+      이 함수의 <code>memcpy</code>는 없앨 수 있습니다.
+    </p>
+  </div>
+
+  <h3>메모리 맵 파일을 송신 버퍼로 활용하기</h3>
+  <p>
+    게임 에셋(패치 파일, 다운로드 가능한 리소스)처럼 <strong>읽기 전용이고 변하지 않는 큰 데이터</strong>는
+    애초에 애플리케이션 버퍼로 복사할 필요 없이, 운영체제의 <strong>메모리 맵 파일</strong> 기능으로
+    파일을 프로세스 주소 공간에 매핑한 뒤 그 영역을 송신용 RIO 버퍼로 등록해볼 수 있습니다. 이 방법은
+    애플리케이션 코드의 별도 읽기·복사를 줄이지만, 페이지 폴트·파일 시스템 캐시·네트워크 공급자 내부
+    동작까지 없애는 것은 아닙니다. 지원 환경에서 반드시 부하 테스트로 확인해야 합니다.
+  </p>
+
+  <table class="cmp">
+    <thead><tr><th>API</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>CreateFileW()</code></td><td>파일을 열어 핸들을 얻습니다.</td></tr>
+      <tr><td><code>CreateFileMappingW()</code></td><td>그 파일에 대한 "매핑 객체"를 만듭니다 — 아직 메모리에 올라오지는 않습니다.</td></tr>
+      <tr><td><code>MapViewOfFile()</code></td><td>매핑 객체의 일부(또는 전체)를 실제 프로세스 주소 공간에 배치해, 포인터로 접근 가능하게 합니다.</td></tr>
+    </tbody>
+  </table>
+
+  <pre><code>class MappedFileBuffer {
+private:
+    HANDLE file_handle_ = INVALID_HANDLE_VALUE;
+    HANDLE mapping_handle_ = NULL;
+    void* mapped_view_ = nullptr;
+    size_t file_size_ = 0;
+    RIO_BUFFERID buffer_id_ = RIO_INVALID_BUFFERID;
+    RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table_;
+
+public:
+    MappedFileBuffer(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, const std::wstring&amp; file_path)
+        : rio_fn_table_(rio_fn_table) {
+        file_handle_ = CreateFileW(file_path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                    NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (file_handle_ == INVALID_HANDLE_VALUE) {
+            throw std::runtime_error("파일 열기 실패: " + std::to_string(GetLastError()));
+        }
+
+        LARGE_INTEGER file_size;
+        if (!GetFileSizeEx(file_handle_, &amp;file_size)) {
+            CloseHandle(file_handle_);
+            throw std::runtime_error("파일 크기 얻기 실패: " + std::to_string(GetLastError()));
+        }
+        if (file_size.QuadPart &lt;= 0 ||
+            static_cast&lt;ULONGLONG&gt;(file_size.QuadPart) &gt; (std::numeric_limits&lt;DWORD&gt;::max)()) {
+            CloseHandle(file_handle_);
+            throw std::invalid_argument("RIO로 등록할 수 없는 파일 크기입니다");
+        }
+        file_size_ = static_cast&lt;size_t&gt;(file_size.QuadPart);
+
+        mapping_handle_ = CreateFileMappingW(file_handle_, NULL, PAGE_READONLY, 0, 0, NULL);
+        if (mapping_handle_ == NULL) {
+            CloseHandle(file_handle_);
+            throw std::runtime_error("파일 매핑 생성 실패: " + std::to_string(GetLastError()));
+        }
+
+        mapped_view_ = MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0);
+        if (mapped_view_ == nullptr) {
+            CloseHandle(mapping_handle_);
+            CloseHandle(file_handle_);
+            throw std::runtime_error("파일 뷰 매핑 실패: " + std::to_string(GetLastError()));
+        }
+
+        // 읽기 전용 뷰이므로 송신 전용입니다. 이 매핑을 RIOReceive에 사용하면 안 됩니다.
+        buffer_id_ = rio_fn_table_.RIORegisterBuffer(static_cast&lt;char*&gt;(mapped_view_), static_cast&lt;DWORD&gt;(file_size_));
+        if (buffer_id_ == RIO_INVALID_BUFFERID) {
+            UnmapViewOfFile(mapped_view_);
+            CloseHandle(mapping_handle_);
+            CloseHandle(file_handle_);
+            throw std::runtime_error("RIO 버퍼 등록 실패: " + std::to_string(WSAGetLastError()));
+        }
+    }
+
+    ~MappedFileBuffer() {
+        // RIODeregisterBuffer와 UnmapViewOfFile 이전에 관련 송신 완료를 모두 회수해야 합니다.
+        if (buffer_id_ != RIO_INVALID_BUFFERID) rio_fn_table_.RIODeregisterBuffer(buffer_id_);
+        if (mapped_view_) UnmapViewOfFile(mapped_view_);
+        if (mapping_handle_) CloseHandle(mapping_handle_);
+        if (file_handle_ != INVALID_HANDLE_VALUE) CloseHandle(file_handle_);
+    }
+
+    MappedFileBuffer(const MappedFileBuffer&amp;) = delete;
+    MappedFileBuffer&amp; operator=(const MappedFileBuffer&amp;) = delete;
+
+    // 파일의 일부 구간을 송신합니다. context 역시 완료 통지를 받을 때까지 유효해야 합니다.
+    bool SendFilePart(RIO_RQ request_queue, size_t offset, size_t size, void* context) {
+        if (size == 0 || offset &gt; file_size_ || size &gt; file_size_ - offset) return false;
+
+        RIO_BUF rio_buffer{};
+        rio_buffer.BufferId = buffer_id_;
+        rio_buffer.Offset = static_cast&lt;ULONG&gt;(offset);
+        rio_buffer.Length = static_cast&lt;ULONG&gt;(size);
+
+        BOOL result = rio_fn_table_.RIOSend(request_queue, &amp;rio_buffer, 1, 0, context);
+        if (!result) {
+            std::cerr &lt;&lt; "RIOSend 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    RIO_BUFFERID GetBufferId() const { return buffer_id_; }
+    size_t GetFileSize() const { return file_size_; }
+    void* GetMappedView() const { return mapped_view_; }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">애플리케이션 복사는 줄어들지만, "진짜 제로 카피"는 아닙니다</p>
+    <p>
+      <code>SendFilePart()</code>에는 <code>memcpy</code>가 전혀 없습니다. 운영체제가 파일을
+      프로세스 주소 공간에 매핑해준 뒤 그 영역을 등록했으므로, 애플리케이션이 파일 내용을 별도
+      패킷 버퍼에 옮기는 단계는 없습니다. 다만 파일 페이지를 메모리에 준비하는 비용과 공급자 내부의
+      데이터 이동 여부는 남습니다. 이 기법은 <strong>읽기 전용</strong>이며 <strong>파일 시스템에서
+      바로 서빙 가능한</strong> 데이터에만 적합합니다. 실시간으로 값이 바뀌는 게임 상태에는 쓰지 않습니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="strategy-summary">
+  <h2><span class="num">4.5</span> 효율적인 RIO 버퍼 관리 전략</h2>
+  <ol>
+    <li><strong>버퍼 크기 최적화</strong> — 애플리케이션의 평균 메시지 크기에 맞게 청크 크기를
+      조정합니다. 너무 크면 메모리가 낭비되고, 너무 작으면 큰 메시지가 여러 청크에 걸쳐 단편화됩니다.</li>
+    <li><strong>대용량/소용량 버퍼 분리</strong> — 크기가 크게 다른 메시지가 섞여 있다면, 청크
+      크기가 다른 버퍼 링을 두 개(예: 256바이트용, 4KB용) 따로 운영하는 편이 한 크기로 통일하는
+      것보다 메모리 효율이 좋습니다.</li>
+    <li><strong>등록 단위 최소화</strong> — RIO가 요구하는 특별한 정렬을 추측하기보다, 작은 버퍼를
+      여러 번 등록하지 말고 큰 연속 풀을 한 번 등록합니다. 다른 API가 정렬을 요구할 때만 그 조건을
+      별도로 적용합니다.</li>
+    <li><strong>버퍼 재사용</strong> — 이 장에서 만든 <code>RIOBufferRing</code>·<code>ObjectPool</code>처럼,
+      할당/해제 대신 재사용 구조를 기본값으로 삼아 메모리 단편화와 할당 오버헤드를 방지합니다.</li>
+    <li><strong>비동기 처리와의 연계</strong> — 5장에서 다룰 완료 큐 처리 로직에서, 송신 요청의
+      완료 결과를 받은 뒤 세그먼트를 <code>Release(segment)</code>로 반납해야 합니다. 큐 등록 직후
+      반납하면 아직 진행 중인 I/O가 같은 메모리를 덮어쓸 수 있고, 반납을 잊으면 링이 고갈됩니다.</li>
+  </ol>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">4.6</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>RIOBufferManager</strong> — 큰 메모리 풀을 한 번만 등록·해제하는 RAII 래퍼로,
+        3장에서 남았던 등록 해제 누락 문제를 해결했습니다.</li>
+      <li><strong>RIOBufferRing</strong> — 등록된 풀을 고정 크기 청크로 나눠 순환 재사용하며,
+        <code>Allocate()</code>/<code>Release(segment)</code>로 빌리고 완료 후 반납합니다.</li>
+      <li><strong>ObjectPool</strong> — placement new로 메모리 할당과 객체 생성을 분리해, C++
+        객체 자체도 재사용할 수 있습니다.</li>
+      <li><strong>미리 할당 전략</strong> — 최대 연결 수를 기준으로 필요한 메모리를 시작 시점에
+        한 번에 계산·확보합니다.</li>
+      <li><strong>복사 최소화</strong> — 일반 데이터는 등록된 버퍼로 복사하거나 처음부터 그 버퍼에
+        직렬화합니다. 메모리 맵 파일은 애플리케이션 측 복사를 줄일 수 있지만, 전체 경로의 복사가
+        없다고 보장하지는 않습니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>5장. RIO 큐 및 완료 알림</h4>
+    <p>
+      이번 장이 "무엇을 보낼 버퍼를 어떻게 마련할까"를 다뤘다면, 5장은 "그 요청이 언제 끝났는지
+      어떻게 가장 효율적으로 알아챌까"를 다룹니다. 요청 큐·완료 큐를 여러 개 운영하는 전략과,
+      이벤트 기반·폴링 기반 통지 방식을 실측 가능한 형태로 비교합니다.
+      <a href="ch05.html">5장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch03.html">← 3장. RIO 환경 설정 및 기본 구현</a>
+  <span class="kicker-num">4 / 9</span>
+  <a href="ch05.html">5장. RIO 큐 및 완료 알림 →</a>
+</footer>
+
+</div>
+</body>
+</html>

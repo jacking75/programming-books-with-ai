@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3장. RIO 환경 설정 및 기본 구현 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch02.html">← 2장</a>
+    <a href="index.html">목차</a>
+    <a href="ch04.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 03</div>
+  <h1>RIO 환경 설정 및 기본 구현</h1>
+  <p class="hero-lead">
+    2장의 <code>RioServer</code> 예제는 개념을 보여주기 위해 일부러 단순화되어 있었습니다 —
+    모든 연결이 버퍼 하나를 나눠 썼고, 최대 연결 수를 넘기면 그냥 막혀버렸습니다. 이번 장에서는
+    "실전에 가까운" RIO 서버를 처음부터 다시 설계합니다. 클라이언트마다 독립된 세션과 버퍼를 갖고,
+    여러 워커 스레드가 완료 큐를 나눠 처리하며, 연결이 끊기면 자원을 안전하게 정리합니다. 클래스를
+    한 번에 통째로 보여주지 않고, 헤더 설정 → 초기화 → 리스닝 → 큐 설정 → 스레드 → 송수신 → 정리
+    순서로 하나씩 쌓아 올립니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>RIO 서버 프로젝트에 필요한 헤더 구성과, 각 헤더가 왜 필요한지</li>
+      <li><code>RIO_EXTENSION_FUNCTION_TABLE</code>의 실제 구조와, 이 구조체를 직접 정의하면
+        안 되는 이유</li>
+      <li>클라이언트마다 독립된 <code>ClientSession</code>·버퍼·요청 큐를 갖는 세션 기반 설계</li>
+      <li><code>SO_REUSEADDR</code>, <code>TCP_NODELAY</code> 같은 실전 소켓 옵션이 왜 필요한지</li>
+      <li>여러 워커 스레드가 하나의 RIO 완료 큐를 안전하게 나눠 처리하는 구조</li>
+      <li>연결 종료·서버 종료 시 RIO 리소스를 순서에 맞게 정리하는 방법</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="recap">
+  <h2><span class="num">3.1</span> RIO 소개 (복습)</h2>
+  <p class="sec-sub">2장에서 다룬 내용을 한 문장씩만 다시 짚고, 곧바로 실전 구현으로 들어갑니다.</p>
+  <p>
+    Windows Registered I/O(RIO)는 고성능 네트워크 애플리케이션을 위한 최적화된 I/O 모델로, 다음
+    네 가지가 핵심이었습니다: <strong>메모리 복사 최소화</strong>(버퍼를 미리 등록해 중간 복사를
+    생략), <strong>컨텍스트 스위칭 감소</strong>(요청·완료를 배치로 처리), <strong>확장성 있는
+    비동기 I/O</strong>(스레드 수와 동시 연결 수를 분리), <strong>효율적인 완료 통지</strong>
+    (완료 큐에서 여러 결과를 한 번에 회수). 이 장에서는 이 네 가지 특성을 실제로 구현으로
+    옮깁니다.
+  </p>
+</section>
+
+<section class="sec" id="setup">
+  <h2><span class="num">3.2</span> RIO 환경 설정</h2>
+
+  <h3>3.2.1 필요한 헤더 및 라이브러리</h3>
+  <p>
+    RIO 서버 프로젝트는 아래 헤더들로 시작합니다. 처음 보는 헤더들의 역할을 짚고 넘어갑니다.
+  </p>
+  <pre><code>#include &lt;winsock2.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;windows.h&gt;
+#include &lt;mstcpip.h&gt;
+#include &lt;mutex&gt;
+#include &lt;thread&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;format&gt;
+#include &lt;iostream&gt;
+#include &lt;span&gt;
+#include &lt;memory&gt;
+
+#pragma comment(lib, "ws2_32.lib")</code></pre>
+
+  <table class="cmp">
+    <thead><tr><th>헤더</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>winsock2.h</code></td><td>소켓, <code>send()</code>/<code>recv()</code> 등 Winsock 기본 API.</td></tr>
+      <tr><td><code>mswsock.h</code></td><td><strong>RIO 관련 타입과 함수 포인터 typedef가 정의된 헤더</strong> — <code>RIO_EXTENSION_FUNCTION_TABLE</code>, <code>RIO_BUF</code>, <code>WSAID_MULTIPLE_RIO</code> 등이 여기 들어있습니다.</td></tr>
+      <tr><td><code>ws2tcpip.h</code></td><td><code>inet_pton()</code>/<code>inet_ntop()</code> 등 최신 TCP/IP 헬퍼 함수.</td></tr>
+      <tr><td><code>windows.h</code></td><td><code>CreateEventW()</code>, <code>WaitForSingleObject()</code> 등 Win32 동기화 API.</td></tr>
+      <tr><td><code>mstcpip.h</code></td><td>TCP 관련 확장 소켓 옵션 정의(뒤에서 쓸 몇몇 고급 옵션에 필요).</td></tr>
+      <tr><td><code>mutex</code>, <code>thread</code>, <code>span</code> 등</td><td>세션 목록 동기화, 워커 스레드, 버퍼 뷰 등에 쓸 C++ 표준 라이브러리.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.2.2 RIO 함수 포인터 초기화</h3>
+  <p>
+    2장에서 "RIO 함수는 <code>WSAIoctl()</code>로 함수 테이블을 받아와야 호출할 수 있다"고
+    배웠습니다. 그 함수 테이블의 정체가 바로 <code>RIO_EXTENSION_FUNCTION_TABLE</code> 구조체입니다.
+    <code>mswsock.h</code>가 이미 이 구조체를 정의해서 제공하므로, 아래 내용은
+    <strong>"안에 무엇이 들어있는지 이해하기 위한 참고 자료"</strong>입니다.
+  </p>
+
+  <div class="callout info">
+    <p class="ctitle">주의 — 이 구조체를 직접 다시 작성하지 마세요</p>
+    <p>
+      <code>RIO_EXTENSION_FUNCTION_TABLE</code>은 이미 <code>mswsock.h</code>에 정의되어 있습니다.
+      같은 이름의 구조체를 코드에 직접 다시 선언하면 <strong>중복 정의로 컴파일 오류</strong>가
+      납니다. 아래는 그 구조체 안에 어떤 함수 포인터들이 들어있는지 보여주는 것이지, 여러분이
+      타이핑해야 할 코드가 아닙니다 — 실제 코드에서는 <code>#include &lt;mswsock.h&gt;</code> 한 줄이면
+      충분합니다.
+    </p>
+  </div>
+
+  <p class="code-label">참고 — RIO_EXTENSION_FUNCTION_TABLE의 실제 구성(mswsock.h)</p>
+  <pre><code>typedef struct _RIO_EXTENSION_FUNCTION_TABLE {
+    DWORD cbSize;                                       // 이 구조체 자체의 크기
+
+    // 데이터 송수신
+    LPFN_RIORECEIVE            RIOReceive;
+    LPFN_RIORECEIVEEX          RIOReceiveEx;
+    LPFN_RIOSEND                RIOSend;
+    LPFN_RIOSENDEX               RIOSendEx;
+
+    // 완료 큐
+    LPFN_RIOCLOSECOMPLETIONQUEUE   RIOCloseCompletionQueue;
+    LPFN_RIOCREATECOMPLETIONQUEUE  RIOCreateCompletionQueue;
+    LPFN_RIODEQUEUECOMPLETION      RIODequeueCompletion;
+    LPFN_RIONOTIFY                 RIONotify;
+    LPFN_RIORESIZECOMPLETIONQUEUE  RIOResizeCompletionQueue;
+
+    // 요청 큐
+    LPFN_RIOCREATEREQUESTQUEUE     RIOCreateRequestQueue;
+    LPFN_RIORESIZEREQUESTQUEUE     RIOResizeRequestQueue;
+
+    // 버퍼 등록
+    LPFN_RIOREGISTERBUFFER         RIORegisterBuffer;
+    LPFN_RIODEREGISTERBUFFER       RIODeregisterBuffer;
+} RIO_EXTENSION_FUNCTION_TABLE, *PRIO_EXTENSION_FUNCTION_TABLE;</code></pre>
+
+  <p>
+    2장에서 다룬 RIO 함수 12개가 모두 함수 포인터 형태로 이 하나의 구조체 안에 들어있고,
+    <code>WSAIoctl()</code>이 이 구조체를 채워줍니다. 이제 실제 초기화 함수를 작성해봅니다.
+  </p>
+
+  <pre><code>bool InitializeRIO(RIO_EXTENSION_FUNCTION_TABLE&amp; rioFunctionTable) {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &amp;wsaData) != 0) {
+        std::cerr &lt;&lt; "WSAStartup 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    // 함수 테이블을 얻기 위한 임시 소켓 — 얻고 나면 바로 닫아도 됩니다
+    SOCKET socket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+    if (socket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; "RIO 소켓 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        WSACleanup();
+        return false;
+    }
+
+    GUID functionTableId = WSAID_MULTIPLE_RIO;
+    DWORD bytes = 0;
+
+    int result = WSAIoctl(
+        socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+        &amp;functionTableId, sizeof(GUID),
+        &amp;rioFunctionTable, sizeof(RIO_EXTENSION_FUNCTION_TABLE),
+        &amp;bytes, nullptr, nullptr
+    );
+
+    closesocket(socket);   // 함수 테이블은 이미 채워졌으므로 이 소켓은 더 이상 필요 없음
+
+    if (result == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "RIO 함수 포인터 초기화 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        WSACleanup();
+        return false;
+    }
+
+    return true;
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">왜 함수 테이블용 소켓을 바로 닫아도 되는가</p>
+    <p>
+      직관적으로는 "함수 테이블도 이 소켓 전용 아닌가?"라고 생각하기 쉽지만, 실제로는 같은
+      주소 체계·타입·프로토콜(<code>AF_INET</code>, <code>SOCK_STREAM</code>, <code>IPPROTO_TCP</code>)의
+      RIO 소켓이라면 함수 포인터 값 자체는 동일합니다. 그래서 함수 테이블을 얻기 위한 목적으로만
+      짧게 쓰고 버리는 "임시 소켓" 패턴이 널리 쓰입니다. 이후 실제로 연결을 처리할 리스닝 소켓은
+      3.3.3절에서 별도로 만듭니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="structs">
+  <h2><span class="num">3.3</span> RIO 기본 구조체 및 클래스 구현</h2>
+
+  <h3>3.3.1 기본 구성요소 정의</h3>
+  <p>
+    2장의 <code>RioServer</code>는 모든 연결이 버퍼 하나를 인덱스로 나눠 썼습니다. 이번 장의
+    <code>RIOServer</code>는 그 대신 <strong>클라이언트마다 독립된 세션</strong>
+    (<code>ClientSession</code>)을 두고, 세션마다 자신만의 송신·수신 버퍼와 요청 큐를 가지도록
+    설계를 바꿉니다. 완료 큐만 모든 세션이 공유합니다 — 워커 스레드 여러 개가 그 하나의 완료 큐를
+    함께 지켜보다가, 어느 세션의 요청이든 완료되는 대로 처리합니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 380" role="img" aria-labelledby="tree-title tree-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="tree-title">RIOServer의 자료구조 소유 관계</title>
+      <desc id="tree-desc">RIOServer가 리스닝 소켓, 공유 완료 큐, 세션 목록을 소유하고, 세션 목록은 클라이언트 수만큼의 ClientSession을 가지며, 각 ClientSession은 송신 버퍼·수신 버퍼·자신만의 요청 큐를 소유하는 트리 구조를 보여준다.</desc>
+      <defs>
+        <marker id="tr-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="260" y="24" width="160" height="44" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="340" y="51" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">RIOServer</text>
+
+      <line x1="340" y1="68" x2="340" y2="86" stroke="#6b6259" stroke-width="1"/>
+      <line x1="120" y1="86" x2="560" y2="86" stroke="#6b6259" stroke-width="1"/>
+      <line x1="120" y1="86" x2="120" y2="104" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+      <line x1="340" y1="86" x2="340" y2="104" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+      <line x1="560" y1="86" x2="560" y2="104" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+
+      <rect x="40" y="104" width="160" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="120" y="127" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">완료 큐 (공유)</text>
+      <text x="120" y="141" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">m_CompletionQueue</text>
+
+      <rect x="260" y="104" width="160" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="340" y="127" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">세션 목록</text>
+      <text x="340" y="141" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">m_Sessions (mutex 보호)</text>
+
+      <rect x="480" y="104" width="160" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="560" y="127" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">리스닝 소켓</text>
+      <text x="560" y="141" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">m_ListenSocket</text>
+
+      <line x1="340" y1="148" x2="340" y2="184" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+
+      <rect x="250" y="184" width="180" height="44" rx="6" fill="rgba(32,29,26,0.02)" stroke="rgba(32,29,26,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="340" y="205" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">ClientSession</text>
+      <text x="340" y="219" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">동시 접속자 수만큼 반복</text>
+
+      <line x1="340" y1="228" x2="340" y2="246" stroke="#6b6259" stroke-width="1"/>
+      <line x1="176" y1="246" x2="504" y2="246" stroke="#6b6259" stroke-width="1"/>
+      <line x1="176" y1="246" x2="176" y2="264" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+      <line x1="340" y1="246" x2="340" y2="264" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+      <line x1="504" y1="246" x2="504" y2="264" stroke="#6b6259" stroke-width="1" marker-end="url(#tr-arrow)"/>
+
+      <rect x="106" y="264" width="140" height="48" rx="6" fill="rgba(32,29,26,0.05)" stroke="#6b6259" stroke-width="1"/>
+      <text x="176" y="285" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">송신 버퍼</text>
+      <text x="176" y="299" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">RioBuffer</text>
+
+      <rect x="270" y="264" width="140" height="48" rx="6" fill="rgba(32,29,26,0.05)" stroke="#6b6259" stroke-width="1"/>
+      <text x="340" y="285" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">요청 큐</text>
+      <text x="340" y="299" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">RIO_RQ (세션 전용)</text>
+
+      <rect x="434" y="264" width="140" height="48" rx="6" fill="rgba(32,29,26,0.05)" stroke="#6b6259" stroke-width="1"/>
+      <text x="504" y="285" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">수신 버퍼</text>
+      <text x="504" y="299" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">RioBuffer</text>
+
+      <line x1="40" y1="336" x2="640" y2="336" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="354" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="160" y="346" width="14" height="14" rx="2" fill="rgba(32,29,26,0.02)" stroke="rgba(32,29,26,0.35)" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="182" y="357" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">세션마다 하나씩 (여러 개)</text>
+      <rect x="400" y="346" width="14" height="14" rx="2" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="422" y="357" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">서버당 하나만 존재</text>
+    </svg>
+    <p class="dcap">그림 3-1. 완료 큐만 공유하고, 버퍼와 요청 큐는 세션(클라이언트)마다 독립적으로 소유합니다</p>
+  </div>
+
+  <pre><code>class RIOServer {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE m_RioFunctionTable;
+
+    SOCKET m_ListenSocket = INVALID_SOCKET;
+    RIO_CQ m_CompletionQueue = RIO_INVALID_CQ;      // 모든 세션이 공유
+    RIO_RQ m_RequestQueue = RIO_INVALID_RQ;
+    HANDLE m_CompletionEvent = nullptr;
+
+    constexpr static size_t MAX_CONNECTIONS = 1000;
+    constexpr static size_t BUFFER_SIZE = 4096;
+
+    std::atomic&lt;bool&gt; m_Running = false;
+    std::vector&lt;std::jthread&gt; m_WorkerThreads;
+
+    // 등록된 RIO 버퍼 하나를 RAII로 감싼 래퍼
+    struct RioBuffer {
+        RIO_BUFFERID Id = RIO_INVALID_BUFFERID;
+        std::unique_ptr&lt;char[]&gt; Buffer;
+        size_t Size = 0;
+
+        RioBuffer(size_t size, RIO_EXTENSION_FUNCTION_TABLE&amp; rioFunctionTable)
+            : Size(size), Buffer(std::make_unique&lt;char[]&gt;(size)) {
+            Id = rioFunctionTable.RIORegisterBuffer(Buffer.get(), static_cast&lt;DWORD&gt;(size));
+        }
+        // 등록 해제(RIODeregisterBuffer)는 함수 테이블 참조가 필요해 서버 클래스가 담당합니다
+    };
+
+    // 클라이언트 하나에 대응하는 세션 — 소켓 + 전용 버퍼 2개 + 전용 요청 큐
+    struct ClientSession {
+        SOCKET Socket = INVALID_SOCKET;
+        std::unique_ptr&lt;RioBuffer&gt; SendBuffer;
+        std::unique_ptr&lt;RioBuffer&gt; RecvBuffer;
+        RIO_RQ RequestQueue = RIO_INVALID_RQ;
+
+        // RIORESULT::RequestContext 하나로는 "어느 세션"만 알 수 있을 뿐, 그 요청이
+        // 수신이었는지 송신이었는지는 알려주지 않습니다. 그래서 세션마다 수신용·송신용
+        // 컨텍스트를 따로 두고, 요청을 걸 때 그중 하나의 주소를 RequestContext로 넘깁니다.
+        enum class OpType { Recv, Send };
+        struct OpContext { ClientSession* Session; OpType Type; };
+        OpContext RecvContext{this, OpType::Recv};
+        OpContext SendContext{this, OpType::Send};
+
+        ClientSession(SOCKET socket, RIO_EXTENSION_FUNCTION_TABLE&amp; rioFunctionTable)
+            : Socket(socket),
+              SendBuffer(std::make_unique&lt;RioBuffer&gt;(BUFFER_SIZE, rioFunctionTable)),
+              RecvBuffer(std::make_unique&lt;RioBuffer&gt;(BUFFER_SIZE, rioFunctionTable)) {
+        }
+    };
+
+    std::vector&lt;std::unique_ptr&lt;ClientSession&gt;&gt; m_Sessions;
+    std::mutex m_SessionsMutex;
+
+public:
+    RIOServer() = default;
+    ~RIOServer();
+
+    bool Initialize();
+    bool Start(const std::string&amp; address, uint16_t port, int numThreads);
+    void Stop();
+
+private:
+    bool InitializeRIOFunctionTable();
+    bool CreateListenSocket(const std::string&amp; address, uint16_t port);
+    bool SetupRIOCompletionQueue(int maxOutstandingCompletions);
+    bool SetupRIORequestQueue();
+
+    void WorkerThread();
+    void AcceptConnections();
+    bool HandleCompletion();
+
+    bool PostReceive(ClientSession* session);
+    bool PostSend(ClientSession* session, const std::span&lt;char&gt; data);
+
+    void CloseSession(ClientSession* session);
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">2장 대비 달라진 점</p>
+    <p>
+      2장에서는 버퍼 하나를 여러 연결이 인덱스로 나눠 썼기 때문에 <code>maxConnections</code>를
+      미리 정확히 알아야 했고, 끊긴 연결의 슬롯을 재활용하는 로직도 없었습니다. 이번 장에서는
+      연결마다 <code>ClientSession</code>을 <code>std::vector&lt;std::unique_ptr&lt;ClientSession&gt;&gt;</code>로
+      동적으로 관리하므로, 연결이 끊기면 그 세션 하나만 정리하면 됩니다 — 3.3.7절에서 이 부분을
+      직접 구현합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="init-impl">
+  <h3>3.3.2 서버 초기화 구현</h3>
+  <p>
+    <code>Initialize()</code>는 아직 네트워크를 열지 않고, RIO 함수 테이블을 확보하고 세션을 담을
+    공간만 미리 예약해둡니다. 실제로 포트를 열고 듣기 시작하는 것은 다음 절의 <code>Start()</code>입니다.
+  </p>
+  <pre><code>RIOServer::~RIOServer() {
+    Stop();   // 소멸자에서도 정리를 보장 — 1장부터 이어온 RAII 원칙
+}
+
+bool RIOServer::Initialize() {
+    if (!InitializeRIOFunctionTable()) {
+        return false;
+    }
+    m_Sessions.reserve(MAX_CONNECTIONS);   // 재할당으로 인한 포인터 무효화 방지
+    return true;
+}
+
+bool RIOServer::InitializeRIOFunctionTable() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &amp;wsaData) != 0) {
+        std::cerr &lt;&lt; "WSAStartup 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    SOCKET tempSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+    if (tempSocket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; "RIO 소켓 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        WSACleanup();
+        return false;
+    }
+
+    GUID functionTableId = WSAID_MULTIPLE_RIO;
+    DWORD bytes = 0;
+    int result = WSAIoctl(
+        tempSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+        &amp;functionTableId, sizeof(GUID),
+        &amp;m_RioFunctionTable, sizeof(RIO_EXTENSION_FUNCTION_TABLE),
+        &amp;bytes, nullptr, nullptr
+    );
+
+    closesocket(tempSocket);
+
+    if (result == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "RIO 함수 포인터 초기화 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        WSACleanup();
+        return false;
+    }
+    return true;
+}</code></pre>
+
+  <p>
+    <code>m_Sessions.reserve(MAX_CONNECTIONS)</code>는 사소해 보이지만 중요합니다.
+    <code>std::vector</code>는 용량이 부족해지면 내부적으로 더 큰 메모리를 할당해 기존 원소를
+    옮기는데, 이때 원소들의 <strong>메모리 주소가 바뀔 수 있습니다</strong>. 만약 어딘가에서
+    <code>ClientSession*</code> 포인터를 들고 있는 상태였다면 그 포인터는 이제 무효가 됩니다.
+    미리 <code>reserve()</code>로 충분한 용량을 확보해두면 이런 재할당 자체가 일어나지 않습니다.
+  </p>
+
+  <h3>3.3.3 서버 시작 및 리스닝 소켓 설정</h3>
+  <pre><code>bool RIOServer::Start(const std::string&amp; address, uint16_t port, int numThreads) {
+    if (m_Running.exchange(true)) {
+        std::cerr &lt;&lt; "서버가 이미 실행 중입니다." &lt;&lt; std::endl;
+        return false;
+    }
+
+    if (!CreateListenSocket(address, port)) return false;
+
+    if (!SetupRIOCompletionQueue(MAX_CONNECTIONS * 2)) {   // 세션당 Send+Recv 두 건을 고려
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    if (!SetupRIORequestQueue()) {
+        m_RioFunctionTable.RIOCloseCompletionQueue(m_CompletionQueue);
+        m_CompletionQueue = RIO_INVALID_CQ;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    for (int i = 0; i &lt; numThreads; i++) {
+        m_WorkerThreads.emplace_back([this] { WorkerThread(); });
+    }
+
+    std::jthread acceptThread([this] { AcceptConnections(); });
+    acceptThread.detach();
+
+    std::cout &lt;&lt; std::format("RIO 서버가 {}:{} 에서 시작되었습니다.", address, port) &lt;&lt; std::endl;
+    return true;
+}
+
+bool RIOServer::CreateListenSocket(const std::string&amp; address, uint16_t port) {
+    m_ListenSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+    if (m_ListenSocket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; "리스닝 소켓 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        m_Running = false;
+        return false;
+    }
+
+    int optval = 1;
+    if (setsockopt(m_ListenSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast&lt;char*&gt;(&amp;optval), sizeof(optval)) == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "setsockopt SO_REUSEADDR 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    sockaddr_in serverAddr{};
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(port);
+    inet_pton(AF_INET, address.c_str(), &amp;serverAddr.sin_addr);
+
+    if (bind(m_ListenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "바인딩 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    if (listen(m_ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "리스닝 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+    return true;
+}</code></pre>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">옵션</span><span class="api-name">SO_REUSEADDR</span></div>
+    <div class="api-body">
+      <p>
+        <code>setsockopt()</code>에 이 옵션을 주면, 방금 종료된 서버가 쓰던 (아직 완전히
+        정리되지 않은 TIME_WAIT 상태의) 포트를 바로 다시 바인딩할 수 있습니다. 이 옵션이 없으면
+        서버를 재시작할 때 종종 "바인드 실패: 주소가 이미 사용 중입니다"를 마주치게 됩니다.
+        개발 중 서버를 자주 재시작하는 상황에서 특히 유용해 실전 서버 코드에는 거의 항상 들어갑니다.
+      </p>
+    </div>
+  </div>
+
+  <h3>3.3.4 RIO 완료 큐 및 요청 큐 설정</h3>
+  <pre><code>bool RIOServer::SetupRIOCompletionQueue(int maxOutstandingCompletions) {
+    m_CompletionEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (m_CompletionEvent == nullptr) {
+        std::cerr &lt;&lt; "완료 이벤트 생성 실패: " &lt;&lt; GetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    RIO_NOTIFICATION_COMPLETION completionType{};
+    completionType.Type = RIO_EVENT_COMPLETION;
+    completionType.Event.EventHandle = m_CompletionEvent;   // 2장의 실전 팁대로 핸들을 멤버에 보관
+    completionType.Event.NotifyReset = TRUE;
+
+    m_CompletionQueue = m_RioFunctionTable.RIOCreateCompletionQueue(maxOutstandingCompletions, &amp;completionType);
+    if (m_CompletionQueue == RIO_INVALID_CQ) {
+        std::cerr &lt;&lt; "RIO 완료 큐 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        CloseHandle(m_CompletionEvent);
+        m_CompletionEvent = nullptr;
+        return false;
+    }
+    return true;
+}
+
+bool RIOServer::SetupRIORequestQueue() {
+    m_RequestQueue = m_RioFunctionTable.RIOCreateRequestQueue(
+        m_ListenSocket, MAX_CONNECTIONS, 1, MAX_CONNECTIONS, 1,
+        m_CompletionQueue, m_CompletionQueue, nullptr
+    );
+    if (m_RequestQueue == RIO_INVALID_RQ) {
+        std::cerr &lt;&lt; "RIO 요청 큐 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}</code></pre>
+
+  <p>
+    <code>CreateEventW()</code>의 <code>W</code> 접미사는 이 함수가 문자열을 유니코드(UTF-16,
+    <code>wchar_t</code>)로 받는 버전이라는 뜻입니다. Windows API에는 이렇게 아스키 버전(<code>A</code>
+    접미사)과 유니코드 버전(<code>W</code> 접미사)이 쌍으로 존재하는 함수가 많은데, 새 코드에서는
+    항상 <code>W</code> 버전을 쓰는 것이 표준입니다. (이 함수는 이벤트 자체에 이름을 붙이지 않으므로
+    문자열 인자는 <code>nullptr</code>입니다.)
+  </p>
+
+  <div class="callout">
+    <p class="ctitle">읽는 눈을 기르는 실전 팁 — 리스닝 소켓용 요청 큐, 정말 필요한가?</p>
+    <p>
+      <code>SetupRIORequestQueue()</code>가 만드는 <code>m_RequestQueue</code>는 리스닝 소켓
+      <code>m_ListenSocket</code>에 연결된 요청 큐입니다. 그런데 잘 생각해보면, <strong>리스닝
+      소켓은 연결을 받아들이기만 할 뿐 데이터를 직접 송수신하지 않습니다</strong> — 실제 송수신은
+      3.3.5절에서 <code>accept()</code>가 반환하는 <strong>클라이언트 소켓</strong>마다 새로
+      만드는 <code>newSession-&gt;RequestQueue</code>가 담당합니다. 이 책의 코드를 끝까지 따라가 보면
+      <code>m_RequestQueue</code>는 실제로 <code>RIOSend</code>/<code>RIOReceive</code> 어디에도
+      쓰이지 않는다는 걸 확인할 수 있습니다.
+    </p>
+    <p>
+      즉 이 요청 큐는 <strong>불필요하게 만들어지는 리소스</strong>입니다. 코드를 그대로 베끼기보다
+      "이 자원이 실제로 어디서 쓰이는가"를 추적해보는 습관이 왜 중요한지 보여주는 좋은 사례입니다.
+      실전 코드를 작성한다면 <code>SetupRIORequestQueue()</code> 호출 자체를 생략해도 이 서버는
+      동일하게 동작합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="threads-accept">
+  <h3>3.3.5 작업 스레드 및 연결 수락 구현</h3>
+  <p>
+    <code>WorkerThread()</code>는 완료 이벤트를 기다렸다가, 처리할 완료가 없어질 때까지
+    <code>HandleCompletion()</code>을 반복 호출합니다. <code>Start()</code>에서 이 함수를
+    <code>numThreads</code>개만큼 동시에 돌리므로, 여러 스레드가 <strong>같은 완료 큐를 두고
+    경쟁</strong>하게 됩니다 — RIO의 완료 큐 관련 함수들은 내부적으로 스레드 안전하게 설계되어
+    있어 별도의 락 없이도 이렇게 여러 스레드가 나눠 처리할 수 있습니다.
+  </p>
+  <pre><code>void RIOServer::WorkerThread() {
+    while (m_Running) {
+        DWORD result = WaitForSingleObject(m_CompletionEvent, 100);
+
+        if (result == WAIT_OBJECT_0) {
+            while (HandleCompletion()) {}          // 큐가 빌 때까지 계속 처리
+            m_RioFunctionTable.RIONotify(m_CompletionQueue);   // 다음 완료를 다시 통지받기 위해 재요청
+        }
+        else if (result == WAIT_TIMEOUT) {
+            continue;                               // 100ms마다 깨어나 m_Running을 다시 확인
+        }
+        else {
+            std::cerr &lt;&lt; "WaitForSingleObject 실패: " &lt;&lt; GetLastError() &lt;&lt; std::endl;
+            break;
+        }
+    }
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">100ms 타임아웃이 하는 일</p>
+    <p>
+      <code>WaitForSingleObject(m_CompletionEvent, 100)</code>처럼 무한(<code>INFINITE</code>)이
+      아닌 유한한 타임아웃을 주면, 이벤트가 신호되지 않아도 100ms마다 한 번씩 깨어나
+      <code>while (m_Running)</code> 조건을 다시 검사합니다. 이렇게 해야 <code>Stop()</code>이
+      호출되어 <code>m_Running</code>이 <code>false</code>가 됐을 때, 이벤트를 무한정 기다리며
+      멈춰 있지 않고 최대 100ms 안에 스레드가 스스로 빠져나올 수 있습니다.
+    </p>
+  </div>
+
+  <p>
+    <code>AcceptConnections()</code>는 1~2장의 <code>accept()</code> 루프와 뼈대는 같지만, 새
+    연결마다 <strong>①TCP_NODELAY 설정 → ②세션 생성 → ③세션 전용 요청 큐 생성 → ④첫 수신 예약</strong>
+    네 단계를 추가로 거칩니다.
+  </p>
+  <pre><code>void RIOServer::AcceptConnections() {
+    while (m_Running) {
+        sockaddr_in clientAddr{};
+        int addrLen = sizeof(clientAddr);
+
+        SOCKET clientSocket = accept(m_ListenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;addrLen);
+        if (clientSocket == INVALID_SOCKET) {
+            if (m_Running) std::cerr &lt;&lt; "클라이언트 연결 수락 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            continue;
+        }
+
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &amp;clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+        uint16_t clientPort = ntohs(clientAddr.sin_port);
+        std::cout &lt;&lt; std::format("클라이언트 연결: {}:{}", clientIP, clientPort) &lt;&lt; std::endl;
+
+        // ① Nagle 알고리즘 비활성화 — 게임 서버에 유리
+        int optval = 1;
+        if (setsockopt(clientSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast&lt;char*&gt;(&amp;optval), sizeof(optval)) == SOCKET_ERROR) {
+            std::cerr &lt;&lt; "TCP_NODELAY 설정 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        std::lock_guard&lt;std::mutex&gt; lock(m_SessionsMutex);
+
+        if (m_Sessions.size() &gt;= MAX_CONNECTIONS) {
+            std::cerr &lt;&lt; "최대 연결 수 초과, 연결 거부" &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        // ② 세션 생성 — 생성자가 RIORegisterBuffer로 송수신 버퍼를 자동 등록
+        auto newSession = std::make_unique&lt;ClientSession&gt;(clientSocket, m_RioFunctionTable);
+
+        // ③ 이 클라이언트 전용 요청 큐 — 완료 큐는 서버 전체가 공유하는 m_CompletionQueue를 그대로 사용
+        newSession-&gt;RequestQueue = m_RioFunctionTable.RIOCreateRequestQueue(
+            clientSocket, 1, 1, 1, 1,
+            m_CompletionQueue, m_CompletionQueue,
+            newSession.get()   // 컨텍스트로 세션 포인터 자체를 전달 — 완료 결과에서 그대로 돌려받음
+        );
+
+        if (newSession-&gt;RequestQueue == RIO_INVALID_RQ) {
+            std::cerr &lt;&lt; "클라이언트 요청 큐 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        // ④ 이 소켓에 데이터가 오면 알 수 있도록 첫 수신을 미리 걸어둠
+        if (!PostReceive(newSession.get())) {
+            std::cerr &lt;&lt; "초기 수신 요청 실패" &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        m_Sessions.push_back(std::move(newSession));
+    }
+}</code></pre>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">옵션</span><span class="api-name">TCP_NODELAY</span></div>
+    <div class="api-body">
+      <p>
+        TCP는 기본적으로 <strong>네이글(Nagle) 알고리즘</strong>을 사용해, 작은 패킷 여러 개를
+        모았다가 한꺼번에 보내는 방식으로 네트워크 오버헤드를 줄입니다. 파일 전송처럼 처리량이
+        중요한 경우엔 유리하지만, 이 때문에 수십 밀리초 단위의 인위적인 지연이 생길 수 있습니다.
+        게임 서버는 반대로 <strong>작은 패킷을 최대한 빨리</strong> 보내는 게 중요하므로,
+        <code>TCP_NODELAY</code>를 켜서 네이글 알고리즘을 끕니다 — "즉시 보낸다"는 뜻의 옵션입니다.
+        입력 지연에 민감한 실시간 게임 서버에서는 사실상 필수로 취급됩니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="send-recv-impl">
+  <h3>3.3.6 RIO 송수신 및 완료 처리</h3>
+  <p>
+    <code>HandleCompletion()</code>은 한 번에 최대 10건의 완료 결과를 꺼내옵니다. <code>RIORESULT</code>
+    구조체에는 <code>Status</code>·<code>BytesTransferred</code>·<code>SocketContext</code>·
+    <code>RequestContext</code> 네 필드만 있을 뿐, "이 완료가 수신이었는지 송신이었는지"를 알려주는
+    별도의 <code>Flags</code> 필드는 없습니다. 그래서 <code>RequestContext</code>
+    (<code>ULONGLONG</code>)에는 세션 포인터가 아니라, 방금 정의한
+    <code>ClientSession::RecvContext</code>/<code>SendContext</code> 중 하나의 <strong>주소</strong>를
+    담아 넘깁니다 — 완료 결과를 꺼낼 때 그 주소가 어느 멤버였는지로 수신/송신을 구분하고,
+    <code>OpContext::Session</code>을 통해 원래 세션도 함께 얻습니다. 정수(<code>ULONGLONG</code>)를
+    포인터로 되돌릴 때는 <code>static_cast</code>가 아니라 <code>reinterpret_cast</code>를 써야
+    합니다.
+  </p>
+  <pre><code>bool RIOServer::HandleCompletion() {
+    RIORESULT results[10];
+    ULONG numResults = m_RioFunctionTable.RIODequeueCompletion(m_CompletionQueue, results, 10);
+
+    if (numResults == 0) return false;               // 처리할 완료 없음 — WorkerThread의 while 루프 종료 신호
+    if (numResults == RIO_CORRUPT_CQ) {
+        std::cerr &lt;&lt; "RIO 완료 큐 손상: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    for (ULONG i = 0; i &lt; numResults; i++) {
+        auto* opContext = reinterpret_cast&lt;ClientSession::OpContext*&gt;(results[i].RequestContext);
+        ClientSession* session = opContext-&gt;Session;
+        DWORD bytesTransferred = results[i].BytesTransferred;
+
+        if (bytesTransferred == 0) {
+            std::cout &lt;&lt; "클라이언트 연결 종료" &lt;&lt; std::endl;
+            CloseSession(session);
+            continue;
+        }
+
+        if (opContext-&gt;Type == ClientSession::OpType::Recv) {
+            std::cout &lt;&lt; std::format("데이터 {}바이트 수신", bytesTransferred) &lt;&lt; std::endl;
+
+            // 에코 서버 예제 — 받은 데이터를 그대로 재전송
+            std::span&lt;char&gt; data(session-&gt;RecvBuffer-&gt;Buffer.get(), bytesTransferred);
+            PostSend(session, data);
+            PostReceive(session);    // 다음 수신을 다시 예약해야 계속 데이터를 받을 수 있음
+        }
+        else {
+            std::cout &lt;&lt; std::format("데이터 {}바이트 송신", bytesTransferred) &lt;&lt; std::endl;
+        }
+    }
+    return true;
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">RecvContext / SendContext — 완료 결과의 "종류표"</p>
+    <p>
+      <code>PostReceive()</code>에서 <code>RIOReceive()</code>를 호출할 때 세션의
+      <code>&amp;session-&gt;RecvContext</code> 주소를, <code>PostSend()</code>에서
+      <code>RIOSend()</code>를 호출할 때 <code>&amp;session-&gt;SendContext</code> 주소를
+      <code>RequestContext</code> 인자로 넘겨두면, 나중에 완료 큐에서 결과를 꺼낼 때 그 주소를
+      다시 <code>OpContext*</code>로 되돌려 <code>Type</code> 필드만 보고 "이게 수신 완료였는지
+      송신 완료였는지"를 구분할 수 있습니다. 완료 큐 하나를 수신·송신 모두가 공유하기 때문에
+      이 구분이 꼭 필요합니다.
+    </p>
+  </div>
+
+  <pre><code>bool RIOServer::PostReceive(ClientSession* session) {
+    if (session-&gt;Socket == INVALID_SOCKET || session-&gt;RequestQueue == RIO_INVALID_RQ) {
+        return false;
+    }
+
+    RIO_BUF rioBuf{};
+    rioBuf.BufferId = session-&gt;RecvBuffer-&gt;Id;
+    rioBuf.Offset = 0;
+    rioBuf.Length = static_cast&lt;ULONG&gt;(session-&gt;RecvBuffer-&gt;Size);
+
+    BOOL result = m_RioFunctionTable.RIOReceive(session-&gt;RequestQueue, &amp;rioBuf, 1, 0, &amp;session-&gt;RecvContext);
+    if (!result) {
+        std::cerr &lt;&lt; "RIOReceive 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool RIOServer::PostSend(ClientSession* session, const std::span&lt;char&gt; data) {
+    if (session-&gt;Socket == INVALID_SOCKET || session-&gt;RequestQueue == RIO_INVALID_RQ) {
+        return false;
+    }
+    if (data.size() &gt; session-&gt;SendBuffer-&gt;Size) {
+        std::cerr &lt;&lt; "송신 데이터가 버퍼 크기보다 큼" &lt;&lt; std::endl;
+        return false;
+    }
+
+    // 수신 버퍼와 송신 버퍼가 분리되어 있으므로, 에코하려면 한 번의 memcpy가 필요합니다
+    std::memcpy(session-&gt;SendBuffer-&gt;Buffer.get(), data.data(), data.size());
+
+    RIO_BUF rioBuf{};
+    rioBuf.BufferId = session-&gt;SendBuffer-&gt;Id;
+    rioBuf.Offset = 0;
+    rioBuf.Length = static_cast&lt;ULONG&gt;(data.size());
+
+    BOOL result = m_RioFunctionTable.RIOSend(session-&gt;RequestQueue, &amp;rioBuf, 1, 0, &amp;session-&gt;SendContext);
+    if (!result) {
+        std::cerr &lt;&lt; "RIOSend 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">완전한 제로 카피는 아닙니다 — 그래도 왜 여전히 빠른가</p>
+    <p>
+      <code>PostSend()</code>의 <code>memcpy</code> 한 줄을 보면 "결국 복사하잖아?"라고 생각할 수
+      있습니다. 맞습니다 — 송신 버퍼와 수신 버퍼를 분리한 이 설계에서는 에코하려면 수신 버퍼의
+      내용을 송신 버퍼로 한 번은 옮겨야 합니다. 다만 이 복사는 <strong>등록된 두 버퍼 사이의
+      메모리 복사 한 번</strong>일 뿐, 2장 그림 2-1에서 없앤 "커널 시스템 버퍼를 오가는 복사"와는
+      다른 layer의 이야기입니다. 애플리케이션이 완전히 통제할 수 있는 복사와, 매 패킷마다 커널을
+      오가며 발생하던 복사는 비용이 다릅니다. 4장에서는 이 마지막 복사마저 줄이는 버퍼 설계를
+      다룹니다.
+    </p>
+  </div>
+
+  <h3>3.3.7 종료 및 정리 기능</h3>
+  <pre><code>void RIOServer::CloseSession(ClientSession* session) {
+    if (session == nullptr) return;
+
+    std::lock_guard&lt;std::mutex&gt; lock(m_SessionsMutex);
+
+    auto it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
+        [session](const auto&amp; s) { return s.get() == session; });
+    if (it == m_Sessions.end()) return;
+
+    if (session-&gt;Socket != INVALID_SOCKET) {
+        closesocket(session-&gt;Socket);
+        session-&gt;Socket = INVALID_SOCKET;
+    }
+    m_Sessions.erase(it);   // unique_ptr 소멸 → ClientSession 소멸 → RioBuffer 소멸까지 연쇄적으로 정리
+}
+
+void RIOServer::Stop() {
+    if (!m_Running.exchange(false)) return;   // 이미 중지된 상태면 아무 것도 하지 않음
+
+    std::cout &lt;&lt; "서버 종료 중..." &lt;&lt; std::endl;
+
+    {
+        std::lock_guard&lt;std::mutex&gt; lock(m_SessionsMutex);
+        for (auto&amp; session : m_Sessions) {
+            if (session-&gt;Socket != INVALID_SOCKET) closesocket(session-&gt;Socket);
+        }
+        m_Sessions.clear();
+    }
+
+    if (m_ListenSocket != INVALID_SOCKET) {
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+    }
+
+    for (auto&amp; thread : m_WorkerThreads) {
+        if (thread.joinable()) thread.join();
+    }
+    m_WorkerThreads.clear();
+
+    if (m_RequestQueue != RIO_INVALID_RQ) {
+        // RIO에는 요청 큐를 명시적으로 닫는 함수가 없습니다 — 소켓이 닫히면 함께 정리됩니다
+        m_RequestQueue = RIO_INVALID_RQ;
+    }
+
+    if (m_CompletionQueue != RIO_INVALID_CQ) {
+        m_RioFunctionTable.RIOCloseCompletionQueue(m_CompletionQueue);
+        m_CompletionQueue = RIO_INVALID_CQ;
+    }
+
+    if (m_CompletionEvent != nullptr) {
+        CloseHandle(m_CompletionEvent);
+        m_CompletionEvent = nullptr;
+    }
+
+    WSACleanup();
+    std::cout &lt;&lt; "서버가 정상적으로 종료되었습니다." &lt;&lt; std::endl;
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">RIO_RQ에는 왜 "닫는 함수"가 없을까</p>
+    <p>
+      2장에서 정리 함수로 <code>RIOCloseCompletionQueue()</code>(완료 큐용)는 다뤘지만
+      "요청 큐를 닫는 함수"는 없었습니다 — 실수가 아니라 실제로 존재하지 않습니다. 요청 큐는
+      소켓과 생명주기를 함께하도록 설계되어 있어서, <code>closesocket()</code>으로 소켓을 닫으면
+      그 소켓에 연결된 요청 큐도 운영체제가 함께 정리해줍니다. 그래서 <code>Stop()</code>은
+      <code>m_RequestQueue</code> 변수를 초기화만 할 뿐, 별도의 해제 함수를 호출하지 않습니다.
+    </p>
+  </div>
+
+  <p>
+    또한 <code>CloseSession()</code>에서 <code>m_Sessions.erase(it)</code> 한 줄이 하는 일을
+    눈여겨볼 필요가 있습니다. <code>m_Sessions</code>는 <code>unique_ptr&lt;ClientSession&gt;</code>의
+    벡터이므로, 원소를 지우는 순간 <code>ClientSession</code>의 소멸자가 호출되고, 그 안의
+    <code>SendBuffer</code>·<code>RecvBuffer</code>(둘 다 <code>unique_ptr&lt;RioBuffer&gt;</code>)도
+    연쇄적으로 소멸됩니다. 1장에서 강조한 RAII 원칙이 세션 하나를 정리하는 이 한 줄에 그대로
+    녹아 있는 셈입니다.
+  </p>
+
+  <div class="callout">
+    <p class="ctitle">실전 개선 포인트 — RioBuffer는 아직 RIODeregisterBuffer를 호출하지 않습니다</p>
+    <p>
+      <code>RioBuffer</code>의 소멸자 주석에는 "등록 해제는 서버 클래스가 담당"이라고 되어 있지만,
+      정작 <code>CloseSession()</code>과 <code>Stop()</code> 어디에도
+      <code>RIODeregisterBuffer()</code> 호출은 없습니다. <code>unique_ptr&lt;char[]&gt;</code>가
+      메모리 자체는 해제하더라도, RIO 시스템에 등록된 <code>RIO_BUFFERID</code>는 별도로 해제해주지
+      않으면 커널 쪽 등록 정보가 정리되지 않습니다. 실전 코드라면 <code>RioBuffer</code>가
+      <code>RIO_EXTENSION_FUNCTION_TABLE&amp;</code> 참조를 멤버로 보관해두고, 소멸자에서
+      <code>rioFunctionTable.RIODeregisterBuffer(Id)</code>를 직접 호출하도록 고치는 것이
+      안전합니다 — RAII를 "생성자에서 자원을 얻으면, 소멸자가 그 자원을 스스로 놓아준다"는
+      원칙까지 완전하게 지키는 형태입니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="usage">
+  <h2><span class="num">3.4</span> 기본 사용 예제</h2>
+  <pre><code>int main() {
+    RIOServer server;
+
+    if (!server.Initialize()) {
+        std::cerr &lt;&lt; "서버 초기화 실패" &lt;&lt; std::endl;
+        return 1;
+    }
+
+    // 로컬호스트 8000번 포트에서 4개의 작업 스레드로 시작
+    if (!server.Start("127.0.0.1", 8000, 4)) {
+        std::cerr &lt;&lt; "서버 시작 실패" &lt;&lt; std::endl;
+        return 1;
+    }
+
+    std::cout &lt;&lt; "서버가 실행 중입니다. 종료하려면 q 키를 누르세요." &lt;&lt; std::endl;
+
+    char input;
+    do {
+        std::cin &gt;&gt; input;
+    } while (input != 'q' &amp;&amp; input != 'Q');
+
+    server.Stop();
+    return 0;
+}</code></pre>
+
+  <p>
+    이 코드는 4개의 워커 스레드로 완료 큐를 나눠 처리하는 서버를 8000번 포트에 띄웁니다. 1장에서
+    했던 것처럼 <code>telnet 127.0.0.1 8000</code>으로 접속해 아무 문자열이나 입력해보면, 이번에도
+    보낸 내용이 그대로 돌아오는 것을 확인할 수 있습니다 — 다만 이번에는 그 뒤에서 스레드 하나가
+    아니라 RIO 완료 큐와 4개의 워커 스레드가 함께 일하고 있다는 점이 다릅니다. 클라이언트를 여러
+    개 동시에 연결해 서버 콘솔의 "데이터 N바이트 수신/송신" 로그가 서로 다른 워커 스레드에서
+    (즉, 순서 없이 뒤섞여) 출력되는 모습을 관찰해보면 멀티스레드 처리를 체감할 수 있습니다.
+  </p>
+
+  <h2><span class="num">3.5</span> RIO 사용 시 고려사항</h2>
+  <ol>
+    <li>
+      <strong>버퍼 등록과 관리</strong> — RIO는 버퍼를 미리 등록해야 하므로, 연결마다 즉석에서
+      새 버퍼를 만드는 대신 메모리 풀링 전략을 고려해야 합니다. 이번 장에서는 세션마다 버퍼를
+      새로 할당했지만, 4장에서는 이를 재사용 가능한 풀로 개선합니다.
+    </li>
+    <li>
+      <strong>스레드 안전성</strong> — <code>m_Sessions</code>처럼 여러 스레드가 동시에 접근하는
+      데이터는 반드시 뮤텍스로 보호해야 합니다. 반면 RIO 함수 테이블의 완료 큐 관련 함수들은
+      자체적으로 스레드 안전하므로 이중으로 락을 걸 필요는 없습니다 — 어떤 것이 이미 안전하고
+      어떤 것이 그렇지 않은지 구분하는 것이 중요합니다.
+    </li>
+    <li>
+      <strong>대용량 트래픽 처리</strong> — 버퍼 크기와 완료 큐 크기를 트래픽 패턴에 맞게
+      최적화해야 합니다. 이 장의 <code>BUFFER_SIZE = 4096</code>, <code>MAX_CONNECTIONS = 1000</code>은
+      예시 값일 뿐, 실제 게임의 평균 패킷 크기와 목표 동시접속자 수에 맞춰 조정해야 합니다.
+    </li>
+    <li>
+      <strong>에러 처리</strong> — 이 장의 코드는 거의 모든 함수 호출마다 실패를 검사하고 있습니다.
+      네트워크 프로그래밍에서는 이것이 예외가 아니라 기본값이어야 합니다.
+    </li>
+    <li>
+      <strong>타임아웃 처리</strong> — 이 장의 서버는 아직 "연결은 됐지만 오랫동안 아무 데이터도
+      보내지 않는" 유휴 연결을 감지하지 못합니다. 실전 게임 서버에서는 마지막 수신 시각을 세션마다
+      기록해두고, 일정 시간이 지나면 연결을 정리하는 로직이 필요합니다.
+    </li>
+  </ol>
+
+  <div class="callout info">
+    <p class="ctitle">이 골격 위에 무엇을 더 얹어야 하는가</p>
+    <p>
+      이번 장의 코드는 RIO 서버 구현의 골격입니다. 실제 게임 서버로 발전시키려면 패킷 구조화
+      (8장), 세션·게임 로직 연동, 그리고 지금 단순화된 버퍼·큐 전략을 다듬는 작업(4~5장)이
+      더 필요합니다.
+    </p>
+  </div>
+
+  <h3>전체 코드 — RIOServer 클래스</h3>
+  <pre><code>#include &lt;winsock2.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;windows.h&gt;
+#include &lt;mstcpip.h&gt;
+#include &lt;mutex&gt;
+#include &lt;thread&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;format&gt;
+#include &lt;iostream&gt;
+#include &lt;span&gt;
+#include &lt;memory&gt;
+#include &lt;algorithm&gt;
+#include &lt;atomic&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+
+class RIOServer {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE m_RioFunctionTable{};
+
+    SOCKET m_ListenSocket = INVALID_SOCKET;
+    RIO_CQ m_CompletionQueue = RIO_INVALID_CQ;
+    RIO_RQ m_RequestQueue = RIO_INVALID_RQ;
+    HANDLE m_CompletionEvent = nullptr;
+
+    constexpr static size_t MAX_CONNECTIONS = 1000;
+    constexpr static size_t BUFFER_SIZE = 4096;
+
+    std::atomic&lt;bool&gt; m_Running = false;
+    std::vector&lt;std::jthread&gt; m_WorkerThreads;
+
+    struct RioBuffer {
+        RIO_BUFFERID Id = RIO_INVALID_BUFFERID;
+        std::unique_ptr&lt;char[]&gt; Buffer;
+        size_t Size = 0;
+
+        RioBuffer(size_t size, RIO_EXTENSION_FUNCTION_TABLE&amp; rioFunctionTable)
+            : Size(size), Buffer(std::make_unique&lt;char[]&gt;(size)) {
+            Id = rioFunctionTable.RIORegisterBuffer(Buffer.get(), static_cast&lt;DWORD&gt;(size));
+        }
+    };
+
+    struct ClientSession {
+        SOCKET Socket = INVALID_SOCKET;
+        std::unique_ptr&lt;RioBuffer&gt; SendBuffer;
+        std::unique_ptr&lt;RioBuffer&gt; RecvBuffer;
+        RIO_RQ RequestQueue = RIO_INVALID_RQ;
+
+        enum class OpType { Recv, Send };
+        struct OpContext { ClientSession* Session; OpType Type; };
+        OpContext RecvContext{this, OpType::Recv};
+        OpContext SendContext{this, OpType::Send};
+
+        ClientSession(SOCKET socket, RIO_EXTENSION_FUNCTION_TABLE&amp; rioFunctionTable)
+            : Socket(socket),
+              SendBuffer(std::make_unique&lt;RioBuffer&gt;(BUFFER_SIZE, rioFunctionTable)),
+              RecvBuffer(std::make_unique&lt;RioBuffer&gt;(BUFFER_SIZE, rioFunctionTable)) {
+        }
+    };
+
+    std::vector&lt;std::unique_ptr&lt;ClientSession&gt;&gt; m_Sessions;
+    std::mutex m_SessionsMutex;
+
+public:
+    RIOServer() = default;
+    ~RIOServer();
+
+    bool Initialize();
+    bool Start(const std::string&amp; address, uint16_t port, int numThreads);
+    void Stop();
+
+private:
+    bool InitializeRIOFunctionTable();
+    bool CreateListenSocket(const std::string&amp; address, uint16_t port);
+    bool SetupRIOCompletionQueue(int maxOutstandingCompletions);
+    bool SetupRIORequestQueue();
+
+    void WorkerThread();
+    void AcceptConnections();
+    bool HandleCompletion();
+
+    bool PostReceive(ClientSession* session);
+    bool PostSend(ClientSession* session, const std::span&lt;char&gt; data);
+
+    void CloseSession(ClientSession* session);
+};
+
+RIOServer::~RIOServer() {
+    Stop();
+}
+
+bool RIOServer::Initialize() {
+    if (!InitializeRIOFunctionTable()) return false;
+    m_Sessions.reserve(MAX_CONNECTIONS);
+    return true;
+}
+
+bool RIOServer::InitializeRIOFunctionTable() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &amp;wsaData) != 0) {
+        std::cerr &lt;&lt; "WSAStartup 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    SOCKET tempSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+    if (tempSocket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; "RIO 소켓 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        WSACleanup();
+        return false;
+    }
+
+    GUID functionTableId = WSAID_MULTIPLE_RIO;
+    DWORD bytes = 0;
+    int result = WSAIoctl(
+        tempSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+        &amp;functionTableId, sizeof(GUID),
+        &amp;m_RioFunctionTable, sizeof(RIO_EXTENSION_FUNCTION_TABLE),
+        &amp;bytes, nullptr, nullptr
+    );
+    closesocket(tempSocket);
+
+    if (result == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "RIO 함수 포인터 초기화 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        WSACleanup();
+        return false;
+    }
+    return true;
+}
+
+bool RIOServer::Start(const std::string&amp; address, uint16_t port, int numThreads) {
+    if (m_Running.exchange(true)) {
+        std::cerr &lt;&lt; "서버가 이미 실행 중입니다." &lt;&lt; std::endl;
+        return false;
+    }
+
+    if (!CreateListenSocket(address, port)) return false;
+
+    if (!SetupRIOCompletionQueue(static_cast&lt;int&gt;(MAX_CONNECTIONS * 2))) {
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    if (!SetupRIORequestQueue()) {
+        m_RioFunctionTable.RIOCloseCompletionQueue(m_CompletionQueue);
+        m_CompletionQueue = RIO_INVALID_CQ;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    for (int i = 0; i &lt; numThreads; i++) {
+        m_WorkerThreads.emplace_back([this] { WorkerThread(); });
+    }
+
+    std::jthread acceptThread([this] { AcceptConnections(); });
+    acceptThread.detach();
+
+    std::cout &lt;&lt; std::format("RIO 서버가 {}:{} 에서 시작되었습니다.", address, port) &lt;&lt; std::endl;
+    return true;
+}
+
+bool RIOServer::CreateListenSocket(const std::string&amp; address, uint16_t port) {
+    m_ListenSocket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+    if (m_ListenSocket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; "리스닝 소켓 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        m_Running = false;
+        return false;
+    }
+
+    int optval = 1;
+    if (setsockopt(m_ListenSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast&lt;char*&gt;(&amp;optval), sizeof(optval)) == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "setsockopt SO_REUSEADDR 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    sockaddr_in serverAddr{};
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(port);
+    inet_pton(AF_INET, address.c_str(), &amp;serverAddr.sin_addr);
+
+    if (bind(m_ListenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "바인딩 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+
+    if (listen(m_ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr &lt;&lt; "리스닝 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+        m_Running = false;
+        return false;
+    }
+    return true;
+}
+
+bool RIOServer::SetupRIOCompletionQueue(int maxOutstandingCompletions) {
+    m_CompletionEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (m_CompletionEvent == nullptr) {
+        std::cerr &lt;&lt; "완료 이벤트 생성 실패: " &lt;&lt; GetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    RIO_NOTIFICATION_COMPLETION completionType{};
+    completionType.Type = RIO_EVENT_COMPLETION;
+    completionType.Event.EventHandle = m_CompletionEvent;
+    completionType.Event.NotifyReset = TRUE;
+
+    m_CompletionQueue = m_RioFunctionTable.RIOCreateCompletionQueue(maxOutstandingCompletions, &amp;completionType);
+    if (m_CompletionQueue == RIO_INVALID_CQ) {
+        std::cerr &lt;&lt; "RIO 완료 큐 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        CloseHandle(m_CompletionEvent);
+        m_CompletionEvent = nullptr;
+        return false;
+    }
+    return true;
+}
+
+bool RIOServer::SetupRIORequestQueue() {
+    m_RequestQueue = m_RioFunctionTable.RIOCreateRequestQueue(
+        m_ListenSocket, static_cast&lt;DWORD&gt;(MAX_CONNECTIONS), 1, static_cast&lt;DWORD&gt;(MAX_CONNECTIONS), 1,
+        m_CompletionQueue, m_CompletionQueue, nullptr
+    );
+    if (m_RequestQueue == RIO_INVALID_RQ) {
+        std::cerr &lt;&lt; "RIO 요청 큐 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}
+
+void RIOServer::WorkerThread() {
+    while (m_Running) {
+        DWORD result = WaitForSingleObject(m_CompletionEvent, 100);
+
+        if (result == WAIT_OBJECT_0) {
+            while (HandleCompletion()) {}
+            m_RioFunctionTable.RIONotify(m_CompletionQueue);
+        }
+        else if (result == WAIT_TIMEOUT) {
+            continue;
+        }
+        else {
+            std::cerr &lt;&lt; "WaitForSingleObject 실패: " &lt;&lt; GetLastError() &lt;&lt; std::endl;
+            break;
+        }
+    }
+}
+
+void RIOServer::AcceptConnections() {
+    while (m_Running) {
+        sockaddr_in clientAddr{};
+        int addrLen = sizeof(clientAddr);
+
+        SOCKET clientSocket = accept(m_ListenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;addrLen);
+        if (clientSocket == INVALID_SOCKET) {
+            if (m_Running) std::cerr &lt;&lt; "클라이언트 연결 수락 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            continue;
+        }
+
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &amp;clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+        uint16_t clientPort = ntohs(clientAddr.sin_port);
+        std::cout &lt;&lt; std::format("클라이언트 연결: {}:{}", clientIP, clientPort) &lt;&lt; std::endl;
+
+        int optval = 1;
+        if (setsockopt(clientSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast&lt;char*&gt;(&amp;optval), sizeof(optval)) == SOCKET_ERROR) {
+            std::cerr &lt;&lt; "TCP_NODELAY 설정 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        std::lock_guard&lt;std::mutex&gt; lock(m_SessionsMutex);
+
+        if (m_Sessions.size() &gt;= MAX_CONNECTIONS) {
+            std::cerr &lt;&lt; "최대 연결 수 초과, 연결 거부" &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        auto newSession = std::make_unique&lt;ClientSession&gt;(clientSocket, m_RioFunctionTable);
+
+        newSession-&gt;RequestQueue = m_RioFunctionTable.RIOCreateRequestQueue(
+            clientSocket, 1, 1, 1, 1,
+            m_CompletionQueue, m_CompletionQueue,
+            newSession.get()
+        );
+
+        if (newSession-&gt;RequestQueue == RIO_INVALID_RQ) {
+            std::cerr &lt;&lt; "클라이언트 요청 큐 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        if (!PostReceive(newSession.get())) {
+            std::cerr &lt;&lt; "초기 수신 요청 실패" &lt;&lt; std::endl;
+            closesocket(clientSocket);
+            continue;
+        }
+
+        m_Sessions.push_back(std::move(newSession));
+    }
+}
+
+bool RIOServer::HandleCompletion() {
+    RIORESULT results[10];
+    ULONG numResults = m_RioFunctionTable.RIODequeueCompletion(m_CompletionQueue, results, 10);
+
+    if (numResults == 0) return false;
+    if (numResults == RIO_CORRUPT_CQ) {
+        std::cerr &lt;&lt; "RIO 완료 큐 손상: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+
+    for (ULONG i = 0; i &lt; numResults; i++) {
+        auto* opContext = reinterpret_cast&lt;ClientSession::OpContext*&gt;(results[i].RequestContext);
+        ClientSession* session = opContext-&gt;Session;
+        DWORD bytesTransferred = results[i].BytesTransferred;
+
+        if (bytesTransferred == 0) {
+            std::cout &lt;&lt; "클라이언트 연결 종료" &lt;&lt; std::endl;
+            CloseSession(session);
+            continue;
+        }
+
+        if (opContext-&gt;Type == ClientSession::OpType::Recv) {
+            std::cout &lt;&lt; std::format("데이터 {}바이트 수신", bytesTransferred) &lt;&lt; std::endl;
+            std::span&lt;char&gt; data(session-&gt;RecvBuffer-&gt;Buffer.get(), bytesTransferred);
+            PostSend(session, data);
+            PostReceive(session);
+        }
+        else {
+            std::cout &lt;&lt; std::format("데이터 {}바이트 송신", bytesTransferred) &lt;&lt; std::endl;
+        }
+    }
+    return true;
+}
+
+bool RIOServer::PostReceive(ClientSession* session) {
+    if (session-&gt;Socket == INVALID_SOCKET || session-&gt;RequestQueue == RIO_INVALID_RQ) return false;
+
+    RIO_BUF rioBuf{};
+    rioBuf.BufferId = session-&gt;RecvBuffer-&gt;Id;
+    rioBuf.Offset = 0;
+    rioBuf.Length = static_cast&lt;ULONG&gt;(session-&gt;RecvBuffer-&gt;Size);
+
+    BOOL result = m_RioFunctionTable.RIOReceive(session-&gt;RequestQueue, &amp;rioBuf, 1, 0, &amp;session-&gt;RecvContext);
+    if (!result) {
+        std::cerr &lt;&lt; "RIOReceive 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}
+
+bool RIOServer::PostSend(ClientSession* session, const std::span&lt;char&gt; data) {
+    if (session-&gt;Socket == INVALID_SOCKET || session-&gt;RequestQueue == RIO_INVALID_RQ) return false;
+    if (data.size() &gt; session-&gt;SendBuffer-&gt;Size) {
+        std::cerr &lt;&lt; "송신 데이터가 버퍼 크기보다 큼" &lt;&lt; std::endl;
+        return false;
+    }
+
+    std::memcpy(session-&gt;SendBuffer-&gt;Buffer.get(), data.data(), data.size());
+
+    RIO_BUF rioBuf{};
+    rioBuf.BufferId = session-&gt;SendBuffer-&gt;Id;
+    rioBuf.Offset = 0;
+    rioBuf.Length = static_cast&lt;ULONG&gt;(data.size());
+
+    BOOL result = m_RioFunctionTable.RIOSend(session-&gt;RequestQueue, &amp;rioBuf, 1, 0, &amp;session-&gt;SendContext);
+    if (!result) {
+        std::cerr &lt;&lt; "RIOSend 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}
+
+void RIOServer::CloseSession(ClientSession* session) {
+    if (session == nullptr) return;
+
+    std::lock_guard&lt;std::mutex&gt; lock(m_SessionsMutex);
+
+    auto it = std::find_if(m_Sessions.begin(), m_Sessions.end(),
+        [session](const auto&amp; s) { return s.get() == session; });
+    if (it == m_Sessions.end()) return;
+
+    if (session-&gt;Socket != INVALID_SOCKET) {
+        closesocket(session-&gt;Socket);
+        session-&gt;Socket = INVALID_SOCKET;
+    }
+    m_Sessions.erase(it);
+}
+
+void RIOServer::Stop() {
+    if (!m_Running.exchange(false)) return;
+
+    std::cout &lt;&lt; "서버 종료 중..." &lt;&lt; std::endl;
+
+    {
+        std::lock_guard&lt;std::mutex&gt; lock(m_SessionsMutex);
+        for (auto&amp; session : m_Sessions) {
+            if (session-&gt;Socket != INVALID_SOCKET) closesocket(session-&gt;Socket);
+        }
+        m_Sessions.clear();
+    }
+
+    if (m_ListenSocket != INVALID_SOCKET) {
+        closesocket(m_ListenSocket);
+        m_ListenSocket = INVALID_SOCKET;
+    }
+
+    for (auto&amp; thread : m_WorkerThreads) {
+        if (thread.joinable()) thread.join();
+    }
+    m_WorkerThreads.clear();
+
+    if (m_RequestQueue != RIO_INVALID_RQ) {
+        m_RequestQueue = RIO_INVALID_RQ;
+    }
+
+    if (m_CompletionQueue != RIO_INVALID_CQ) {
+        m_RioFunctionTable.RIOCloseCompletionQueue(m_CompletionQueue);
+        m_CompletionQueue = RIO_INVALID_CQ;
+    }
+
+    if (m_CompletionEvent != nullptr) {
+        CloseHandle(m_CompletionEvent);
+        m_CompletionEvent = nullptr;
+    }
+
+    WSACleanup();
+    std::cout &lt;&lt; "서버가 정상적으로 종료되었습니다." &lt;&lt; std::endl;
+}
+
+int main() {
+    RIOServer server;
+
+    if (!server.Initialize()) {
+        std::cerr &lt;&lt; "서버 초기화 실패" &lt;&lt; std::endl;
+        return 1;
+    }
+
+    if (!server.Start("127.0.0.1", 8000, 4)) {
+        std::cerr &lt;&lt; "서버 시작 실패" &lt;&lt; std::endl;
+        return 1;
+    }
+
+    std::cout &lt;&lt; "서버가 실행 중입니다. 종료하려면 q 키를 누르세요." &lt;&lt; std::endl;
+
+    char input;
+    do {
+        std::cin &gt;&gt; input;
+    } while (input != 'q' &amp;&amp; input != 'Q');
+
+    server.Stop();
+    return 0;
+}</code></pre>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">3.6</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>헤더 구성</strong> — <code>mswsock.h</code>가 RIO 관련 타입·함수 포인터를
+        모두 제공하므로, <code>RIO_EXTENSION_FUNCTION_TABLE</code> 같은 구조체를 직접 재정의하지
+        않습니다.</li>
+      <li><strong>세션 기반 설계</strong> — 2장의 "버퍼 하나를 나눠 쓰는" 구조 대신, 클라이언트마다
+        독립된 <code>ClientSession</code>(소켓 + 송신 버퍼 + 수신 버퍼 + 전용 요청 큐)을 두고
+        완료 큐만 공유합니다.</li>
+      <li><strong>실전 소켓 옵션</strong> — <code>SO_REUSEADDR</code>로 서버 재시작을 원활하게,
+        <code>TCP_NODELAY</code>로 네이글 알고리즘을 꺼서 지연 시간을 줄였습니다.</li>
+      <li><strong>멀티 워커 스레드</strong> — 여러 스레드가 하나의 완료 큐를 안전하게 나눠
+        처리하도록 구성했고, 유한 타임아웃으로 종료 신호에 반응할 수 있게 했습니다.</li>
+      <li><strong>코드를 비판적으로 읽기</strong> — 리스닝 소켓용 요청 큐처럼 실제로 쓰이지 않는
+        리소스, 그리고 등록만 하고 해제하지 않는 버퍼처럼 이 장의 코드에도 개선할 지점이
+        남아있다는 것을 확인했습니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>4장. RIO 버퍼 관리</h4>
+    <p>
+      이번 장에서 남겨둔 숙제 — 세션마다 버퍼를 새로 할당하는 대신 재사용 가능한 버퍼 풀을 만들고,
+      순환 버퍼와 메모리 정렬로 제로 카피에 더 가까이 다가가는 방법을 다룹니다.
+      <a href="ch04.html">4장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch02.html">← 2장. Windows RIO 소개</a>
+  <span class="kicker-num">3 / 9</span>
+  <a href="ch04.html">4장. RIO 버퍼 관리 →</a>
+</footer>
+
+</div>
+</body>
+</html>

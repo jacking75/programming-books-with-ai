@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8장. 패킷 처리 및 직렬화 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch07.html">← 7장</a>
+    <a href="index.html">목차</a>
+    <a href="ch09.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 08</div>
+  <h1>패킷 처리 및 직렬화</h1>
+  <p class="hero-lead">
+    지금까지의 에코 서버는 "받은 바이트를 그대로 돌려준다"는 점에서 사실 어떤 의미도 해석하지
+    않았습니다. 실제 게임 서버는 그 바이트가 "플레이어 42번이 (100.5, 200.3, 300.7) 위치로
+    이동했다"는 뜻임을 알아야 합니다. 이번 장에서는 패킷 구조를 설계하고, 바이트 단위로 정확하게
+    쓰고 읽는 직렬화 계층을 만들고, 대역폭을 아끼기 위한 압축·델타 인코딩까지 다룹니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>헤더와 데이터를 분리한 패킷 구조 설계와 팩토리 패턴</li>
+      <li>엔디안(byte order)을 신경 쓰는 바이너리 직렬화 도구, 그리고 부동소수점을 다룰 때
+        흔히 놓치는 함정</li>
+      <li>zlib을 이용한 범용 압축과, 위치 데이터에 특화된 델타 압축·양자화</li>
+      <li>압축된 패킷을 RIO 버퍼에 실제로 실어 보내는 방법</li>
+      <li>스트림 기반 압축으로 큰 데이터를 청크 단위로 처리하는 법</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="packet-design">
+  <h2><span class="num">8.1</span> 패킷 구조 설계</h2>
+  <p class="sec-sub">모든 패킷이 공유하는 고정 크기 헤더와, 패킷마다 다른 가변 길이 데이터를 분리합니다.</p>
+
+  <pre><code>#include &lt;algorithm&gt;
+#include &lt;array&gt;
+#include &lt;bit&gt;
+#include &lt;cassert&gt;
+#include &lt;cmath&gt;
+#include &lt;concepts&gt;
+#include &lt;cstdint&gt;
+#include &lt;cstring&gt;
+#include &lt;format&gt;
+#include &lt;functional&gt;
+#include &lt;limits&gt;
+#include &lt;memory&gt;
+#include &lt;optional&gt;
+#include &lt;span&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;string_view&gt;
+#include &lt;type_traits&gt;
+#include &lt;unordered_map&gt;
+#include &lt;vector&gt;
+
+enum class PacketType : uint16_t {
+    NONE = 0,
+    // 시스템 패킷
+    CONNECT_REQUEST = 1,
+    CONNECT_RESPONSE = 2,
+    DISCONNECT = 3,
+    HEARTBEAT = 4,
+    // 게임 패킷
+    PLAYER_MOVE = 101,
+    PLAYER_ACTION = 102,
+    CHAT_MESSAGE = 103,
+    GAME_STATE_UPDATE = 104,
+    SPAWN_OBJECT = 105,
+    DESTROY_OBJECT = 106,
+};
+
+struct PacketHeader {
+    uint16_t size;      // 패킷 전체 크기 (헤더 포함)
+    PacketType type;     // 패킷 타입
+    uint32_t sequence;   // 시퀀스 번호 (순서 보장용)
+    uint8_t flags;       // 압축·암호화 등 플래그
+
+    static constexpr size_t SIZE = sizeof(uint16_t) + sizeof(PacketType) + sizeof(uint32_t) + sizeof(uint8_t);
+};
+
+inline void WriteU16BE(std::span&lt;uint8_t&gt; buffer, size_t offset, uint16_t value) {
+    if (offset &gt; buffer.size() || buffer.size() - offset &lt; 2) throw std::out_of_range("uint16 쓰기 범위 초과");
+    buffer[offset] = static_cast&lt;uint8_t&gt;(value &gt;&gt; 8);
+    buffer[offset + 1] = static_cast&lt;uint8_t&gt;(value);
+}
+
+inline void WriteU32BE(std::span&lt;uint8_t&gt; buffer, size_t offset, uint32_t value) {
+    if (offset &gt; buffer.size() || buffer.size() - offset &lt; 4) throw std::out_of_range("uint32 쓰기 범위 초과");
+    for (size_t i = 0; i &lt; 4; ++i) buffer[offset + i] = static_cast&lt;uint8_t&gt;(value &gt;&gt; ((3 - i) * 8));
+}
+
+inline uint16_t ReadU16BE(std::span&lt;const uint8_t&gt; buffer, size_t offset) {
+    if (offset &gt; buffer.size() || buffer.size() - offset &lt; 2) throw std::out_of_range("uint16 읽기 범위 초과");
+    return static_cast&lt;uint16_t&gt;((static_cast&lt;uint16_t&gt;(buffer[offset]) &lt;&lt; 8) | buffer[offset + 1]);
+}
+
+inline uint32_t ReadU32BE(std::span&lt;const uint8_t&gt; buffer, size_t offset) {
+    if (offset &gt; buffer.size() || buffer.size() - offset &lt; 4) throw std::out_of_range("uint32 읽기 범위 초과");
+    uint32_t value = 0;
+    for (size_t i = 0; i &lt; 4; ++i) value = (value &lt;&lt; 8) | buffer[offset + i];
+    return value;
+}</code></pre>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 200" role="img" aria-labelledby="hdr-title hdr-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="hdr-title">PacketHeader의 바이트 레이아웃</title>
+      <desc id="hdr-desc">패킷 헤더는 오프셋 0부터 size(2바이트), type(2바이트), sequence(4바이트), flags(1바이트) 순서로 9바이트를 차지하고, 이어서 가변 길이의 데이터 영역이 뒤따르는 바이트 레이아웃을 보여준다.</desc>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="40" y="60" width="100" height="64" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="90" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">size</text>
+      <text x="90" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">uint16_t</text>
+
+      <rect x="140" y="60" width="100" height="64" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="190" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">type</text>
+      <text x="190" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">PacketType</text>
+
+      <rect x="240" y="60" width="140" height="64" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="310" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">sequence</text>
+      <text x="310" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">uint32_t</text>
+
+      <rect x="380" y="60" width="80" height="64" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="420" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">flags</text>
+      <text x="420" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">uint8_t</text>
+
+      <rect x="460" y="60" width="180" height="64" rx="4" fill="rgba(32,29,26,0.02)" stroke="rgba(32,29,26,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="550" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">데이터</text>
+      <text x="550" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">가변 길이</text>
+
+      <text x="40" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">0</text>
+      <text x="140" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">2</text>
+      <text x="240" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">4</text>
+      <text x="380" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">8</text>
+      <text x="460" y="140" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace">9</text>
+
+      <line x1="40" y1="164" x2="640" y2="164" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="182" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="200" y="174" width="14" height="14" rx="2" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="222" y="185" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">고정 크기 헤더 (PacketHeader::SIZE = 9바이트)</text>
+    </svg>
+    <p class="dcap">그림 8-1. 모든 패킷은 이 9바이트 헤더로 시작하고, 그 뒤에 패킷 타입마다 다른 데이터가 이어집니다</p>
+  </div>
+
+  <p>
+    <code>Packet</code>은 모든 패킷 타입의 공통 인터페이스입니다. <code>Serialize()</code>로
+    구조체를 바이트 배열로, <code>Deserialize()</code>로 바이트 배열을 다시 구조체로 되돌립니다.
+    <code>PacketFactory</code>는 "이 타입 번호가 오면 이 클래스를 만들어라"는 매핑을 등록해두고,
+    수신한 바이트에서 타입만 먼저 읽어 알맞은 패킷 객체를 자동으로 생성합니다.
+  </p>
+  <pre><code>class Packet {
+public:
+    virtual ~Packet() = default;
+    virtual std::vector&lt;uint8_t&gt; Serialize() const = 0;
+    virtual bool Deserialize(std::span&lt;const uint8_t&gt; data) = 0;
+    virtual PacketType GetType() const = 0;
+};
+
+class PacketFactory {
+private:
+    using PacketCreator = std::function&lt;std::unique_ptr&lt;Packet&gt;()&gt;;
+    static inline std::unordered_map&lt;PacketType, PacketCreator&gt; s_creators;
+
+public:
+    template&lt;typename T&gt;
+    static void RegisterPacket(PacketType type) {
+        s_creators[type] = []() { return std::make_unique&lt;T&gt;(); };
+    }
+
+    static std::unique_ptr&lt;Packet&gt; CreatePacket(PacketType type) {
+        auto it = s_creators.find(type);
+        if (it != s_creators.end()) return it-&gt;second();
+        return nullptr;
+    }
+
+    // 수신한 원시 바이트에서 타입을 먼저 읽고, 그 타입에 맞는 패킷을 만들어 역직렬화
+    static std::unique_ptr&lt;Packet&gt; CreateFromBuffer(std::span&lt;const uint8_t&gt; data) {
+        if (data.size() &lt; PacketHeader::SIZE) return nullptr;
+        if (ReadU16BE(data, 0) != data.size()) return nullptr;
+
+        const PacketType type = static_cast&lt;PacketType&gt;(ReadU16BE(data, 2));
+
+        auto packet = CreatePacket(type);
+        if (packet &amp;&amp; packet-&gt;Deserialize(data)) return packet;
+        return nullptr;
+    }
+};</code></pre>
+
+  <p>
+    아래 <code>PlayerMovePacket</code>은 이 인터페이스를 구현한 첫 예시로, <code>memcpy</code>를
+    직접 호출해 필드를 하나씩 채워 넣습니다. 8.2절에서는 이 반복적인 <code>memcpy</code> 나열을
+    헬퍼 클래스로 정리합니다.
+  </p>
+  <pre><code>class PlayerMovePacket : public Packet {
+private:
+    uint32_t m_playerId;
+    float m_posX, m_posY, m_posZ;
+    float m_rotX, m_rotY, m_rotZ;
+
+public:
+    PlayerMovePacket() = default;
+    PlayerMovePacket(uint32_t playerId, float x, float y, float z, float rotX, float rotY, float rotZ)
+        : m_playerId(playerId), m_posX(x), m_posY(y), m_posZ(z), m_rotX(rotX), m_rotY(rotY), m_rotZ(rotZ) {}
+
+    PacketType GetType() const override { return PacketType::PLAYER_MOVE; }
+
+    std::vector&lt;uint8_t&gt; Serialize() const override {
+        std::vector&lt;uint8_t&gt; buffer;
+        const size_t dataSize = sizeof(m_playerId) + sizeof(float) * 6;
+        const size_t totalSize = PacketHeader::SIZE + dataSize;
+        buffer.resize(totalSize);
+
+        if (totalSize &gt; (std::numeric_limits&lt;uint16_t&gt;::max)()) return {};
+        WriteU16BE(buffer, 0, static_cast&lt;uint16_t&gt;(totalSize));
+        WriteU16BE(buffer, 2, static_cast&lt;uint16_t&gt;(PacketType::PLAYER_MOVE));
+        WriteU32BE(buffer, 4, 0);   // sequence — 실제로는 시퀀스 생성기에서 값을 받아옴
+        buffer[8] = 0;              // flags
+
+        size_t offset = PacketHeader::SIZE;
+        std::memcpy(buffer.data() + offset, &amp;m_playerId, sizeof(m_playerId)); offset += sizeof(m_playerId);
+        std::memcpy(buffer.data() + offset, &amp;m_posX, sizeof(float)); offset += sizeof(float);
+        std::memcpy(buffer.data() + offset, &amp;m_posY, sizeof(float)); offset += sizeof(float);
+        std::memcpy(buffer.data() + offset, &amp;m_posZ, sizeof(float)); offset += sizeof(float);
+        std::memcpy(buffer.data() + offset, &amp;m_rotX, sizeof(float)); offset += sizeof(float);
+        std::memcpy(buffer.data() + offset, &amp;m_rotY, sizeof(float)); offset += sizeof(float);
+        std::memcpy(buffer.data() + offset, &amp;m_rotZ, sizeof(float));
+
+        return buffer;
+    }
+
+    bool Deserialize(std::span&lt;const uint8_t&gt; data) override {
+        const size_t expectedSize = PacketHeader::SIZE + sizeof(m_playerId) + sizeof(float) * 6;
+        if (data.size() != expectedSize || ReadU16BE(data, 0) != expectedSize ||
+            static_cast&lt;PacketType&gt;(ReadU16BE(data, 2)) != PacketType::PLAYER_MOVE) return false;
+
+        size_t offset = PacketHeader::SIZE;
+        std::memcpy(&amp;m_playerId, data.data() + offset, sizeof(m_playerId)); offset += sizeof(m_playerId);
+        std::memcpy(&amp;m_posX, data.data() + offset, sizeof(float)); offset += sizeof(float);
+        std::memcpy(&amp;m_posY, data.data() + offset, sizeof(float)); offset += sizeof(float);
+        std::memcpy(&amp;m_posZ, data.data() + offset, sizeof(float)); offset += sizeof(float);
+        std::memcpy(&amp;m_rotX, data.data() + offset, sizeof(float)); offset += sizeof(float);
+        std::memcpy(&amp;m_rotY, data.data() + offset, sizeof(float)); offset += sizeof(float);
+        std::memcpy(&amp;m_rotZ, data.data() + offset, sizeof(float));
+
+        return true;
+    }
+
+    uint32_t GetPlayerId() const { return m_playerId; }
+    float GetPosX() const { return m_posX; }
+    float GetPosY() const { return m_posY; }
+    float GetPosZ() const { return m_posZ; }
+    float GetRotX() const { return m_rotX; }
+    float GetRotY() const { return m_rotY; }
+    float GetRotZ() const { return m_rotZ; }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">이 버전은 아직 엔디안을 신경 쓰지 않습니다</p>
+    <p>
+      헤더의 정수 필드는 <code>WriteU16BE()</code>/<code>WriteU32BE()</code>로 네트워크 바이트 순서로
+      썼습니다. 다만 이 초안의 위치·회전 <code>float</code> 필드는 아직 <code>memcpy</code>로 현재 CPU의
+      표현을 그대로 씁니다. 서로 다른 엔디안을 쓰는 환경이 섞이면 이 값이 깨지므로, 8.2절의
+      <code>BinarySerializer</code>를 사용해야 합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="binary-protocol">
+  <h2><span class="num">8.2</span> 바이너리 프로토콜 구현</h2>
+  <p class="sec-sub">필드마다 memcpy를 반복하는 대신, 쓰기·읽기 위치를 스스로 관리하는 직렬화 도구를 만듭니다.</p>
+
+  <p>
+    <code>BinarySerializer</code>는 내부에 쓰기 위치(<code>m_writePos</code>)를 들고 있어,
+    <code>Write()</code>를 호출할 때마다 그 위치에 값을 쓰고 자동으로 위치를 전진시킵니다.
+    <code>BinaryDeserializer</code>는 반대로 읽기 위치를 관리합니다. 네트워크 프로토콜의 표준
+    관례에 따라, 2바이트 이상인 값은 <strong>네트워크 바이트 순서(빅 엔디안)</strong>로 변환해서
+    씁니다.
+  </p>
+
+  <pre><code>class BinarySerializer {
+private:
+    std::vector&lt;uint8_t&gt; m_buffer;
+    size_t m_writePos = 0;
+
+public:
+    BinarySerializer() { m_buffer.reserve(1024); }
+
+    std::vector&lt;uint8_t&gt; GetBuffer() const { return m_buffer; }
+    std::span&lt;const uint8_t&gt; GetBufferSpan() const { return std::span&lt;const uint8_t&gt;(m_buffer.data(), m_writePos); }
+
+    void EnsureCapacity(size_t additionalSize) {
+        if (m_writePos + additionalSize &gt; m_buffer.size()) {
+            m_buffer.resize(m_writePos + additionalSize);
+        }
+    }
+
+    // 기본 타입 직렬화 (네트워크 바이트 순서로 변환) — 아래에서 안전한 버전으로 다시 다룹니다
+    template&lt;typename T&gt;
+    requires std::is_arithmetic_v&lt;T&gt;
+    void Write(T value) {
+        constexpr size_t size = sizeof(T);
+        EnsureCapacity(size);
+
+        if constexpr (std::endian::native == std::endian::little) {
+            if constexpr (size &gt; 1) {
+                T swapped = 0;
+                for (size_t i = 0; i &lt; size; ++i) {
+                    swapped |= ((value &gt;&gt; (i * 8)) &amp; 0xFF) &lt;&lt; ((size - 1 - i) * 8);
+                }
+                value = swapped;
+            }
+        }
+
+        std::memcpy(m_buffer.data() + m_writePos, &amp;value, size);
+        m_writePos += size;
+    }
+
+    void WriteString(std::string_view str) {
+        if (str.size() &gt; (std::numeric_limits&lt;uint16_t&gt;::max)()) {
+            throw std::length_error("문자열이 uint16 길이 필드 범위를 초과했습니다");
+        }
+        uint16_t length = static_cast&lt;uint16_t&gt;(str.length());
+        Write(length);
+        EnsureCapacity(str.length());
+        std::memcpy(m_buffer.data() + m_writePos, str.data(), str.length());
+        m_writePos += str.length();
+    }
+
+    void WriteBytes(std::span&lt;const uint8_t&gt; data) {
+        EnsureCapacity(data.size());
+        std::memcpy(m_buffer.data() + m_writePos, data.data(), data.size());
+        m_writePos += data.size();
+    }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">이 코드는 float를 직렬화하는 순간 컴파일되지 않습니다</p>
+    <p>
+      <code>Write&lt;T&gt;()</code>는 <code>requires std::is_arithmetic_v&lt;T&gt;</code>로 정수와
+      부동소수점 타입을 모두 허용합니다. 그런데 엔디안을 바꾸는 부분은
+      <code>value &gt;&gt; (i * 8)</code>처럼 <strong>비트 시프트 연산자</strong>를 씁니다.
+      C++에서 시프트 연산자(<code>&gt;&gt;</code>, <code>&lt;&lt;</code>)와 비트 AND(<code>&amp;</code>)는
+      <strong>정수 타입에만</strong> 정의되어 있고 <code>float</code>/<code>double</code>에는
+      정의되어 있지 않습니다. 그런데 <code>PlayerMovePacket</code>이 다루는
+      <code>m_posX</code> 등은 전부 <code>float</code>입니다 — 이 헬퍼로
+      <code>serializer.Write(m_posX)</code>를 호출하는 순간, 리틀 엔디안 환경(x86-64를 포함한
+      사실상 모든 실전 환경)에서는 <code>if constexpr (size &gt; 1)</code> 분기가 참이 되어 이
+      코드가 인스턴스화되고, <strong>컴파일 오류</strong>가 납니다.
+    </p>
+  </div>
+
+  <p>
+    해결책은 값을 산술적으로 다루는 대신, <strong>같은 크기의 바이트 배열로 재해석해서 바이트
+    단위로 뒤집는 것</strong>입니다. C++20의 <code>std::bit_cast</code>를 쓰면 정수든
+    부동소수점이든 상관없이 안전하게 원시 바이트 표현을 얻을 수 있습니다.
+  </p>
+
+  <pre><code>// 수정된 버전 — 정수와 부동소수점을 모두 안전하게 처리
+template&lt;typename T&gt;
+requires std::is_arithmetic_v&lt;T&gt;
+void Write(T value) {
+    constexpr size_t size = sizeof(T);
+    EnsureCapacity(size);
+
+    if constexpr (std::endian::native == std::endian::little &amp;&amp; size &gt; 1) {
+        auto bytes = std::bit_cast&lt;std::array&lt;uint8_t, size&gt;&gt;(value);   // 타입 상관없이 원시 바이트로
+        std::reverse(bytes.begin(), bytes.end());                        // 바이트 단위로만 뒤집음
+        std::memcpy(m_buffer.data() + m_writePos, bytes.data(), size);
+    } else {
+        std::memcpy(m_buffer.data() + m_writePos, &amp;value, size);
+    }
+    m_writePos += size;
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">std::bit_cast가 하는 일</p>
+    <p>
+      <code>std::bit_cast&lt;To&gt;(from)</code>는 <code>from</code>의 <strong>메모리 표현을 한 비트도
+      바꾸지 않고</strong> 같은 크기의 다른 타입 <code>To</code>로 재해석합니다.
+      <code>reinterpret_cast</code>와 달리 값 복사로 안전하게 동작하고,
+      <code>constexpr</code> 문맥에서도 쓸 수 있습니다. 여기서는 <code>float</code>(4바이트)를
+      <code>std::array&lt;uint8_t, 4&gt;</code>로 바꿔, "부동소수점 산술"이 아니라 "그냥 4개의
+      바이트 뭉치"로 다룰 수 있게 합니다. 이후 <code>std::reverse()</code>는 배열 원소(바이트)
+      순서만 뒤집을 뿐 값 해석은 전혀 건드리지 않으므로, 정수든 부동소수점이든 동일한 코드로
+      안전하게 엔디안을 바꿀 수 있습니다.
+    </p>
+  </div>
+
+  <p>
+    <code>BinaryDeserializer</code>의 <code>Read&lt;T&gt;()</code>도 같은 문제를 갖고 있었으므로
+    동일한 방식으로 고칩니다.
+  </p>
+
+  <pre><code>class BinaryDeserializer {
+private:
+    std::span&lt;const uint8_t&gt; m_buffer;
+    size_t m_readPos = 0;
+
+public:
+    BinaryDeserializer(std::span&lt;const uint8_t&gt; buffer) : m_buffer(buffer) {}
+
+    void SetBuffer(std::span&lt;const uint8_t&gt; buffer) { m_buffer = buffer; m_readPos = 0; }
+    bool CanRead(size_t size) const { return m_readPos &lt;= m_buffer.size() &amp;&amp; size &lt;= m_buffer.size() - m_readPos; }
+
+    // 수정된 버전 — Write()와 대칭으로 std::bit_cast 사용
+    template&lt;typename T&gt;
+    requires std::is_arithmetic_v&lt;T&gt;
+    bool Read(T&amp; value) {
+        constexpr size_t size = sizeof(T);
+        if (!CanRead(size)) return false;
+
+        if constexpr (std::endian::native == std::endian::little &amp;&amp; size &gt; 1) {
+            std::array&lt;uint8_t, size&gt; bytes;
+            std::memcpy(bytes.data(), m_buffer.data() + m_readPos, size);
+            std::reverse(bytes.begin(), bytes.end());
+            value = std::bit_cast&lt;T&gt;(bytes);
+        } else {
+            std::memcpy(&amp;value, m_buffer.data() + m_readPos, size);
+        }
+        m_readPos += size;
+        return true;
+    }
+
+    bool ReadString(std::string&amp; str) {
+        uint16_t length;
+        if (!Read(length)) return false;
+        if (!CanRead(length)) return false;
+
+        str.assign(reinterpret_cast&lt;const char*&gt;(m_buffer.data() + m_readPos), length);
+        m_readPos += length;
+        return true;
+    }
+
+    bool ReadBytes(std::span&lt;uint8_t&gt; dest) {
+        if (!CanRead(dest.size())) return false;
+        std::memcpy(dest.data(), m_buffer.data() + m_readPos, dest.size());
+        m_readPos += dest.size();
+        return true;
+    }
+};</code></pre>
+
+  <h3>직렬화 헬퍼를 사용한 개선된 패킷</h3>
+  <p>
+    <code>ImprovedPlayerMovePacket</code>은 8.1절의 <code>memcpy</code> 나열 대신
+    <code>BinarySerializer</code>/<code>BinaryDeserializer</code>를 사용해 훨씬 짧고 읽기
+    쉬워졌습니다. 패킷 크기는 아직 모르는 채로 <code>0</code>을 먼저 써넣고, 직렬화가 끝난 뒤 실제
+    버퍼 크기로 되돌아가 덮어씁니다.
+  </p>
+  <pre><code>class ImprovedPlayerMovePacket : public Packet {
+private:
+    uint32_t m_playerId;
+    float m_posX, m_posY, m_posZ;
+    float m_rotX, m_rotY, m_rotZ;
+    uint32_t m_timestamp;
+
+public:
+    ImprovedPlayerMovePacket() = default;
+    ImprovedPlayerMovePacket(uint32_t playerId, float x, float y, float z, float rotX, float rotY, float rotZ, uint32_t timestamp)
+        : m_playerId(playerId), m_posX(x), m_posY(y), m_posZ(z), m_rotX(rotX), m_rotY(rotY), m_rotZ(rotZ), m_timestamp(timestamp) {}
+
+    PacketType GetType() const override { return PacketType::PLAYER_MOVE; }
+
+    std::vector&lt;uint8_t&gt; Serialize() const override {
+        BinarySerializer serializer;
+
+        serializer.Write(static_cast&lt;uint16_t&gt;(0));   // 크기는 아직 모름 — 나중에 덮어씀
+        serializer.Write(static_cast&lt;uint16_t&gt;(PacketType::PLAYER_MOVE));
+        serializer.Write(static_cast&lt;uint32_t&gt;(0));    // sequence — 실제로는 시퀀스 생성기 값
+        serializer.Write(static_cast&lt;uint8_t&gt;(0));     // flags
+
+        serializer.Write(m_playerId);
+        serializer.Write(m_posX);
+        serializer.Write(m_posY);
+        serializer.Write(m_posZ);
+        serializer.Write(m_rotX);
+        serializer.Write(m_rotY);
+        serializer.Write(m_rotZ);
+        serializer.Write(m_timestamp);
+
+        auto buffer = serializer.GetBuffer();
+        if (buffer.size() &gt; (std::numeric_limits&lt;uint16_t&gt;::max)()) return {};
+        WriteU16BE(buffer, 0, static_cast&lt;uint16_t&gt;(buffer.size()));   // 오프셋 0을 실제 크기로 덮어씀
+
+        return buffer;
+    }
+
+    bool Deserialize(std::span&lt;const uint8_t&gt; data) override {
+        BinaryDeserializer deserializer(data);
+
+        uint16_t packetSize, packetType;
+        uint32_t sequence;
+        uint8_t flags;
+        if (!deserializer.Read(packetSize) || !deserializer.Read(packetType) ||
+            !deserializer.Read(sequence) || !deserializer.Read(flags)) {
+            return false;
+        }
+        if (packetSize != data.size() || static_cast&lt;PacketType&gt;(packetType) != PacketType::PLAYER_MOVE) {
+            return false;
+        }
+
+        return deserializer.Read(m_playerId) &amp;&amp; deserializer.Read(m_posX) &amp;&amp; deserializer.Read(m_posY) &amp;&amp;
+               deserializer.Read(m_posZ) &amp;&amp; deserializer.Read(m_rotX) &amp;&amp; deserializer.Read(m_rotY) &amp;&amp;
+               deserializer.Read(m_rotZ) &amp;&amp; deserializer.Read(m_timestamp);
+    }
+
+    uint32_t GetPlayerId() const { return m_playerId; }
+    float GetPosX() const { return m_posX; }
+    float GetPosY() const { return m_posY; }
+    float GetPosZ() const { return m_posZ; }
+    float GetRotX() const { return m_rotX; }
+    float GetRotY() const { return m_rotY; }
+    float GetRotZ() const { return m_rotZ; }
+    uint32_t GetTimestamp() const { return m_timestamp; }
+};</code></pre>
+</section>
+
+<section class="sec" id="compression">
+  <h2><span class="num">8.3</span> 패킷 압축 및 최적화</h2>
+  <p class="sec-sub">일반 압축 하나, 그리고 위치 데이터에 특화된 델타 압축 하나 — 두 가지 무기를 갖춥니다.</p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">라이브러리</span><span class="api-name">zlib — compress2() / uncompress()</span></div>
+    <div class="api-body">
+      <p>
+        zlib은 가장 널리 쓰이는 범용 무손실 압축 라이브러리입니다. <code>compress2()</code>는
+        원본 데이터를 압축하고, <code>uncompress()</code>는 되돌립니다. 압축 후 크기는 미리 정확히
+        알 수 없으므로, <code>compressBound()</code>로 "이 정도면 절대 넘지 않는다"는 안전한
+        상한 크기를 먼저 계산해 버퍼를 준비합니다.
+      </p>
+    </div>
+  </div>
+
+  <pre><code>#include &lt;zlib.h&gt;
+#include &lt;optional&gt;
+#include &lt;cassert&gt;
+
+class PacketCompressor {
+public:
+    static constexpr uint32_t MAX_DECOMPRESSED_SIZE = 16 * 1024 * 1024;
+
+    static std::optional&lt;std::vector&lt;uint8_t&gt;&gt; Compress(std::span&lt;const uint8_t&gt; data, int level = Z_DEFAULT_COMPRESSION) {
+        if (data.empty() || data.size() &gt; MAX_DECOMPRESSED_SIZE ||
+            data.size() &gt; (std::numeric_limits&lt;uLong&gt;::max)()) return std::nullopt;
+
+        uLong compressBound = ::compressBound(static_cast&lt;uLong&gt;(data.size()));
+        std::vector&lt;uint8_t&gt; compressedData(compressBound + sizeof(uint32_t));   // 원본 크기 저장용 4바이트 추가
+
+        WriteU32BE(compressedData, 0, static_cast&lt;uint32_t&gt;(data.size()));
+
+        uLongf compressedSize = static_cast&lt;uLongf&gt;(compressedData.size() - sizeof(uint32_t));
+        int result = ::compress2(
+            compressedData.data() + sizeof(uint32_t), &amp;compressedSize,
+            data.data(), static_cast&lt;uLong&gt;(data.size()), level
+        );
+        if (result != Z_OK) return std::nullopt;
+
+        compressedData.resize(compressedSize + sizeof(uint32_t));   // 실제 압축 크기로 축소
+        return compressedData;
+    }
+
+    static std::optional&lt;std::vector&lt;uint8_t&gt;&gt; Decompress(std::span&lt;const uint8_t&gt; compressedData) {
+        if (compressedData.size() &lt;= sizeof(uint32_t)) return std::nullopt;
+
+        const uint32_t originalSize = ReadU32BE(compressedData, 0);
+        if (originalSize == 0 || originalSize &gt; MAX_DECOMPRESSED_SIZE) return std::nullopt;
+
+        std::vector&lt;uint8_t&gt; decompressedData(originalSize);
+        uLongf destLen = static_cast&lt;uLongf&gt;(originalSize);
+        int result = ::uncompress(
+            decompressedData.data(), &amp;destLen,
+            compressedData.data() + sizeof(uint32_t), static_cast&lt;uLong&gt;(compressedData.size() - sizeof(uint32_t))
+        );
+        if (result != Z_OK || destLen != originalSize) return std::nullopt;
+
+        return decompressedData;
+    }
+};</code></pre>
+
+  <h3>델타 압축 — "얼마나 움직였는지"만 보내기</h3>
+  <p>
+    zlib은 범용적이지만, 초당 수십 번씩 오가는 위치 갱신 패킷에는 더 특화된 방법이 유리합니다.
+    <strong>델타 압축</strong>은 전체 좌표 대신 "이전 위치에서 얼마나 달라졌는지"만 보내고,
+    <strong>양자화(quantization)</strong>는 그 차이값을 4바이트 <code>float</code> 대신 2바이트
+    정수로 눌러 담습니다.
+  </p>
+  <pre><code>struct PositionDelta;   // 전방 선언
+
+struct PositionData {
+    float x, y, z;
+    float rotX, rotY, rotZ;
+
+    static PositionDelta CalculateDelta(const PositionData&amp; current, const PositionData&amp; previous);
+    static PositionData ApplyDelta(const PositionData&amp; base, const PositionDelta&amp; delta);
+};
+
+struct PositionDelta {
+    float deltaX, deltaY, deltaZ;
+    float deltaRotX, deltaRotY, deltaRotZ;
+
+    // scale=100이면 소수점 둘째 자리까지 보존하며 int16_t 범위(-327.68~327.67)로 양자화
+    static int16_t QuantizeFloat(float value, float scale) {
+        const float quantized = std::roundf(value * scale);
+        return static_cast&lt;int16_t&gt;(std::clamp(
+            quantized,
+            static_cast&lt;float&gt;((std::numeric_limits&lt;int16_t&gt;::min)()),
+            static_cast&lt;float&gt;((std::numeric_limits&lt;int16_t&gt;::max)())
+        ));
+    }
+    static float DequantizeFloat(int16_t quantized, float scale) {
+        return static_cast&lt;float&gt;(quantized) / scale;
+    }
+
+    void SerializeCompressed(BinarySerializer&amp; serializer, float posScale = 100.0f, float rotScale = 100.0f) const {
+        if (posScale &lt;= 0.0f || rotScale &lt;= 0.0f) throw std::invalid_argument("양자화 스케일은 양수여야 합니다");
+        serializer.Write(QuantizeFloat(deltaX, posScale));
+        serializer.Write(QuantizeFloat(deltaY, posScale));
+        serializer.Write(QuantizeFloat(deltaZ, posScale));
+        serializer.Write(QuantizeFloat(deltaRotX, rotScale));
+        serializer.Write(QuantizeFloat(deltaRotY, rotScale));
+        serializer.Write(QuantizeFloat(deltaRotZ, rotScale));
+    }
+
+    bool DeserializeCompressed(BinaryDeserializer&amp; deserializer, float posScale = 100.0f, float rotScale = 100.0f) {
+        if (posScale &lt;= 0.0f || rotScale &lt;= 0.0f) return false;
+        int16_t qX, qY, qZ, qRotX, qRotY, qRotZ;
+        if (!deserializer.Read(qX) || !deserializer.Read(qY) || !deserializer.Read(qZ) ||
+            !deserializer.Read(qRotX) || !deserializer.Read(qRotY) || !deserializer.Read(qRotZ)) {
+            return false;
+        }
+        deltaX = DequantizeFloat(qX, posScale);
+        deltaY = DequantizeFloat(qY, posScale);
+        deltaZ = DequantizeFloat(qZ, posScale);
+        deltaRotX = DequantizeFloat(qRotX, rotScale);
+        deltaRotY = DequantizeFloat(qRotY, rotScale);
+        deltaRotZ = DequantizeFloat(qRotZ, rotScale);
+        return true;
+    }
+};
+
+PositionDelta PositionData::CalculateDelta(const PositionData&amp; current, const PositionData&amp; previous) {
+    return PositionDelta{
+        current.x - previous.x, current.y - previous.y, current.z - previous.z,
+        current.rotX - previous.rotX, current.rotY - previous.rotY, current.rotZ - previous.rotZ
+    };
+}
+PositionData PositionData::ApplyDelta(const PositionData&amp; base, const PositionDelta&amp; delta) {
+    return PositionData{
+        base.x + delta.deltaX, base.y + delta.deltaY, base.z + delta.deltaZ,
+        base.rotX + delta.deltaRotX, base.rotY + delta.deltaRotY, base.rotZ + delta.deltaRotZ
+    };
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">양자화가 절약하는 바이트</p>
+    <p>
+      위치 6개 필드(x·y·z·rotX·rotY·rotZ)를 <code>float</code> 그대로 보내면 24바이트지만,
+      <code>int16_t</code>로 양자화하면 12바이트로 절반이 됩니다. 대신 정밀도를 잃습니다 —
+      <code>scale=100</code>이면 소수점 둘째 자리까지만 보존되고, 그보다 미세한 움직임은
+      반올림되어 사라집니다. 게임 캐릭터의 이동처럼 "약간의 오차는 눈에 띄지 않는" 데이터에
+      적합한 절충입니다.
+    </p>
+  </div>
+
+  <p>
+    <code>DeltaCompressedMovePacket</code>은 <code>flags</code>의 최하위 비트로 "이번 패킷이
+    전체 위치인지 델타인지"를 표시합니다. 처음 접속했을 때나 변화가 클 때는 전체 위치를, 그 외에는
+    델타를 보냅니다.
+  </p>
+  <div class="callout info">
+    <p class="ctitle">동일한 PacketType에는 구현 하나만 등록한다</p>
+    <p>
+      <code>PlayerMovePacket</code>, <code>ImprovedPlayerMovePacket</code>,
+      <code>DeltaCompressedMovePacket</code>은 같은 논리 메시지를 단계적으로 발전시킨 예제다.
+      세 클래스 모두 <code>PLAYER_MOVE</code>를 반환하므로 한 서버의 <code>PacketFactory</code>에는
+      실제 전송 형식과 일치하는 구현 하나만 등록해야 한다. 이후 <code>PacketHandler</code> 예제는
+      <code>DeltaCompressedMovePacket</code>을 사용하는 구성이다.
+    </p>
+  </div>
+  <pre><code>class DeltaCompressedMovePacket : public Packet {
+private:
+    uint32_t m_playerId;
+    bool m_isFullUpdate;
+    PositionData m_position;
+    PositionDelta m_positionDelta;
+    uint32_t m_timestamp;
+
+public:
+    DeltaCompressedMovePacket() : m_isFullUpdate(true) {}
+    DeltaCompressedMovePacket(uint32_t playerId, const PositionData&amp; position, uint32_t timestamp)
+        : m_playerId(playerId), m_isFullUpdate(true), m_position(position), m_timestamp(timestamp) {}
+    DeltaCompressedMovePacket(uint32_t playerId, const PositionDelta&amp; delta, uint32_t timestamp)
+        : m_playerId(playerId), m_isFullUpdate(false), m_positionDelta(delta), m_timestamp(timestamp) {}
+
+    PacketType GetType() const override { return PacketType::PLAYER_MOVE; }
+
+    std::vector&lt;uint8_t&gt; Serialize() const override {
+        BinarySerializer serializer;
+
+        uint8_t flags = m_isFullUpdate ? 0x01 : 0x00;
+        serializer.Write(static_cast&lt;uint16_t&gt;(0));
+        serializer.Write(static_cast&lt;uint16_t&gt;(PacketType::PLAYER_MOVE));
+        serializer.Write(static_cast&lt;uint32_t&gt;(0));
+        serializer.Write(flags);
+
+        serializer.Write(m_playerId);
+        serializer.Write(m_timestamp);
+
+        if (m_isFullUpdate) {
+            serializer.Write(m_position.x);
+            serializer.Write(m_position.y);
+            serializer.Write(m_position.z);
+            serializer.Write(m_position.rotX);
+            serializer.Write(m_position.rotY);
+            serializer.Write(m_position.rotZ);
+        } else {
+            m_positionDelta.SerializeCompressed(serializer);
+        }
+
+        auto buffer = serializer.GetBuffer();
+        if (buffer.size() &gt; (std::numeric_limits&lt;uint16_t&gt;::max)()) return {};
+        WriteU16BE(buffer, 0, static_cast&lt;uint16_t&gt;(buffer.size()));
+        return buffer;
+    }
+
+    bool Deserialize(std::span&lt;const uint8_t&gt; data) override {
+        BinaryDeserializer deserializer(data);
+
+        uint16_t packetSize, packetType;
+        uint32_t sequence;
+        uint8_t flags;
+        if (!deserializer.Read(packetSize) || !deserializer.Read(packetType) ||
+            !deserializer.Read(sequence) || !deserializer.Read(flags)) return false;
+        if (packetSize != data.size() || static_cast&lt;PacketType&gt;(packetType) != PacketType::PLAYER_MOVE) return false;
+
+        m_isFullUpdate = (flags &amp; 0x01) != 0;
+
+        if (!deserializer.Read(m_playerId) || !deserializer.Read(m_timestamp)) return false;
+
+        if (m_isFullUpdate) {
+            if (!deserializer.Read(m_position.x) || !deserializer.Read(m_position.y) || !deserializer.Read(m_position.z) ||
+                !deserializer.Read(m_position.rotX) || !deserializer.Read(m_position.rotY) || !deserializer.Read(m_position.rotZ)) {
+                return false;
+            }
+        } else {
+            if (!m_positionDelta.DeserializeCompressed(deserializer)) return false;
+        }
+        return true;
+    }
+
+    uint32_t GetPlayerId() const { return m_playerId; }
+    bool IsFullUpdate() const { return m_isFullUpdate; }
+    const PositionData&amp; GetPosition() const { assert(m_isFullUpdate); return m_position; }
+    const PositionDelta&amp; GetPositionDelta() const { assert(!m_isFullUpdate); return m_positionDelta; }
+    uint32_t GetTimestamp() const { return m_timestamp; }
+
+    PositionData CalculatePosition(const PositionData&amp; previousPosition) const {
+        return m_isFullUpdate ? m_position : PositionData::ApplyDelta(previousPosition, m_positionDelta);
+    }
+};</code></pre>
+
+  <h3>RIO로 실제로 실어 보내기</h3>
+  <p>
+    <code>PacketHandler</code>는 직렬화·압축을 마친 패킷을 실제 RIO 요청으로 연결합니다. 원문의
+    구현에는 두 가지 문제가 있어 바로잡았습니다.
+  </p>
+
+  <div class="callout">
+    <p class="ctitle">RIO 함수는 함수 테이블을 통해서만 호출할 수 있습니다</p>
+    <p>
+      2장부터 계속 강조했듯 <code>RIOSend()</code>는 전역 함수가 아니라
+      <code>RIO_EXTENSION_FUNCTION_TABLE</code>의 멤버 함수 포인터입니다. <code>RIOSend(...)</code>를
+      그냥 호출하는 코드는 컴파일되지 않습니다 — <code>rio_fn_table.RIOSend(...)</code>처럼 함수
+      테이블을 통해야 합니다.
+    </p>
+    <p style="margin-top:10px;">
+      또한 <code>RIO_BUF::BufferId</code>는 실제 메모리 주소가 아니라 RIO 내부적으로만 의미 있는
+      <strong>불투명(opaque) 식별자</strong>입니다. 이를 <code>reinterpret_cast&lt;void*&gt;</code>로
+      캐스팅해 <code>memcpy</code> 대상으로 쓰면 안 됩니다 — 등록된 버퍼의 <strong>실제 메모리
+      포인터</strong>(4장의 <code>RIOBufferManager::GetBuffer()</code>처럼)를 따로 받아 그 위치에
+      복사해야 합니다.
+    </p>
+    <p style="margin-top:10px;">
+      마지막으로, 압축 여부를 표시하는 위치도 바로잡았습니다. 원문 코드는 압축한 뒤에도
+      <code>serializedData[8]</code>(원래 <code>PacketHeader::flags</code> 바이트의 오프셋)에
+      압축 플래그 비트를 세우려 했지만, 8.3절의 <code>PacketCompressor::Compress()</code>는 헤더를
+      포함한 전체 패킷을 통째로 <code>[원본 크기 4바이트][zlib 압축 블록]</code> 형태로 바꿔버립니다
+      — 압축 후에는 오프셋 8이 더 이상 flags 바이트가 아니라 zlib 압축 스트림 <strong>내부의
+      임의 바이트</strong>를 가리킵니다. 압축된 바이트 스트림은 단 한 비트만 바뀌어도 해제가
+      실패하기 쉬우므로, 이 위치에 비트를 세우면 사실상 그 패킷은 압축 해제에 실패합니다. 아래
+      코드는 패킷 헤더와는 별개로, <strong>전송 형식(wire format) 맨 앞에 프레임 길이 4바이트와
+      압축 여부 마커 1바이트</strong>를 따로 붙여 이 문제를 해결합니다. TCP RIO 수신 한 번은 패킷
+      하나와 일치하지 않으므로, 길이 필드로 프레임 경계를 복원해야 합니다.
+    </p>
+  </div>
+
+  <pre><code>class PacketHandler {
+private:
+    static constexpr uint32_t MAX_WIRE_PAYLOAD = 64 * 1024;
+    std::unordered_map&lt;uint32_t, PositionData&gt; m_lastPositions;
+    bool m_useCompression = true;
+
+public:
+    void SetUseCompression(bool useCompression) { m_useCompression = useCompression; }
+
+    // bufferMemory: 등록된 버퍼의 실제 시작 주소, bufferCapacity: Offset부터 사용할 수 있는 바이트 수
+    bool SendPacket(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, RIO_RQ requestQueue,
+                     const Packet&amp; packet, char* bufferMemory, RIO_BUF* pData, DWORD bufferCapacity,
+                     PVOID requestContext, DWORD flags = 0) {
+        if (!bufferMemory || !pData || bufferCapacity == 0) return false;
+        std::vector&lt;uint8_t&gt; serializedData = packet.Serialize();
+        if (serializedData.empty()) return false;
+
+        bool isCompressed = false;
+        if (m_useCompression &amp;&amp; serializedData.size() &gt; 100) {   // 작은 패킷은 압축 오버헤드가 더 큼
+            auto compressedData = PacketCompressor::Compress(serializedData);
+            if (compressedData &amp;&amp; compressedData-&gt;size() &lt; serializedData.size()) {
+                serializedData = std::move(*compressedData);
+                isCompressed = true;
+            }
+        }
+
+        // 전송 형식: [프레임 길이 4바이트] [마커 1바이트] [압축 블록 또는 원본 직렬화 데이터]
+        // 패킷 헤더의 flags 비트가 아니라 이 마커로 압축 여부를 구분합니다 — 압축되면 헤더 자체가
+        // zlib 블록 안으로 들어가 버려 겉에서 flags 바이트를 읽을 수 없기 때문입니다.
+        std::vector&lt;uint8_t&gt; wireData;
+        wireData.reserve(serializedData.size() + 5);
+        wireData.resize(4); // 완성 후 네트워크 바이트 순서의 프레임 길이를 기록한다.
+        wireData.push_back(isCompressed ? 1 : 0);
+        wireData.insert(wireData.end(), serializedData.begin(), serializedData.end());
+        if (wireData.size() - 4 &gt; MAX_WIRE_PAYLOAD) return false;
+        WriteU32BE(wireData, 0, static_cast&lt;uint32_t&gt;(wireData.size() - 4));
+
+        if (bufferCapacity &lt; wireData.size()) return false;   // pData-&gt;Length는 이전 송신 길이일 수 있다.
+
+        // 등록된 버퍼의 실제 메모리(bufferMemory + Offset)에 복사 — BufferId가 아님
+        std::memcpy(bufferMemory + pData-&gt;Offset, wireData.data(), wireData.size());
+        pData-&gt;Length = static_cast&lt;DWORD&gt;(wireData.size());
+
+        BOOL result = rio_fn_table.RIOSend(requestQueue, pData, 1, flags, requestContext);
+        return result == TRUE;
+    }
+
+    // data는 PacketStreamDecoder가 잘라 준 프레임 하나여야 한다.
+    std::unique_ptr&lt;Packet&gt; ReceivePacket(std::span&lt;const uint8_t&gt; data) {
+        if (data.size() &lt; 5 || data.size() &gt; MAX_WIRE_PAYLOAD + 4 ||
+            ReadU32BE(data, 0) != data.size() - 4) return nullptr;
+
+        const uint8_t marker = data[4];
+        if (marker &gt; 1) return nullptr;
+        bool isCompressed = marker == 1;
+        std::span&lt;const uint8_t&gt; payload = data.subspan(5);   // 길이·마커를 뗀 나머지
+
+        std::vector&lt;uint8_t&gt; decompressedData;
+        if (isCompressed) {
+            auto result = PacketCompressor::Decompress(payload);
+            if (!result) return nullptr;
+            decompressedData = std::move(*result);
+            payload = decompressedData;
+        }
+
+        if (payload.size() &lt; PacketHeader::SIZE) return nullptr;
+        return PacketFactory::CreateFromBuffer(payload);
+    }
+
+    void ProcessPlayerMove(const DeltaCompressedMovePacket&amp; packet) {
+        uint32_t playerId = packet.GetPlayerId();
+        if (packet.IsFullUpdate()) {
+            m_lastPositions[playerId] = packet.GetPosition();
+        } else {
+            auto it = m_lastPositions.find(playerId);
+            if (it != m_lastPositions.end()) it-&gt;second = packet.CalculatePosition(it-&gt;second);
+        }
+    }
+
+    // 변화가 작으면 델타로, 크면(또는 첫 위치면) 전체로 — 임계값 기반 자동 전환
+    std::unique_ptr&lt;DeltaCompressedMovePacket&gt; CreatePlayerMovePacket(
+        uint32_t playerId, const PositionData&amp; currentPos, uint32_t timestamp) {
+
+        auto it = m_lastPositions.find(playerId);
+        if (it == m_lastPositions.end()) {
+            m_lastPositions[playerId] = currentPos;
+            return std::make_unique&lt;DeltaCompressedMovePacket&gt;(playerId, currentPos, timestamp);
+        }
+
+        const PositionData&amp; lastPos = it-&gt;second;
+        PositionDelta delta = PositionData::CalculateDelta(currentPos, lastPos);
+
+        const float POSITION_THRESHOLD = 5.0f;
+        const float ROTATION_THRESHOLD = 45.0f;
+        bool significantChange =
+            std::abs(delta.deltaX) &gt; POSITION_THRESHOLD || std::abs(delta.deltaY) &gt; POSITION_THRESHOLD ||
+            std::abs(delta.deltaZ) &gt; POSITION_THRESHOLD || std::abs(delta.deltaRotX) &gt; ROTATION_THRESHOLD ||
+            std::abs(delta.deltaRotY) &gt; ROTATION_THRESHOLD || std::abs(delta.deltaRotZ) &gt; ROTATION_THRESHOLD;
+
+        m_lastPositions[playerId] = currentPos;
+        if (significantChange) {
+            return std::make_unique&lt;DeltaCompressedMovePacket&gt;(playerId, currentPos, timestamp);
+        }
+        return std::make_unique&lt;DeltaCompressedMovePacket&gt;(playerId, delta, timestamp);
+    }
+};</code></pre>
+
+  <pre><code>class PacketStreamDecoder {
+private:
+    static constexpr uint32_t MAX_WIRE_PAYLOAD = 64 * 1024;
+    std::vector&lt;uint8_t&gt; m_pending;
+
+public:
+    // 반환값이 있으면 [길이 4바이트][마커][payload] 완전한 프레임 하나다.
+    std::optional&lt;std::vector&lt;uint8_t&gt;&gt; Push(std::span&lt;const uint8_t&gt; received) {
+        if (received.size() &gt; MAX_WIRE_PAYLOAD + 4 ||
+            m_pending.size() &gt; MAX_WIRE_PAYLOAD + 4 - received.size()) {
+            m_pending.clear();
+            return std::nullopt;
+        }
+        m_pending.insert(m_pending.end(), received.begin(), received.end());
+        if (m_pending.size() &lt; 4) return std::nullopt;
+
+        const uint32_t payloadSize = ReadU32BE(m_pending, 0);
+        if (payloadSize == 0 || payloadSize &gt; MAX_WIRE_PAYLOAD) {
+            m_pending.clear();
+            return std::nullopt;
+        }
+        const size_t frameSize = 4 + payloadSize;
+        if (m_pending.size() &lt; frameSize) return std::nullopt;
+
+        std::vector&lt;uint8_t&gt; frame(m_pending.begin(), m_pending.begin() + frameSize);
+        m_pending.erase(m_pending.begin(), m_pending.begin() + frameSize);
+        return frame;
+    }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">TCP 수신 완료는 패킷 경계가 아니다</p>
+    <p>
+      RIO도 TCP의 바이트 스트림 성질을 바꾸지 않습니다. 한 번의 수신에는 패킷 일부·정확히 하나·여러
+      패킷이 모두 들어올 수 있습니다. 세션은 수신 바이트를 <code>PacketStreamDecoder::Push()</code>에
+      누적하고, 반환된 프레임을 <code>PacketHandler::ReceivePacket()</code>에 넘겨야 합니다. 남은
+      프레임은 다음 <code>Push(std::span&lt;const uint8_t&gt;{})</code> 호출로 계속 꺼낼 수 있습니다.
+    </p>
+  </div>
+
+  <div class="callout info">
+    <p class="ctitle">왜 변화가 크면 오히려 델타를 안 쓸까</p>
+    <p>
+      <code>PositionDelta</code>는 <code>int16_t</code>로 양자화되므로 표현 범위가 제한적입니다
+      (<code>scale=100</code> 기준 약 ±327). 순간이동처럼 위치가 크게 뛰면 이 범위를 벗어나거나,
+      벗어나지 않더라도 압축 이득보다 오차가 더 커집니다. 그래서 변화가 임계값을 넘으면 차라리
+      전체 위치를 새로 보내 <code>m_lastPositions</code>를 확실히 재동기화합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="advanced-compressor">
+  <h2><span class="num">8.4</span> AdvancedPacketCompressor 클래스 구현 코드</h2>
+  <p class="sec-sub">통계 수집, 예외 안전, 스트리밍까지 갖춘 실전형 압축기로 발전시킵니다.</p>
+
+  <p>
+    8.3절의 <code>PacketCompressor</code>는 성공·실패만 알려줬습니다. 실전에서는 "압축이 실제로
+    얼마나 효과가 있었는지", "압축 방식이 무엇이었는지"도 알아야 튜닝할 수 있습니다. 아래 버전은
+    <code>CompressionHeader</code>에 압축 방식·수준을 함께 저장하고, <code>CompressionStats</code>로
+    최근 압축 결과를 추적합니다.
+  </p>
+
+  <pre><code>#include &lt;zlib.h&gt;
+#include &lt;chrono&gt;
+#include &lt;cstdint&gt;
+#include &lt;cstring&gt;
+#include &lt;format&gt;
+#include &lt;optional&gt;
+#include &lt;span&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;utility&gt;
+#include &lt;vector&gt;
+
+struct CompressionStats {
+    size_t originalSize = 0;
+    size_t compressedSize = 0;
+    double compressionRatio = 0.0;
+    double compressionTimeMs = 0.0;
+
+    std::string ToString() const {
+        const double savedPercent = originalSize == 0 ? 0.0
+            : (1.0 - static_cast&lt;double&gt;(compressedSize) / originalSize) * 100.0;
+        return std::format("원본 크기: {}바이트, 압축 크기: {}바이트, 압축률: {:.2f}%, 소요 시간: {:.2f}ms",
+            originalSize, compressedSize, savedPercent, compressionTimeMs);
+    }
+};
+
+enum class CompressionLevel {
+    None = 0, Fastest = 1, Fast = 3, Default = 6, HighCompression = 9
+};
+
+enum class CompressionMethod : uint8_t {
+    None = 0, ZLib = 1,
+    // 향후: LZ4 = 2, ZStd = 3
+};
+
+class CompressionException : public std::runtime_error {
+public:
+    explicit CompressionException(const std::string&amp; message) : std::runtime_error(message) {}
+    explicit CompressionException(const char* message) : std::runtime_error(message) {}
+};</code></pre>
+
+  <p>
+    새 <code>CompressionHeader</code>는 원본 크기 외에 압축 방식과 수준까지 담습니다. 압축을
+    시도했지만 이득이 없거나 zlib 예외가 나면, <code>CompressionMethod::None</code>으로 표시해
+    <strong>원본을 그대로 담아 반환</strong>합니다 — "압축에 실패했다고 패킷 전송 자체가
+    실패해서는 안 된다"는 방어적 설계입니다.
+  </p>
+  <div class="callout info">
+    <p class="ctitle">8.3의 압축기와 8.4의 압축기는 전송 형식이 다르다</p>
+    <p>
+      두 구현을 같은 번역 단위에 넣어도 클래스 이름이 충돌하지 않도록 8.4는
+      <code>AdvancedPacketCompressor</code>로 분리했습니다. 두 구현의 압축 헤더 형식은 호환되지
+      않으므로, 8.4 버전으로 교체할 때는 송신과 수신의 <code>Compress()</code>/<code>Decompress()</code>를
+      함께 바꿔야 합니다. 위 <code>PacketHandler</code>는 8.3의 간단한 형식을 사용합니다.
+    </p>
+  </div>
+  <pre><code>class AdvancedPacketCompressor {
+private:
+    struct CompressionHeader {
+        uint32_t originalSize;
+        CompressionMethod method;
+        uint8_t level;
+        uint16_t reserved;   // 향후 확장을 위한 예약 필드
+
+        static constexpr size_t SIZE = sizeof(uint32_t) + sizeof(CompressionMethod) + sizeof(uint8_t) + sizeof(uint16_t);
+    };
+
+    static constexpr uint32_t MAX_DECOMPRESSED_SIZE = 16 * 1024 * 1024;
+    static inline thread_local CompressionStats s_lastStats;
+
+    static void WriteHeader(std::span&lt;uint8_t&gt; buffer, const CompressionHeader&amp; header) {
+        WriteU32BE(buffer, 0, header.originalSize);
+        buffer[4] = static_cast&lt;uint8_t&gt;(header.method);
+        buffer[5] = header.level;
+        WriteU16BE(buffer, 6, header.reserved);
+    }
+
+    static CompressionHeader ReadHeader(std::span&lt;const uint8_t&gt; buffer) {
+        return CompressionHeader{
+            ReadU32BE(buffer, 0), static_cast&lt;CompressionMethod&gt;(buffer[4]), buffer[5], ReadU16BE(buffer, 6)
+        };
+    }
+
+    static std::string GetZlibErrorString(int errorCode) {
+        switch (errorCode) {
+            case Z_OK: return "성공";
+            case Z_STREAM_END: return "스트림 종료";
+            case Z_NEED_DICT: return "사전 필요";
+            case Z_ERRNO: return "파일 연산 오류";
+            case Z_STREAM_ERROR: return "스트림 오류";
+            case Z_DATA_ERROR: return "데이터 오류 (손상된 데이터)";
+            case Z_MEM_ERROR: return "메모리 부족";
+            case Z_BUF_ERROR: return "버퍼 오류";
+            case Z_VERSION_ERROR: return "zlib 버전 불일치";
+            default: return std::format("알 수 없는 오류({})", errorCode);
+        }
+    }
+
+public:
+    static std::string GetZlibVersion() { return zlibVersion(); }
+
+    static bool IsCompressionSupported(CompressionMethod method) {
+        return method == CompressionMethod::None || method == CompressionMethod::ZLib;
+    }
+
+    static const CompressionStats&amp; GetLastStats() { return s_lastStats; }
+
+    static std::optional&lt;std::vector&lt;uint8_t&gt;&gt; Compress(
+        std::span&lt;const uint8_t&gt; data,
+        CompressionMethod method = CompressionMethod::ZLib,
+        CompressionLevel level = CompressionLevel::Default) {
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        s_lastStats = CompressionStats();
+        s_lastStats.originalSize = data.size();
+
+        if (data.empty()) {
+            return WriteUncompressed(data, startTime);
+        }
+        if (data.size() &gt; MAX_DECOMPRESSED_SIZE || data.size() &gt; (std::numeric_limits&lt;uLong&gt;::max)()) {
+            return std::nullopt;
+        }
+
+        if (method == CompressionMethod::None) {
+            return WriteUncompressed(data, startTime);
+        }
+        if (method != CompressionMethod::ZLib) return std::nullopt;   // 지원하지 않는 방식
+
+        try {
+            uLong compressBound = ::compressBound(static_cast&lt;uLong&gt;(data.size()));
+            std::vector&lt;uint8_t&gt; compressedData(compressBound + CompressionHeader::SIZE);
+
+            CompressionHeader header{
+                static_cast&lt;uint32_t&gt;(data.size()), CompressionMethod::ZLib, static_cast&lt;uint8_t&gt;(level), 0
+            };
+            WriteHeader(compressedData, header);
+
+            uLongf compressedSize = static_cast&lt;uLongf&gt;(compressedData.size() - CompressionHeader::SIZE);
+            int result = ::compress2(
+                compressedData.data() + CompressionHeader::SIZE, &amp;compressedSize,
+                data.data(), static_cast&lt;uLong&gt;(data.size()), static_cast&lt;int&gt;(level)
+            );
+            if (result != Z_OK) throw CompressionException(std::format("압축 실패: {}", GetZlibErrorString(result)));
+
+            compressedData.resize(compressedSize + CompressionHeader::SIZE);
+
+            s_lastStats.compressedSize = compressedData.size();
+            s_lastStats.compressionRatio = 1.0 - (double)compressedData.size() / data.size();
+            s_lastStats.compressionTimeMs = ElapsedMs(startTime);
+            return compressedData;
+
+        } catch (const std::exception&amp;) {
+            return WriteUncompressed(data, startTime);   // 압축 실패 시 원본을 그대로 담아 반환
+        }
+    }
+
+    static std::optional&lt;std::vector&lt;uint8_t&gt;&gt; Decompress(std::span&lt;const uint8_t&gt; compressedData) {
+        if (compressedData.size() &lt; CompressionHeader::SIZE) return std::nullopt;
+
+        CompressionHeader header = ReadHeader(compressedData);
+        if (header.originalSize &gt; MAX_DECOMPRESSED_SIZE) return std::nullopt;
+
+        if (header.method == CompressionMethod::None) {
+            if (compressedData.size() != CompressionHeader::SIZE + header.originalSize) return std::nullopt;
+            std::vector&lt;uint8_t&gt; result(header.originalSize);
+            std::memcpy(result.data(), compressedData.data() + CompressionHeader::SIZE, header.originalSize);
+            return result;
+        }
+        if (header.method != CompressionMethod::ZLib) return std::nullopt;
+
+        try {
+            std::vector&lt;uint8_t&gt; decompressedData(header.originalSize);
+            uLongf destLen = static_cast&lt;uLongf&gt;(header.originalSize);
+            int result = ::uncompress(
+                decompressedData.data(), &amp;destLen,
+                compressedData.data() + CompressionHeader::SIZE,
+                static_cast&lt;uLong&gt;(compressedData.size() - CompressionHeader::SIZE)
+            );
+            if (result != Z_OK || destLen != header.originalSize) {
+                throw CompressionException(std::format("압축 해제 실패: {}", GetZlibErrorString(result)));
+            }
+            return decompressedData;
+        } catch (const std::exception&amp;) {
+            return std::nullopt;   // 압축 해제는 원본을 만들어낼 수 없으므로 실패를 그대로 알림
+        }
+    }
+
+private:
+    static double ElapsedMs(std::chrono::high_resolution_clock::time_point start) {
+        return std::chrono::duration&lt;double, std::milli&gt;(std::chrono::high_resolution_clock::now() - start).count();
+    }
+
+    static std::vector&lt;uint8_t&gt; WriteUncompressed(std::span&lt;const uint8_t&gt; data, std::chrono::high_resolution_clock::time_point startTime) {
+        std::vector&lt;uint8_t&gt; result(CompressionHeader::SIZE + data.size());
+        CompressionHeader header{static_cast&lt;uint32_t&gt;(data.size()), CompressionMethod::None, 0, 0};
+        WriteHeader(result, header);
+        std::memcpy(result.data() + CompressionHeader::SIZE, data.data(), data.size());
+
+        s_lastStats.compressedSize = result.size();
+        s_lastStats.compressionRatio = 0.0;
+        s_lastStats.compressionTimeMs = ElapsedMs(startTime);
+        return result;
+    }</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">Compress()와 WriteUncompressed()를 분리한 이유</p>
+    <p>
+      원문 코드는 "압축 방식이 None일 때"와 "ZLib 압축이 예외로 실패했을 때"에 거의 동일한
+      원본-그대로-담기 코드를 두 번 반복했습니다. 여기서는 <code>WriteUncompressed()</code>라는
+      private 헬퍼로 뽑아내어 중복을 없앴습니다 — 어차피 두 상황 모두 "결국 압축 없이 헤더 +
+      원본을 반환한다"는 같은 목적이기 때문입니다.
+    </p>
+  </div>
+
+  <h3>스트림 기반 압축 — 큰 데이터를 청크로 나눠 처리하기</h3>
+  <p>
+    <code>Compress()</code>는 데이터 전체가 메모리에 이미 있다고 가정합니다. 하지만 맵 데이터나
+    리플레이 파일처럼 아주 큰 데이터는 한 번에 통째로 압축하면 메모리를 많이 씁니다.
+    <code>StreamCompressor</code>는 zlib의 <code>z_stream</code>을 직접 다뤄, 데이터를 원하는
+    크기의 조각(청크)으로 나눠 순차적으로 압축할 수 있게 합니다.
+  </p>
+  <pre><code>    class StreamCompressor {
+    private:
+        z_stream m_stream;
+        bool m_initialized = false;
+        CompressionLevel m_level;
+        std::vector&lt;uint8_t&gt; m_buffer;
+
+    public:
+        StreamCompressor(CompressionLevel level = CompressionLevel::Default, size_t bufferSize = 8192)
+            : m_level(level), m_buffer(bufferSize) {
+            if (bufferSize == 0) throw std::invalid_argument("스트림 출력 버퍼는 비어 있을 수 없습니다");
+            m_stream = {};
+            int result = deflateInit(&amp;m_stream, static_cast&lt;int&gt;(level));
+            if (result != Z_OK) throw CompressionException(std::format("스트림 압축기 초기화 실패: {}", GetZlibErrorString(result)));
+            m_initialized = true;
+        }
+
+        ~StreamCompressor() { if (m_initialized) deflateEnd(&amp;m_stream); }
+
+        StreamCompressor(StreamCompressor&amp;&amp; other) noexcept
+            : m_stream(other.m_stream), m_initialized(other.m_initialized), m_level(other.m_level), m_buffer(std::move(other.m_buffer)) {
+            other.m_initialized = false;
+        }
+        StreamCompressor&amp; operator=(StreamCompressor&amp;&amp; other) noexcept {
+            if (this != &amp;other) {
+                if (m_initialized) deflateEnd(&amp;m_stream);
+                m_stream = other.m_stream; m_initialized = other.m_initialized;
+                m_level = other.m_level; m_buffer = std::move(other.m_buffer);
+                other.m_initialized = false;
+            }
+            return *this;
+        }
+        StreamCompressor(const StreamCompressor&amp;) = delete;
+        StreamCompressor&amp; operator=(const StreamCompressor&amp;) = delete;
+
+        // isLastChunk=true인 마지막 호출에서 Z_FINISH로 스트림을 마무리
+        std::vector&lt;uint8_t&gt; CompressChunk(std::span&lt;const uint8_t&gt; data, bool isLastChunk = false) {
+            if (!m_initialized) throw CompressionException("스트림 압축기가 초기화되지 않았습니다");
+            if (data.size() &gt; (std::numeric_limits&lt;uInt&gt;::max)()) throw std::length_error("입력 청크가 zlib 한도를 초과했습니다");
+
+            m_stream.avail_in = static_cast&lt;uInt&gt;(data.size());
+            m_stream.next_in = reinterpret_cast&lt;Bytef*&gt;(const_cast&lt;uint8_t*&gt;(data.data()));
+
+            std::vector&lt;uint8_t&gt; result;
+            do {
+                m_stream.avail_out = static_cast&lt;uInt&gt;(m_buffer.size());
+                m_stream.next_out = reinterpret_cast&lt;Bytef*&gt;(m_buffer.data());
+
+                int status = deflate(&amp;m_stream, isLastChunk ? Z_FINISH : Z_NO_FLUSH);
+                if (status &lt; 0 &amp;&amp; status != Z_BUF_ERROR) {
+                    throw CompressionException(std::format("청크 압축 중 오류 발생: {}", GetZlibErrorString(status)));
+                }
+
+                size_t compressedSize = m_buffer.size() - m_stream.avail_out;
+                size_t prevSize = result.size();
+                result.resize(prevSize + compressedSize);
+                std::memcpy(result.data() + prevSize, m_buffer.data(), compressedSize);
+            } while (m_stream.avail_out == 0);
+
+            return result;
+        }
+
+        void Reset() {
+            if (m_initialized) {
+                int result = deflateReset(&amp;m_stream);
+                if (result != Z_OK) throw CompressionException(std::format("스트림 압축기 리셋 실패: {}", GetZlibErrorString(result)));
+            }
+        }
+    };
+
+    class StreamDecompressor {
+    private:
+        z_stream m_stream;
+        bool m_initialized = false;
+        std::vector&lt;uint8_t&gt; m_buffer;
+
+    public:
+        StreamDecompressor(size_t bufferSize = 8192) : m_buffer(bufferSize) {
+            if (bufferSize == 0) throw std::invalid_argument("스트림 출력 버퍼는 비어 있을 수 없습니다");
+            m_stream = {};
+            int result = inflateInit(&amp;m_stream);
+            if (result != Z_OK) throw CompressionException(std::format("스트림 압축 해제기 초기화 실패: {}", GetZlibErrorString(result)));
+            m_initialized = true;
+        }
+
+        ~StreamDecompressor() { if (m_initialized) inflateEnd(&amp;m_stream); }
+
+        StreamDecompressor(StreamDecompressor&amp;&amp; other) noexcept
+            : m_stream(other.m_stream), m_initialized(other.m_initialized), m_buffer(std::move(other.m_buffer)) {
+            other.m_initialized = false;
+        }
+        StreamDecompressor&amp; operator=(StreamDecompressor&amp;&amp; other) noexcept {
+            if (this != &amp;other) {
+                if (m_initialized) inflateEnd(&amp;m_stream);
+                m_stream = other.m_stream; m_initialized = other.m_initialized; m_buffer = std::move(other.m_buffer);
+                other.m_initialized = false;
+            }
+            return *this;
+        }
+        StreamDecompressor(const StreamDecompressor&amp;) = delete;
+        StreamDecompressor&amp; operator=(const StreamDecompressor&amp;) = delete;
+
+        std::vector&lt;uint8_t&gt; DecompressChunk(std::span&lt;const uint8_t&gt; data, bool isLastChunk = false) {
+            if (!m_initialized) throw CompressionException("스트림 압축 해제기가 초기화되지 않았습니다");
+            if (data.size() &gt; (std::numeric_limits&lt;uInt&gt;::max)()) throw std::length_error("입력 청크가 zlib 한도를 초과했습니다");
+
+            m_stream.avail_in = static_cast&lt;uInt&gt;(data.size());
+            m_stream.next_in = reinterpret_cast&lt;Bytef*&gt;(const_cast&lt;uint8_t*&gt;(data.data()));
+
+            std::vector&lt;uint8_t&gt; result;
+            bool streamEnd = false;
+            do {
+                m_stream.avail_out = static_cast&lt;uInt&gt;(m_buffer.size());
+                m_stream.next_out = reinterpret_cast&lt;Bytef*&gt;(m_buffer.data());
+
+                int status = inflate(&amp;m_stream, Z_NO_FLUSH);
+                if (status == Z_STREAM_END) streamEnd = true;
+                else if (status &lt; 0) throw CompressionException(std::format("청크 압축 해제 중 오류 발생: {}", GetZlibErrorString(status)));
+
+                size_t decompressedSize = m_buffer.size() - m_stream.avail_out;
+                size_t prevSize = result.size();
+                result.resize(prevSize + decompressedSize);
+                std::memcpy(result.data() + prevSize, m_buffer.data(), decompressedSize);
+            } while (m_stream.avail_out == 0 &amp;&amp; !streamEnd);
+
+            if (isLastChunk &amp;&amp; !streamEnd) {
+                throw CompressionException("마지막 압축 해제 청크에서 zlib 스트림이 끝나지 않았습니다");
+            }
+            return result;
+        }
+
+        void Reset() {
+            if (m_initialized) {
+                int result = inflateReset(&amp;m_stream);
+                if (result != Z_OK) throw CompressionException(std::format("스트림 압축 해제기 리셋 실패: {}", GetZlibErrorString(result)));
+            }
+        }
+    };
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">do-while과 avail_out — zlib의 "버퍼가 다 찼으면 계속 뽑아내라" 패턴</p>
+    <p>
+      <code>deflate()</code>/<code>inflate()</code> 한 번 호출로 결과가 <code>m_buffer</code> 크기를
+      넘으면(<code>avail_out == 0</code>, 즉 출력 버퍼를 다 채웠으면) zlib은 "아직 더 처리할 결과가
+      남아있다"는 뜻으로 이 상태를 남깁니다. <code>do { ... } while (m_stream.avail_out == 0)</code>은
+      출력 버퍼가 다 차지 않을 때까지(더 이상 뽑아낼 결과가 없을 때까지) 같은 청크에 대해
+      <code>deflate()</code>/<code>inflate()</code>를 반복 호출해, 큰 청크 하나도 작은
+      <code>m_buffer</code>로 안전하게 다 받아낼 수 있게 합니다.
+    </p>
+  </div>
+
+  <h3>주요 기능 설명</h3>
+  <ol>
+    <li><strong>기본 압축/해제</strong> — <code>Compress()</code>/<code>Decompress()</code> 정적 메서드.</li>
+    <li><strong>압축 메타데이터 관리</strong> — <code>CompressionHeader</code>로 압축 방식·수준·원본 크기를 함께 저장.</li>
+    <li><strong>압축 통계</strong> — <code>CompressionStats</code>·<code>GetLastStats()</code>로 압축률과 소요 시간 조회.</li>
+    <li><strong>스트림 기반 압축/해제</strong> — <code>StreamCompressor</code>/<code>StreamDecompressor</code>로 대용량 데이터를 청크 단위로 처리.</li>
+    <li><strong>예외 처리</strong> — <code>CompressionException</code>과 zlib 오류 문자열 변환으로 실패 원인을 명확히 전달.</li>
+  </ol>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">8.5</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>패킷 구조</strong> — 고정 크기 헤더와 가변 길이 데이터를 분리하고, 팩토리 패턴으로
+        타입에 따라 자동으로 알맞은 패킷 객체를 생성했습니다.</li>
+      <li><strong>바이너리 직렬화</strong> — 쓰기/읽기 위치를 스스로 관리하는 헬퍼로 반복적인
+        <code>memcpy</code>를 줄였고, <code>std::bit_cast</code>로 부동소수점도 안전하게
+        엔디안 변환하는 법을 배웠습니다.</li>
+      <li><strong>압축</strong> — zlib 기반 범용 압축과, 위치 데이터에 특화된 델타 압축·양자화를
+        구분해서 사용하는 기준을 세웠습니다.</li>
+      <li><strong>RIO와의 연결</strong> — 압축된 패킷을 등록된 버퍼의 실제 메모리에 복사하고
+        함수 테이블을 통해 <code>RIOSend()</code>를 호출하는 올바른 방법을 확인했습니다.</li>
+      <li><strong>스트리밍 압축</strong> — zlib의 <code>z_stream</code>을 직접 다뤄 큰 데이터를
+        청크 단위로 압축·해제하는 패턴을 익혔습니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>9장. 오목 게임 서버 개발 가이드</h4>
+    <p>
+      1~8장에서 만든 RIO 네트워크 계층과 패킷 시스템을 실제로 조립해, 오목 게임 서버와
+      OpenSiv3D 클라이언트를 처음부터 끝까지 완성합니다.
+      <a href="ch09.html">9장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch07.html">← 7장. 간단한 에코 서버 구현</a>
+  <span class="kicker-num">8 / 9</span>
+  <a href="ch09.html">9장. 오목 게임 서버 개발 가이드 →</a>
+</footer>
+
+</div>
+</body>
+</html>

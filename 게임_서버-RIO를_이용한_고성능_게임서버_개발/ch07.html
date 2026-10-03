@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7장. 간단한 에코 서버 구현 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch06.html">← 6장</a>
+    <a href="index.html">목차</a>
+    <a href="ch08.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 07</div>
+  <h1>간단한 에코 서버 구현</h1>
+  <p class="hero-lead">
+    1장의 블로킹 에코 서버, 3장의 세션 기반 RIO 서버, 6장의 래퍼 클래스 기반 에코 서버에 이어,
+    이번 장은 지금까지 배운 모든 것을 하나의 완결된 파일로 처음부터 다시 쌓아 올리는
+    "정리판"입니다. 클래스를 선언하고, 초기화·연결 수락·송수신·완료 처리를 각각 구현하고, 마지막에
+    실전에서 자주 만나는 RIO 오류들과 그 대처법까지 정리합니다. 8장부터는 이 골격 위에 실제
+    게임 패킷을 얹기 시작하므로, 이 장에서 구조를 확실히 다져둡니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>선언과 구현을 분리해 RIO 서버 클래스를 처음부터 끝까지 완성하는 흐름</li>
+      <li><code>FormatMessageA()</code>로 Winsock 오류 코드를 사람이 읽을 문장으로 바꾸는 법</li>
+      <li>완료가 수신인지 송신인지 상태 플래그로 구분하는 방식과 그 한계</li>
+      <li><code>std::expected</code> + <code>try/catch</code>를 함께 쓰는 예외 안전 설계</li>
+      <li>실전에서 자주 마주치는 RIO 오류 6가지와 원인·해결책</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="basic-echo">
+  <h2><span class="num">7.1</span> RIO를 이용한 기본적인 에코 서버</h2>
+  <p class="sec-sub">지금까지 배운 RIO의 네 가지 특징을 다시 한 번 짚고, 클래스 골격부터 세웁니다.</p>
+
+  <ol>
+    <li><strong>사전 등록된 버퍼</strong> — 모든 송수신 버퍼는 미리 <code>RIORegisterBuffer()</code>로 등록되어야 합니다(2·4장).</li>
+    <li><strong>비동기 완료 통지</strong> — 이벤트 기반 또는 폴링 기반으로 완료를 통지받습니다(5장).</li>
+    <li><strong>요청 큐와 완료 큐</strong> — 비동기 작업은 큐 두 종류로 관리됩니다(2·5장).</li>
+    <li><strong>컨텍스트 기반 처리</strong> — 요청마다 컨텍스트(주로 클라이언트 포인터)를 붙여 완료 시 "누구의 요청이었는지" 식별합니다(3장부터 계속).</li>
+  </ol>
+
+  <p>
+    아래 클래스 선언은 지금까지 만든 여러 버전의 <code>RIOEchoServer</code>·<code>RIOServer</code>와
+    구조가 비슷합니다. 다른 점은 <strong>클라이언트 상태를 <code>is_receiving</code>/
+    <code>is_sending</code> 두 개의 불(bool) 플래그로 추적</strong>한다는 것인데, 이 설계의
+    장단점은 7.3절에서 자세히 다룹니다.
+  </p>
+
+  <pre><code>#include &lt;winsock2.h&gt;  // 반드시 windows.h보다 먼저 포함
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;windows.h&gt;
+#include &lt;algorithm&gt;
+#include &lt;atomic&gt;
+#include &lt;chrono&gt;
+#include &lt;cstring&gt;
+#include &lt;expected&gt;
+#include &lt;format&gt;
+#include &lt;iostream&gt;
+#include &lt;memory&gt;
+#include &lt;mutex&gt;
+#include &lt;limits&gt;
+#include &lt;print&gt;
+#include &lt;stdexcept&gt;
+#include &lt;stop_token&gt;
+#include &lt;string&gt;
+#include &lt;string_view&gt;
+#include &lt;thread&gt;
+#include &lt;vector&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "mswsock.lib")
+
+GUID g_RIOFunctionTableId = WSAID_MULTIPLE_RIO;
+
+class RIOEchoServer {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_{};
+    SOCKET listen_socket_ = INVALID_SOCKET;
+    RIO_CQ completion_queue_ = RIO_INVALID_CQ;
+    RIO_BUFFERID send_buffer_id_ = RIO_INVALID_BUFFERID;
+    RIO_BUFFERID recv_buffer_id_ = RIO_INVALID_BUFFERID;
+
+    std::vector&lt;char&gt; send_buffer_;
+    std::vector&lt;char&gt; recv_buffer_;
+    size_t buffer_size_ = 4096;
+    size_t total_buffer_size_ = 1024 * 1024;
+
+    uint16_t port_ = 9000;
+    int max_connections_ = 1000;
+    std::atomic&lt;bool&gt; running_ = false;
+    std::atomic&lt;size_t&gt; outstanding_requests_ = 0;
+    bool winsock_initialized_ = false;
+
+    std::jthread worker_thread_;
+    std::jthread accept_thread_;
+
+    HANDLE completion_event_ = NULL;
+    bool use_event_notification_ = true;
+
+    struct ClientContext {
+        SOCKET socket = INVALID_SOCKET;
+        RIO_RQ request_queue = RIO_INVALID_RQ;
+        size_t buffer_offset = 0;
+        size_t send_offset = 0;
+        size_t send_remaining = 0;
+        bool is_receiving = false;
+        bool is_sending = false;
+    };
+
+    std::vector&lt;std::unique_ptr&lt;ClientContext&gt;&gt; clients_;
+    std::vector&lt;size_t&gt; free_buffer_offsets_;
+    std::mutex clients_mutex_;
+
+public:
+    RIOEchoServer(uint16_t port = 9000, size_t buffer_size = 4096,
+                 bool use_event_notification = true);
+    ~RIOEchoServer();
+
+    std::expected&lt;void, std::string&gt; Initialize();
+    std::expected&lt;void, std::string&gt; Start();
+    void Stop();
+
+private:
+    std::expected&lt;void, std::string&gt; InitializeWinsock();
+    std::expected&lt;void, std::string&gt; InitializeRIOFunctionTable();
+    std::expected&lt;void, std::string&gt; CreateSocket();
+    std::expected&lt;void, std::string&gt; BindAndListen();
+    std::expected&lt;void, std::string&gt; RegisterBuffers();
+    std::expected&lt;void, std::string&gt; CreateCompletionQueue();
+
+    void AcceptClients(std::stop_token stop_token);
+    std::expected&lt;void, std::string&gt; HandleNewClient(SOCKET client_socket);
+    void RemoveClient(ClientContext* client);
+
+    std::expected&lt;void, std::string&gt; PostReceive(ClientContext* client);
+    std::expected&lt;void, std::string&gt; PostSend(ClientContext* client, size_t data_size, size_t data_offset = 0);
+
+    void ProcessCompletions(std::stop_token stop_token);
+    void HandleCompletion(RIORESULT* results, ULONG result_count);
+
+    std::string GetErrorMessage(DWORD error_code) const;
+    std::string GetLastErrorMessage() const;
+    void LogInfo(std::string_view message);
+    void LogError(std::string_view message);
+};</code></pre>
+</section>
+
+<section class="sec" id="client-connections">
+  <h2><span class="num">7.2</span> 클라이언트 연결 처리</h2>
+
+  <h3>서버 초기화</h3>
+  <p>
+    <code>Initialize()</code>는 지금까지 여러 장에서 반복한 순서 — Winsock 초기화 →
+    함수 테이블 → 소켓 생성 → 버퍼 등록 → 완료 큐 → 바인딩/리스닝 — 을 그대로 따릅니다. 각
+    단계가 <code>std::expected</code>를 반환하므로, 어느 하나라도 실패하면 그 자리에서
+    바로 오류를 전파합니다.
+  </p>
+  <pre><code>RIOEchoServer::RIOEchoServer(uint16_t port, size_t buffer_size, bool use_event_notification)
+    : port_(port), buffer_size_(buffer_size), use_event_notification_(use_event_notification) {
+    if (buffer_size == 0 ||
+        buffer_size &gt; (std::numeric_limits&lt;DWORD&gt;::max)() / static_cast&lt;size_t&gt;(max_connections_)) {
+        throw std::invalid_argument("클라이언트당 버퍼 크기가 유효한 RIO 버퍼 범위를 벗어났습니다");
+    }
+
+    total_buffer_size_ = buffer_size * max_connections_;
+    send_buffer_.resize(total_buffer_size_);
+    recv_buffer_.resize(total_buffer_size_);
+
+    free_buffer_offsets_.reserve(max_connections_);
+    for (size_t i = static_cast&lt;size_t&gt;(max_connections_); i &gt; 0; --i) {
+        free_buffer_offsets_.push_back((i - 1) * buffer_size_);
+    }
+}
+
+RIOEchoServer::~RIOEchoServer() { Stop(); }
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::Initialize() {
+    auto result = InitializeWinsock();
+    if (!result) return result;
+
+    result = InitializeRIOFunctionTable();
+    if (!result) { Stop(); return result; }
+
+    result = CreateSocket();
+    if (!result) { Stop(); return result; }
+
+    result = RegisterBuffers();
+    if (!result) { Stop(); return result; }
+
+    result = CreateCompletionQueue();
+    if (!result) { Stop(); return result; }
+
+    result = BindAndListen();
+    if (!result) { Stop(); return result; }
+
+    std::print("서버 초기화 완료 - 포트: {}\n", port_);
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::InitializeWinsock() {
+    WSADATA wsa_data;
+    const int error_code = WSAStartup(MAKEWORD(2, 2), &amp;wsa_data);
+    if (error_code != 0) return std::unexpected(GetErrorMessage(static_cast&lt;DWORD&gt;(error_code)));
+    winsock_initialized_ = true;
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::InitializeRIOFunctionTable() {
+    SOCKET temp_socket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);
+    if (temp_socket == INVALID_SOCKET) return std::unexpected(GetLastErrorMessage());
+
+    DWORD bytes = 0;
+    int result = WSAIoctl(
+        temp_socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+        &amp;g_RIOFunctionTableId, sizeof(g_RIOFunctionTableId),
+        &amp;rio_fn_table_, sizeof(rio_fn_table_),
+        &amp;bytes, NULL, NULL
+    );
+    closesocket(temp_socket);
+
+    if (result == SOCKET_ERROR) return std::unexpected(GetLastErrorMessage());
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::CreateSocket() {
+    listen_socket_ = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);
+    if (listen_socket_ == INVALID_SOCKET) return std::unexpected(GetLastErrorMessage());
+
+    int opt_value = 1;
+    if (setsockopt(listen_socket_, SOL_SOCKET, SO_REUSEADDR,
+                  reinterpret_cast&lt;char*&gt;(&amp;opt_value), sizeof(opt_value)) == SOCKET_ERROR) {
+        return std::unexpected(GetLastErrorMessage());
+    }
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::BindAndListen() {
+    sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(port_);
+
+    if (bind(listen_socket_, reinterpret_cast&lt;sockaddr*&gt;(&amp;server_addr), sizeof(server_addr)) == SOCKET_ERROR) {
+        return std::unexpected(GetLastErrorMessage());
+    }
+    if (listen(listen_socket_, SOMAXCONN) == SOCKET_ERROR) return std::unexpected(GetLastErrorMessage());
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::RegisterBuffers() {
+    send_buffer_id_ = rio_fn_table_.RIORegisterBuffer(send_buffer_.data(), static_cast&lt;DWORD&gt;(send_buffer_.size()));
+    if (send_buffer_id_ == RIO_INVALID_BUFFERID) return std::unexpected(GetLastErrorMessage());
+
+    recv_buffer_id_ = rio_fn_table_.RIORegisterBuffer(recv_buffer_.data(), static_cast&lt;DWORD&gt;(recv_buffer_.size()));
+    if (recv_buffer_id_ == RIO_INVALID_BUFFERID) return std::unexpected(GetLastErrorMessage());
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::CreateCompletionQueue() {
+    if (use_event_notification_) {
+        completion_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
+        if (completion_event_ == NULL) return std::unexpected(GetLastErrorMessage());
+
+        RIO_NOTIFICATION_COMPLETION completion_type{};
+        completion_type.Type = RIO_EVENT_COMPLETION;
+        completion_type.Event.EventHandle = completion_event_;
+        completion_type.Event.NotifyReset = TRUE;
+
+        completion_queue_ = rio_fn_table_.RIOCreateCompletionQueue(max_connections_ * 2, &amp;completion_type);
+    } else {
+        completion_queue_ = rio_fn_table_.RIOCreateCompletionQueue(max_connections_ * 2, NULL);
+    }
+
+    if (completion_queue_ == RIO_INVALID_CQ) return std::unexpected(GetLastErrorMessage());
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::Start() {
+    if (running_.exchange(true)) return std::unexpected("서버가 이미 실행 중입니다");
+    if (listen_socket_ == INVALID_SOCKET || completion_queue_ == RIO_INVALID_CQ) {
+        running_ = false;
+        return std::unexpected("Initialize()를 성공적으로 호출한 뒤에 Start()를 호출해야 합니다");
+    }
+
+    worker_thread_ = std::jthread([this](std::stop_token stop_token) { this-&gt;ProcessCompletions(stop_token); });
+    accept_thread_ = std::jthread([this](std::stop_token stop_token) { this-&gt;AcceptClients(stop_token); });
+
+    std::print("에코 서버 시작됨 - 포트: {}\n", port_);
+    return {};
+}
+
+void RIOEchoServer::Stop() {
+    running_ = false;
+
+    accept_thread_.request_stop();
+
+    if (listen_socket_ != INVALID_SOCKET) {
+        shutdown(listen_socket_, SD_BOTH);
+        closesocket(listen_socket_);
+        listen_socket_ = INVALID_SOCKET;
+    }
+    if (accept_thread_.joinable()) accept_thread_.join();
+
+    {
+        std::lock_guard&lt;std::mutex&gt; lock(clients_mutex_);
+        for (const auto&amp; client : clients_) {
+            if (client-&gt;socket != INVALID_SOCKET) {
+                closesocket(client-&gt;socket); // 미결 RIO 요청을 취소하고 완료를 발생시킨다.
+                client-&gt;socket = INVALID_SOCKET;
+            }
+        }
+    }
+
+    // 워커는 outstanding_requests_가 0이 될 때까지 취소 완료를 dequeue한다.
+    if (use_event_notification_ &amp;&amp; completion_event_ != NULL) SetEvent(completion_event_);
+    if (worker_thread_.joinable()) worker_thread_.join();
+
+    {
+        std::lock_guard&lt;std::mutex&gt; lock(clients_mutex_);
+        clients_.clear();
+    }
+
+    if (completion_queue_ != RIO_INVALID_CQ) {
+        rio_fn_table_.RIOCloseCompletionQueue(completion_queue_);
+        completion_queue_ = RIO_INVALID_CQ;
+    }
+    if (send_buffer_id_ != RIO_INVALID_BUFFERID) {
+        rio_fn_table_.RIODeregisterBuffer(send_buffer_id_);
+        send_buffer_id_ = RIO_INVALID_BUFFERID;
+    }
+    if (recv_buffer_id_ != RIO_INVALID_BUFFERID) {
+        rio_fn_table_.RIODeregisterBuffer(recv_buffer_id_);
+        recv_buffer_id_ = RIO_INVALID_BUFFERID;
+    }
+    if (completion_event_ != NULL) {
+        CloseHandle(completion_event_);
+        completion_event_ = NULL;
+    }
+
+    if (winsock_initialized_) {
+        WSACleanup();
+        winsock_initialized_ = false;
+    }
+    std::print("에코 서버 종료됨\n");
+}</code></pre>
+
+  <h3>클라이언트 연결 수락 및 관리</h3>
+  <pre><code>void RIOEchoServer::AcceptClients(std::stop_token stop_token) {
+    while (!stop_token.stop_requested() &amp;&amp; running_) {
+        fd_set readable{};
+        FD_SET(listen_socket_, &amp;readable);
+        timeval timeout{ 0, 200000 }; // Stop() 요청을 최대 200ms 안에 확인한다.
+        const int ready = select(0, &amp;readable, nullptr, nullptr, &amp;timeout);
+        if (ready == 0) continue;
+        if (ready == SOCKET_ERROR) {
+            if (running_) LogError(std::format("수락 소켓 대기 실패: {}", GetLastErrorMessage()));
+            continue;
+        }
+
+        sockaddr_in client_addr;
+        int addr_len = sizeof(client_addr);
+
+        SOCKET client_socket = accept(listen_socket_, reinterpret_cast&lt;sockaddr*&gt;(&amp;client_addr), &amp;addr_len);
+        if (client_socket == INVALID_SOCKET) {
+            if (running_) LogError(std::format("클라이언트 연결 수락 실패: {}", GetLastErrorMessage()));
+            continue;
+        }
+        if (!running_) {
+            closesocket(client_socket);
+            break;
+        }
+
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &amp;client_addr.sin_addr, client_ip, sizeof(client_ip));
+        LogInfo(std::format("새 클라이언트 연결됨: {}:{}", client_ip, ntohs(client_addr.sin_port)));
+
+        auto result = HandleNewClient(client_socket);
+        if (!result) {
+            LogError(std::format("클라이언트 처리 실패: {}", result.error()));
+        }
+    }
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::HandleNewClient(SOCKET client_socket) {
+    auto client = std::make_unique&lt;ClientContext&gt;();
+    client-&gt;socket = client_socket;
+    ClientContext* client_context = client.get();
+
+    {
+        std::lock_guard&lt;std::mutex&gt; lock(clients_mutex_);
+        if (free_buffer_offsets_.empty()) {
+            closesocket(client_socket);
+            return std::unexpected("최대 연결 수 초과");
+        }
+
+        client-&gt;buffer_offset = free_buffer_offsets_.back();
+        free_buffer_offsets_.pop_back();
+        client-&gt;request_queue = rio_fn_table_.RIOCreateRequestQueue(
+            client_socket, 1, 1, 1, 1, completion_queue_, completion_queue_, client.get()
+        );
+        if (client-&gt;request_queue == RIO_INVALID_RQ) {
+            free_buffer_offsets_.push_back(client-&gt;buffer_offset);
+            closesocket(client_socket);
+            return std::unexpected(GetLastErrorMessage());
+        }
+
+        // 완료가 즉시 도착해도 RequestContext가 유효하도록 먼저 소유권을 등록한다.
+        clients_.push_back(std::move(client));
+
+        auto recv_result = PostReceive(client_context);
+        if (!recv_result) {
+            closesocket(client_context-&gt;socket);
+            free_buffer_offsets_.push_back(client_context-&gt;buffer_offset);
+            clients_.pop_back();
+            return recv_result;
+        }
+    }
+    return {};
+}
+
+void RIOEchoServer::RemoveClient(ClientContext* client) {
+    if (!client) return;
+
+    std::lock_guard&lt;std::mutex&gt; lock(clients_mutex_);
+    auto it = std::find_if(clients_.begin(), clients_.end(),
+                         [client](const auto&amp; c) { return c.get() == client; });
+    if (it != clients_.end()) {
+        if ((*it)-&gt;socket != INVALID_SOCKET) {
+            closesocket((*it)-&gt;socket);
+            (*it)-&gt;socket = INVALID_SOCKET;
+        }
+        free_buffer_offsets_.push_back((*it)-&gt;buffer_offset);
+        LogInfo("클라이언트 연결 종료");
+        clients_.erase(it);
+    }
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">최대 동시 요청 수를 1로 제한한 이유</p>
+    <p>
+      <code>RIOCreateRequestQueue()</code>의 최대 수신·송신 요청 수를 모두 <code>1</code>로
+      두었습니다. 이 예제는 수신 완료 뒤에만 송신을 요청하고, 송신이 모두 끝난 뒤에만 다음 수신을
+      요청하므로 실제로는 클라이언트당 미결 요청이 항상 하나입니다. 이 엄격한 순서가 7.3절의
+      상태 플래그 기반 완료 판별 방식이 성립하는 전제 조건이기도 합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="send-recv">
+  <h2><span class="num">7.3</span> 데이터 송수신 구현</h2>
+
+  <pre><code>std::expected&lt;void, std::string&gt; RIOEchoServer::PostReceive(ClientContext* client) {
+    if (!client || client-&gt;request_queue == RIO_INVALID_RQ) {
+        return std::unexpected("유효하지 않은 클라이언트");
+    }
+    if (client-&gt;is_receiving) return {};   // 이미 진행 중이면 조용히 넘어감
+
+    RIO_BUF receive_buffer{};
+    receive_buffer.BufferId = recv_buffer_id_;
+    receive_buffer.Offset = static_cast&lt;DWORD&gt;(client-&gt;buffer_offset);
+    receive_buffer.Length = static_cast&lt;DWORD&gt;(buffer_size_);
+
+    DWORD flags = 0;
+    client-&gt;is_receiving = true; // 완료가 즉시 dequeue되어도 상태가 먼저 보이게 한다.
+    outstanding_requests_.fetch_add(1, std::memory_order_relaxed);
+    if (!rio_fn_table_.RIOReceive(client-&gt;request_queue, &amp;receive_buffer, 1, flags, client)) {
+        client-&gt;is_receiving = false;
+        outstanding_requests_.fetch_sub(1, std::memory_order_relaxed);
+        return std::unexpected(GetLastErrorMessage());
+    }
+
+    return {};
+}
+
+std::expected&lt;void, std::string&gt; RIOEchoServer::PostSend(
+    ClientContext* client, size_t data_size, size_t data_offset) {
+    if (!client || client-&gt;request_queue == RIO_INVALID_RQ) {
+        return std::unexpected("유효하지 않은 클라이언트");
+    }
+    if (client-&gt;is_sending) return std::unexpected("송신 요청이 이미 진행 중입니다");
+    if (data_size == 0 || data_offset &gt; buffer_size_ || data_size &gt; buffer_size_ - data_offset) {
+        return std::unexpected("송신할 데이터 범위가 클라이언트 버퍼를 벗어났습니다");
+    }
+
+    std::memcpy(send_buffer_.data() + client-&gt;buffer_offset + data_offset,
+                recv_buffer_.data() + client-&gt;buffer_offset + data_offset, data_size);
+
+    RIO_BUF send_buffer{};
+    send_buffer.BufferId = send_buffer_id_;
+    send_buffer.Offset = static_cast&lt;DWORD&gt;(client-&gt;buffer_offset + data_offset);
+    send_buffer.Length = static_cast&lt;DWORD&gt;(data_size);
+
+    DWORD flags = 0;
+    client-&gt;is_sending = true; // 완료가 즉시 dequeue되어도 상태가 먼저 보이게 한다.
+    outstanding_requests_.fetch_add(1, std::memory_order_relaxed);
+    if (!rio_fn_table_.RIOSend(client-&gt;request_queue, &amp;send_buffer, 1, flags, client)) {
+        client-&gt;is_sending = false;
+        outstanding_requests_.fetch_sub(1, std::memory_order_relaxed);
+        return std::unexpected(GetLastErrorMessage());
+    }
+
+    return {};
+}</code></pre>
+
+  <h3>완료가 수신인지 송신인지, 플래그로 구분하기</h3>
+  <p>
+    <code>HandleCompletion()</code>이 완료 결과를 받았을 때, 그 완료가 방금 끝난 수신인지 송신인지
+    알아야 다음 행동(에코 전송 또는 다음 수신 예약)을 정할 수 있습니다. 이 서버는 3장에서 썼던
+    <code>RecvContext</code>/<code>SendContext</code>(세션마다 수신·송신용 컨텍스트를 따로 두는 방식) 대신,
+    <code>is_receiving</code>/<code>is_sending</code> 두 불(bool) 값의 조합으로 완료 종류를
+    추론합니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 260" role="img" aria-labelledby="state-title state-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="state-title">클라이언트 연결의 수신·송신 상태 전이도</title>
+      <desc id="state-desc">클라이언트는 연결 직후 수신 대기 상태에서 시작해, 데이터 수신 완료 시 송신 대기로, 에코 송신 완료 시 다시 수신 대기로 순환하며, 어느 상태에서든 전송 바이트 수가 0이면 연결 종료 상태로 전이하는 상태 다이어그램.</desc>
+      <defs>
+        <marker id="st-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <circle cx="40" cy="68" r="5" fill="#201d1a"/>
+      <line x1="45" y1="68" x2="76" y2="68" stroke="#201d1a" stroke-width="1.2" marker-end="url(#st-arrow)"/>
+
+      <rect x="80" y="40" width="180" height="56" rx="8" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="170" y="64" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">수신 대기</text>
+      <text x="170" y="80" text-anchor="middle" fill="#8f5f1e" font-size="8" font-family="'Geist Mono',monospace">is_receiving = true</text>
+
+      <rect x="420" y="40" width="180" height="56" rx="8" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="510" y="64" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">송신 대기</text>
+      <text x="510" y="80" text-anchor="middle" fill="#8f5f1e" font-size="8" font-family="'Geist Mono',monospace">is_sending = true</text>
+
+      <rect x="250" y="176" width="180" height="56" rx="8" fill="rgba(32,29,26,0.04)" stroke="rgba(32,29,26,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="340" y="200" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">연결 종료</text>
+      <text x="340" y="216" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">RemoveClient()</text>
+
+      <!-- 수신대기 -> 송신대기 -->
+      <line x1="260" y1="68" x2="416" y2="68" stroke="#6b6259" stroke-width="1.2" marker-end="url(#st-arrow)"/>
+      <rect x="272" y="48" width="132" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="338" y="57" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">수신 완료 → PostSend()</text>
+
+      <!-- 송신대기 -> 수신대기 (above) -->
+      <line x1="510" y1="40" x2="510" y2="16" stroke="#6b6259" stroke-width="1.2"/>
+      <line x1="510" y1="16" x2="170" y2="16" stroke="#6b6259" stroke-width="1.2"/>
+      <line x1="170" y1="16" x2="170" y2="40" stroke="#6b6259" stroke-width="1.2" marker-end="url(#st-arrow)"/>
+      <rect x="270" y="4" width="140" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="340" y="13" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">송신 완료 → PostReceive()</text>
+
+      <!-- 수신대기 -> 종료 -->
+      <line x1="220" y1="96" x2="220" y2="140" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="4,3"/>
+      <line x1="220" y1="140" x2="290" y2="140" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="4,3"/>
+      <line x1="290" y1="140" x2="290" y2="176" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#st-arrow)"/>
+
+      <!-- 송신대기 -> 종료 -->
+      <line x1="460" y1="96" x2="460" y2="140" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="4,3"/>
+      <line x1="460" y1="140" x2="390" y2="140" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="4,3"/>
+      <line x1="390" y1="140" x2="390" y2="176" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="4,3" marker-end="url(#st-arrow)"/>
+
+      <rect x="200" y="128" width="120" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="260" y="137" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">BytesTransferred==0</text>
+
+      <line x1="40" y1="248" x2="640" y2="248" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="252" fill="#6b6259" font-size="1" font-family="'Geist Mono',monospace"> </text>
+    </svg>
+    <p class="dcap">그림 7-1. 두 상태를 번갈아 오가는 것을 전제로, is_receiving/is_sending 조합만으로 완료 종류를 구분합니다</p>
+  </div>
+
+  <pre><code>void RIOEchoServer::ProcessCompletions(std::stop_token stop_token) {
+    constexpr DWORD max_results = 32;
+    std::vector&lt;RIORESULT&gt; results(max_results);
+
+    while (!stop_token.stop_requested() &amp;&amp; (running_ || outstanding_requests_ != 0)) {
+        ULONG num_results = 0;
+
+        if (use_event_notification_) {
+            const int notify_result = rio_fn_table_.RIONotify(completion_queue_);
+            if (notify_result != ERROR_SUCCESS) {
+                LogError(std::format("RIONotify 실패: {}", GetErrorMessage(notify_result)));
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+
+            DWORD wait_result = WaitForSingleObject(completion_event_, 1000);
+            if (wait_result == WAIT_OBJECT_0) {
+                num_results = rio_fn_table_.RIODequeueCompletion(completion_queue_, results.data(), max_results);
+            } else if (wait_result == WAIT_TIMEOUT) {
+                continue;
+            } else {
+                LogError(std::format("완료 이벤트 대기 실패: {}", GetLastErrorMessage()));
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+        } else {
+            num_results = rio_fn_table_.RIODequeueCompletion(completion_queue_, results.data(), max_results);
+            if (num_results == 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+        }
+
+        if (num_results == RIO_CORRUPT_CQ) {
+            LogError("완료 큐 손상: 메모리 손상 또는 RIO API 사용 오류를 점검해야 합니다");
+            break;
+        }
+
+        if (num_results &gt; 0) HandleCompletion(results.data(), num_results);
+    }
+}
+
+void RIOEchoServer::HandleCompletion(RIORESULT* results, ULONG result_count) {
+    for (ULONG i = 0; i &lt; result_count; ++i) {
+        RIORESULT&amp; result = results[i];
+        outstanding_requests_.fetch_sub(1, std::memory_order_relaxed);
+        ClientContext* client = reinterpret_cast&lt;ClientContext*&gt;(result.RequestContext);
+
+        if (!client) {
+            LogError("유효하지 않은 클라이언트 컨텍스트");
+            continue;
+        }
+        if (result.Status != ERROR_SUCCESS) {
+            LogError(std::format("RIO 완료 실패: {}", GetErrorMessage(static_cast&lt;DWORD&gt;(result.Status))));
+            RemoveClient(client);
+            continue;
+        }
+        if (!running_) {
+            RemoveClient(client);
+            continue;
+        }
+        if (result.BytesTransferred == 0) {
+            RemoveClient(client);
+            continue;
+        }
+
+        if (client-&gt;is_receiving &amp;&amp; !client-&gt;is_sending) {
+            client-&gt;is_receiving = false;
+            LogInfo(std::format("데이터 수신: {} 바이트", result.BytesTransferred));
+
+            client-&gt;send_offset = 0;
+            client-&gt;send_remaining = result.BytesTransferred;
+            auto send_result = PostSend(client, client-&gt;send_remaining, client-&gt;send_offset);
+            if (!send_result) {
+                LogError(std::format("송신 요청 실패: {}", send_result.error()));
+                RemoveClient(client);
+            }
+        } else if (client-&gt;is_sending &amp;&amp; !client-&gt;is_receiving) {
+            client-&gt;is_sending = false;
+            LogInfo(std::format("데이터 송신: {} 바이트", result.BytesTransferred));
+
+            if (result.BytesTransferred &gt; client-&gt;send_remaining) {
+                LogError("송신 완료 바이트 수가 요청 범위를 벗어났습니다");
+                RemoveClient(client);
+                continue;
+            }
+
+            client-&gt;send_offset += result.BytesTransferred;
+            client-&gt;send_remaining -= result.BytesTransferred;
+            if (client-&gt;send_remaining != 0) {
+                auto send_result = PostSend(client, client-&gt;send_remaining, client-&gt;send_offset);
+                if (!send_result) {
+                    LogError(std::format("나머지 송신 요청 실패: {}", send_result.error()));
+                    RemoveClient(client);
+                }
+            } else {
+                auto recv_result = PostReceive(client);
+                if (!recv_result) {
+                    LogError(std::format("수신 요청 실패: {}", recv_result.error()));
+                    RemoveClient(client);
+                }
+            }
+        } else {
+            LogError("예상치 못한 클라이언트 상태");
+            RemoveClient(client);
+        }
+    }
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">이 방식이 통하는 이유, 그리고 깨지는 조건</p>
+    <p>
+      <code>PostSend()</code>는 이미 송신 중이면 <code>std::unexpected</code>를 반환하고,
+      <code>HandleCompletion()</code>은 수신 완료 처리 후에만 <code>PostSend()</code>를,
+      송신 완료 처리 후에만 <code>PostReceive()</code>를 호출합니다. 즉 코드 스스로 "수신 → 송신 →
+      수신 → 송신 …" 순서를 강제하기 때문에, <strong>두 상태가 동시에 참이 되는 일이 없다</strong>는
+      전제가 성립하고, 그 덕분에 <code>bool</code> 두 개만으로 완료 종류를 안전하게 구분할 수
+      있습니다. 하지만 이 서버를 확장해 <strong>수신과 송신을 동시에(전이중, full-duplex)
+      진행</strong>해야 하는 상황 — 예를 들어 클라이언트가 계속 이동 패킷을 보내는 동안 서버도
+      독립적으로 브로드캐스트 메시지를 밀어 넣어야 하는 실제 게임 서버 — 이 되면 이 전제가
+      깨지고, <code>HandleCompletion()</code>의 <code>else</code> 분기("예상치 못한 상태")로
+      빠져 연결이 끊깁니다. 실전에서 다중 동시 요청을 허용하려면 3장에서 배운
+      <code>RecvContext</code>/<code>SendContext</code>처럼 요청마다 고유한
+      <code>RequestContext</code>를 넘겨 완료 종류를 직접 구분하는 편이 훨씬 견고합니다.
+    </p>
+  </div>
+
+  <div class="callout info">
+    <p class="ctitle">송신은 한 번에 전부 끝난다고 가정하면 안 됩니다</p>
+    <p>
+      TCP 송신 완료의 <code>BytesTransferred</code>는 요청한 길이보다 작을 수 있습니다. 따라서 예제는
+      <code>send_offset</code>과 <code>send_remaining</code>을 유지해 남은 바이트를 다시
+      <code>PostSend()</code>합니다. 완료 결과는 먼저 <code>Status</code>가 성공인지 확인한 뒤에만
+      바이트 수를 해석합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="error-handling">
+  <h2><span class="num">7.4</span> 오류 처리 및 예외 관리</h2>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">FormatMessageA()</span></div>
+    <div class="api-body">
+      <p>
+        지금까지의 모든 장에서 오류가 나면 <code>WSAGetLastError()</code>가 돌려주는 숫자
+        코드만 출력했습니다. <code>FormatMessageA()</code>는 이 숫자를 Windows가 미리 등록해둔
+        <strong>사람이 읽을 수 있는 오류 문장</strong>으로 바꿔줍니다 — 예를 들어 코드
+        10054는 "원격 호스트에 의해 기존 연결이 강제로 끊겼습니다"처럼 번역됩니다.
+      </p>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>FORMAT_MESSAGE_ALLOCATE_BUFFER</code></td><td>메시지를 담을 버퍼를 함수가 직접 할당하게 함(호출자는 <code>LocalFree()</code>로 해제).</td></tr>
+        <tr><td><code>FORMAT_MESSAGE_FROM_SYSTEM</code></td><td>Windows 시스템이 미리 등록한 오류 메시지 테이블에서 찾음.</td></tr>
+        <tr><td><code>FORMAT_MESSAGE_IGNORE_INSERTS</code></td><td>메시지에 <code>%1</code> 같은 삽입 인자가 있어도 무시하고 그대로 반환.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <pre><code>std::string RIOEchoServer::GetErrorMessage(DWORD error_code) const {
+    if (error_code == 0) return "알 수 없는 오류";
+
+    char* message_buffer = nullptr;
+    DWORD message_size = FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr, error_code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        reinterpret_cast&lt;LPSTR&gt;(&amp;message_buffer), 0, nullptr
+    );
+
+    if (message_buffer == nullptr) return std::format("오류 코드: {}", error_code);
+
+    std::string error_message(message_buffer, message_size);
+    LocalFree(message_buffer);   // FORMAT_MESSAGE_ALLOCATE_BUFFER로 받은 메모리는 직접 해제해야 함
+
+    if (!error_message.empty() &amp;&amp; error_message.back() == '\n') error_message.pop_back();
+    if (!error_message.empty() &amp;&amp; error_message.back() == '\r') error_message.pop_back();
+
+    return std::format("오류 코드: {} - {}", error_code, error_message);
+}
+
+std::string RIOEchoServer::GetLastErrorMessage() const {
+    return GetErrorMessage(WSAGetLastError());
+}
+
+void RIOEchoServer::LogInfo(std::string_view message) { std::print("[정보] {}\n", message); }
+void RIOEchoServer::LogError(std::string_view message) { std::print("[오류] {}\n", message); }</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">줄바꿈을 제거하는 두 줄이 있는 이유</p>
+    <p>
+      Windows 시스템 오류 메시지는 끝에 <code>\r\n</code>이 붙어 오는 경우가 많습니다. 이를 그대로
+      로그에 출력하면 한 줄짜리 오류 로그가 중간에 개행되어 보기 불편해집니다. <code>pop_back()</code>
+      두 번으로 끝의 개행 문자를 제거해, 로그 한 줄에 오류 메시지 하나가 깔끔하게 나오도록 합니다.
+    </p>
+  </div>
+
+  <h3>안전한 예외 처리 전략</h3>
+  <p>
+    이 책의 다른 코드는 대부분 <code>std::expected</code>로 예외 없이 오류를 처리하지만,
+    <code>main()</code> 최상위에는 여전히 <code>try/catch</code>를 둡니다. 6장에서 봤듯
+    <code>RIOCompletionQueue</code> 같은 클래스의 생성자가 <code>std::runtime_error</code>를
+    던질 수 있고, 예상치 못한 표준 라이브러리 예외(예: <code>std::bad_alloc</code>)가 발생할 수도
+    있기 때문입니다.
+  </p>
+  <pre><code>void RunEchoServerSafely(uint16_t port = 9000) {
+    try {
+        std::print("RIO 에코 서버 시작 중...\n");
+
+        RIOEchoServer server(port);
+
+        auto init_result = server.Initialize();
+        if (!init_result) {
+            std::print("서버 초기화 실패: {}\n", init_result.error());
+            return;
+        }
+
+        auto start_result = server.Start();
+        if (!start_result) {
+            std::print("서버 시작 실패: {}\n", start_result.error());
+            return;
+        }
+
+        std::print("서버가 포트 {}에서 실행 중입니다. 종료하려면 Enter 키를 누르세요...\n", port);
+        std::cin.get();
+
+        server.Stop();
+        std::print("서버가 정상적으로 종료되었습니다.\n");
+
+    } catch (const std::exception&amp; e) {
+        std::print("예외 발생: {}\n", e.what());
+    } catch (...) {
+        std::print("알 수 없는 예외 발생\n");
+    }
+}
+
+int main() {
+    RunEchoServerSafely(9000);
+    return 0;
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">catch (...) 가 마지막에 있는 이유</p>
+    <p>
+      <code>catch (const std::exception&amp;)</code>는 표준 라이브러리가 던지는 대부분의 예외를
+      잡지만, 이론적으로는 <code>std::exception</code>을 상속하지 않는 임의의 타입도 예외로 던질
+      수 있습니다(예: 정수, 문자열 리터럴). <code>catch (...)</code>는 그런 "무엇인지 알 수 없는"
+      예외까지 모두 잡아, 서버 프로세스가 처리되지 않은 예외로 인해 아예 죽어버리는 최악의 상황을
+      막는 마지막 안전망입니다.
+    </p>
+  </div>
+
+  <h3>일반적인 RIO 오류와 해결 방법</h3>
+  <table class="cmp">
+    <thead><tr><th>오류</th><th>원인</th><th>해결</th></tr></thead>
+    <tbody>
+      <tr><td>버퍼 등록 실패<br><code>ERROR_NOT_ENOUGH_MEMORY</code></td><td>등록하려는 버퍼가 너무 크거나 시스템 리소스 부족</td><td>버퍼 크기 축소, 시스템 메모리 확인, 불필요한 프로세스 종료</td></tr>
+      <tr><td>RIO 함수 테이블 초기화 실패</td><td>Windows 버전 미지원, Winsock 초기화 누락</td><td>Windows 8/Server 2012 이상 확인, WSAStartup 선행 여부 점검</td></tr>
+      <tr><td>완료 큐 생성 실패</td><td>큐 크기 과다, 시스템 리소스 부족</td><td>완료 큐 크기 축소, 시스템 리소스 확인</td></tr>
+      <tr><td>요청 큐 생성 실패</td><td>소켓이 유효하지 않거나 RIO 미호환</td><td>소켓 생성 코드 점검, <code>WSA_FLAG_REGISTERED_IO</code> 플래그 확인</td></tr>
+      <tr><td>송수신 요청 실패<br>(<code>RIOSend</code>/<code>RIOReceive</code>가 <code>FALSE</code> 반환)</td><td>미결 요청 한도 초과, 유효하지 않은 요청 큐·버퍼 범위, 소켓 또는 리소스 오류</td><td><code>WSAGetLastError()</code> 값을 먼저 확인하고, 미결 요청 수·버퍼 ID/오프셋/길이·소켓 수명을 점검. 한도 초과라면 완료 뒤에 다음 요청을 내거나 <code>RIOResizeRequestQueue()</code>로 한도를 조정</td></tr>
+      <tr><td>완료 큐 손상<br><code>RIO_CORRUPT_CQ</code></td><td>메모리 손상 또는 RIO 함수 사용 규약 위반</td><td>버퍼 경계와 요청·완료 큐 동기화를 점검하고, 손상된 큐는 계속 사용하지 말고 서버를 안전하게 종료</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="sec" id="wrapup">
+  <h2><span class="num">7.5</span> 전체 구현 정리</h2>
+  <ol>
+    <li><strong>비동기 I/O 처리</strong> — RIO의 요청/완료 모델을 활용한 효율적인 처리.</li>
+    <li><strong>사전 등록된 버퍼</strong> — 모든 송수신 버퍼를 미리 등록해 성능을 최적화.</li>
+    <li><strong>이벤트/폴링 기반 완료 처리</strong> — 두 통지 방식을 모두 지원.</li>
+    <li><strong>요청 수명 관리</strong> — 미결 요청 수를 추적해 취소 완료까지 dequeue한 뒤 자원을 해제.</li>
+    <li><strong>예외 안전 설계</strong> — <code>std::expected</code>와 체계적인 오류 처리로 안정성 확보.</li>
+    <li><strong>모던 C++23 활용</strong> — 최신 C++ 기능으로 안전하고 가독성 높은 코드 작성.</li>
+  </ol>
+
+  <div class="callout info">
+    <p class="ctitle">여기서부터 실제 게임 서버로 나아가려면</p>
+    <p>이 에코 서버는 온라인 게임 서버의 기초 골격입니다. 실제 게임 서버로 확장하려면 다음이 더 필요합니다.</p>
+    <ol style="margin:8px 0 0;">
+      <li>패킷 직렬화 및 역직렬화 기능 — <strong>8장</strong>에서 다룹니다.</li>
+      <li>세션 관리 및 인증 시스템</li>
+      <li>게임 상태 관리 및 동기화 — <strong>9장</strong>의 오목 게임 예제에서 다룹니다.</li>
+      <li>부하 분산 및 확장성 지원</li>
+      <li>성능 모니터링 및 최적화</li>
+    </ol>
+  </div>
+
+  <h3>전체 코드</h3>
+  <p>
+    지금까지 선언과 구현으로 나눠 살펴본 <code>RIOEchoServer</code>를 한 파일로 합치면 아래와
+    같습니다. 컴파일하려면 이 클래스 정의(7.1절)와 각 메서드 구현(7.2~7.4절)을 순서대로 이어붙이고,
+    마지막에 <code>RunEchoServerSafely()</code>와 <code>main()</code>을 두면 됩니다. 코드 자체는
+    위에서 이미 전부 등장했으므로 여기서는 파일 구성 순서만 정리합니다.
+  </p>
+  <pre><code>// 1. 헤더 include + GUID 선언                         (7.1절)
+// 2. class RIOEchoServer { ... };                       (7.1절 클래스 선언)
+// 3. 생성자/소멸자/Initialize/InitializeWinsock/
+//    InitializeRIOFunctionTable/CreateSocket/
+//    BindAndListen/RegisterBuffers/CreateCompletionQueue/
+//    Start/Stop 구현                                     (7.2절)
+// 4. AcceptClients/HandleNewClient/RemoveClient 구현      (7.2절)
+// 5. PostReceive/PostSend/ProcessCompletions/
+//    HandleCompletion 구현                                (7.3절)
+// 6. GetErrorMessage/GetLastErrorMessage/LogInfo/LogError 구현 (7.4절)
+// 7. RunEchoServerSafely() + main()                       (7.4절)</code></pre>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">7.6</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>완결된 구조</strong> — 선언과 구현을 나눠 RIO 서버를 처음부터 끝까지 완성하는
+        흐름을 한 번 더 확인했습니다.</li>
+      <li><strong>FormatMessageA</strong> — Winsock 오류 코드를 사람이 읽을 문장으로 바꿔
+        디버깅을 훨씬 쉽게 만들었습니다.</li>
+      <li><strong>상태 플래그의 한계</strong> — <code>is_receiving</code>/<code>is_sending</code>
+        플래그 방식은 엄격한 순차 프로토콜에서만 안전하며, 전이중 통신에는 3장의
+        <code>RecvContext</code>/<code>SendContext</code>처럼 요청마다 고유한 컨텍스트를 넘기는
+        방식이 더 견고합니다.</li>
+      <li><strong>예외 안전 설계</strong> — <code>std::expected</code>로 예상 가능한 실패를,
+        <code>try/catch</code>로 예상치 못한 예외를 각각 처리하는 이중 방어선을 갖췄습니다.</li>
+      <li><strong>실전 오류 대응표</strong> — 자주 마주치는 RIO 오류 6가지의 원인과 해결책을
+        정리했습니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>8장. 패킷 처리 및 직렬화</h4>
+    <p>
+      지금까지는 "받은 바이트를 그대로 돌려보내는" 에코였습니다. 8장에서는 그 바이트를 의미 있는
+      게임 패킷으로 구조화하는 방법 — 패킷 헤더 설계, 바이너리 프로토콜, 압축 — 을 다룹니다.
+      <a href="ch08.html">8장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch06.html">← 6장. 모던 C++ RIO 래퍼 클래스</a>
+  <span class="kicker-num">7 / 9</span>
+  <a href="ch08.html">8장. 패킷 처리 및 직렬화 →</a>
+</footer>
+
+</div>
+</body>
+</html>

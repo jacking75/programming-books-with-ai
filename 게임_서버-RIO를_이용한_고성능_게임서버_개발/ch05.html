@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5장. RIO 큐 및 완료 알림 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="ch04.html">← 4장</a>
+    <a href="index.html">목차</a>
+    <a href="ch06.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 05</div>
+  <h1>RIO 큐 및 완료 알림</h1>
+  <p class="hero-lead">
+    3장까지는 요청 큐 하나, 완료 큐 하나로 서버 전체를 운영했습니다. 이번 장에서는 그 큐들을
+    <strong>여러 개로 늘려 CPU 코어마다 나눠 갖는 전략</strong>과, "완료됐다"는 사실을
+    <strong>이벤트로 통지받을지, 계속 확인(폴링)할지</strong>를 다룹니다. 두 선택 모두 정답이 하나로
+    정해져 있지 않고, 서버가 감당할 트래픽 패턴에 따라 달라집니다 — 이 장을 통해 그 판단 기준을
+    세울 수 있는 도구들을 갖추게 됩니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>요청 큐·완료 큐를 재사용 가능한 관리자 클래스로 캡슐화하는 방법</li>
+      <li>스레드마다 전용 완료 큐를 두어 큐 접근 경합을 줄이는 설계</li>
+      <li>이벤트 기반 통지와 폴링 기반 통지의 실제 구현 차이와 트레이드오프</li>
+      <li>여러 코어를 활용하는 RIO 스레드 풀 구현</li>
+      <li>배치 전송, 우선순위 기반 처리, 적응형 폴링 같은 실전 최적화 기법</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="request-queue">
+  <h2><span class="num">5.1</span> 요청 큐 생성 및 관리</h2>
+  <p class="sec-sub">요청 큐 생성 로직을 재사용 가능한 클래스로 뽑아내고, 여러 개를 한꺼번에 관리하는 법을 다룹니다.</p>
+
+  <h3>요청 큐의 생성</h3>
+  <p>
+    <code>RIOQueueManager</code>는 3장에서 반복해서 작성했던 "소켓 하나에 요청 큐를 만드는" 로직을
+    독립된 클래스로 뽑아낸 것입니다. 요청 큐는 생성자에서 만들지만, <code>RIO_RQ</code>에는 독립적인
+    close API가 없습니다. 관련 완료를 모두 꺼낸 다음 <strong>소켓을 닫을 때</strong> 요청 큐도 함께
+    해제되므로, 이 래퍼는 소켓보다 먼저 파괴되어야 합니다.
+  </p>
+  <pre><code>#include &lt;winsock2.h&gt;   // windows.h보다 먼저 포함해야 Winsock.h와 충돌하지 않습니다.
+#include &lt;windows.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;algorithm&gt;
+#include &lt;chrono&gt;
+#include &lt;functional&gt;
+#include &lt;iostream&gt;
+#include &lt;limits&gt;
+#include &lt;mutex&gt;
+#include &lt;stdexcept&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+#include &lt;memory&gt;
+#include &lt;thread&gt;
+#include &lt;atomic&gt;
+#include &lt;span&gt;
+#include &lt;utility&gt;
+
+// std::span과 std::jthread를 사용하므로 이 장의 예제는 C++20 이상이 필요합니다.
+
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "mswsock.lib")
+
+class RIOQueueManager {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+    SOCKET socket_ = INVALID_SOCKET;
+    RIO_CQ completion_queue_ = RIO_INVALID_CQ;
+    RIO_RQ request_queue_ = RIO_INVALID_RQ;
+
+    DWORD max_outstanding_receive_ = 0;
+    DWORD max_outstanding_send_ = 0;
+
+public:
+    RIOQueueManager(SOCKET socket, const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                    DWORD max_outstanding_receive, DWORD max_outstanding_send,
+                    RIO_CQ completion_queue)
+        : rio_fn_table_(rio_fn_table), socket_(socket), completion_queue_(completion_queue),
+          max_outstanding_receive_(max_outstanding_receive),
+          max_outstanding_send_(max_outstanding_send) {
+        if (socket_ == INVALID_SOCKET || completion_queue_ == RIO_INVALID_CQ ||
+            max_outstanding_receive_ == 0 || max_outstanding_send_ == 0) {
+            throw std::invalid_argument("RIO 요청 큐의 소켓, 완료 큐, 요청 한도를 확인해야 합니다.");
+        }
+        InitializeRequestQueue();
+    }
+
+    // RIO_RQ는 별도 close API가 없습니다. 이 객체보다 먼저 관련 완료를 모두 회수한 뒤 socket_을 닫습니다.
+    ~RIOQueueManager() = default;
+    RIOQueueManager(const RIOQueueManager&amp;) = delete;
+    RIOQueueManager&amp; operator=(const RIOQueueManager&amp;) = delete;
+
+private:
+    void InitializeRequestQueue() {
+        request_queue_ = rio_fn_table_.RIOCreateRequestQueue(
+            socket_, max_outstanding_receive_, 1, max_outstanding_send_, 1,
+            completion_queue_, completion_queue_, nullptr
+        );
+
+        if (request_queue_ == RIO_INVALID_RQ) {
+            int error = WSAGetLastError();
+            throw std::runtime_error("요청 큐 생성 실패: 오류 코드 " + std::to_string(error));
+        }
+
+        std::cout &lt;&lt; "RIO 요청 큐 생성 성공 - 최대 수신: " &lt;&lt; max_outstanding_receive_
+                  &lt;&lt; ", 최대 송신: " &lt;&lt; max_outstanding_send_ &lt;&lt; std::endl;
+    }
+
+public:
+    RIO_RQ GetRequestQueue() const { return request_queue_; }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">멤버 초기화 순서는 "선언 순서"를 따릅니다</p>
+    <p>
+      실제 초기화는 초기화 목록에 적은 순서가 아니라 클래스에 <strong>선언된 순서</strong>
+      (<code>rio_fn_table_ → socket_ → completion_queue_ → request_queue_ →
+      max_outstanding_receive_ → max_outstanding_send_</code>)대로 일어납니다. 위
+      <code>RIOQueueManager</code>의 초기화 목록은 <code>rio_fn_table_, socket_,
+      completion_queue_, max_outstanding_receive_, max_outstanding_send_</code> 순서로 적혀 있어
+      선언 순서와 정확히 일치하므로 문제가 없습니다. 만약 이 순서가 어긋나면 멤버끼리 서로 값을
+      참조하지 않는 한 결과 자체는 같아도, 컴파일러가 "초기화 목록 순서가 선언 순서와 다르다"는
+      경고(<code>-Wreorder</code>)를 낼 수 있습니다. 실전에서는 초기화 목록을 항상 선언 순서와
+      맞춰 쓰는 습관을 들이면 이런 경고와 잠재적 혼란을 피할 수 있습니다.
+    </p>
+  </div>
+
+  <h3>다중 요청 큐 관리</h3>
+  <p>
+    요청 큐는 <strong>특정 소켓</strong>에 연결됩니다. 따라서 연결을 받기 전에 소켓 하나로 요청 큐를
+    여러 개 만들어 라운드 로빈으로 빌려주는 방식은 맞지 않습니다. 아래 관리자는 이미 존재하는 여러
+    클라이언트 소켓을 각각 하나의 완료 큐에 연결해 보관하는 예제입니다.
+  </p>
+  <pre><code>class RIOMultiQueueManager {
+private:
+    std::vector&lt;std::unique_ptr&lt;RIOQueueManager&gt;&gt; queue_managers_;
+
+public:
+    RIOMultiQueueManager(std::span&lt;SOCKET&gt; sockets, const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                        DWORD max_outstanding_receive, DWORD max_outstanding_send,
+                        std::span&lt;RIO_CQ&gt; completion_queues) {
+        if (sockets.size() != completion_queues.size()) {
+            throw std::invalid_argument("소켓과 완료 큐의 개수가 같아야 합니다.");
+        }
+        queue_managers_.reserve(completion_queues.size());
+        for (size_t i = 0; i &lt; sockets.size(); ++i) {
+            queue_managers_.push_back(std::make_unique&lt;RIOQueueManager&gt;(
+                sockets[i], rio_fn_table, max_outstanding_receive, max_outstanding_send,
+                completion_queues[i]));
+        }
+        std::cout &lt;&lt; "다중 요청 큐 관리자 초기화 완료 - 큐 개수: " &lt;&lt; queue_managers_.size() &lt;&lt; std::endl;
+    }
+
+    RIO_RQ GetRequestQueueByIndex(size_t index) {
+        if (index &lt; queue_managers_.size()) {
+            return queue_managers_[index]-&gt;GetRequestQueue();
+        }
+        return RIO_INVALID_RQ;
+    }
+
+    size_t GetQueueCount() const { return queue_managers_.size(); }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">요청 큐의 소유권과 완료 큐 용량</p>
+    <p>
+      요청 큐는 세션(소켓)이 소유하고, 그 세션이 닫힐 때까지 살아 있어야 합니다. 완료 큐 하나에
+      여러 세션을 연결할 수는 있지만, 그 큐의 크기는 연결된 <strong>모든</strong> 세션의 최대 동시
+      송신·수신 완료 수를 수용해야 합니다. 큐를 고르는 라운드 로빈은 새 세션을 어느 완료 큐에
+      붙일지 결정할 때만 사용하고, 이미 만든 다른 세션의 <code>RIO_RQ</code>를 재사용하면 안 됩니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="completion-queue">
+  <h2><span class="num">5.2</span> 완료 큐 설정</h2>
+  <p class="sec-sub">요청 큐가 "일을 시키는 곳"이라면, 완료 큐는 "일이 끝났다고 알려주는 곳"입니다.</p>
+
+  <h3>완료 큐 생성</h3>
+  <p>
+    <code>RIOCompletionQueueManager</code>는 이벤트 기반 통지와 폴링 기반 통지를 <strong>하나의
+    클래스에서 생성자 인자로 선택</strong>할 수 있도록 설계되어 있습니다. 이렇게 하면 상위 코드는
+    "이 큐가 이벤트를 쓰는지 폴링을 쓰는지" 몰라도 되고, 나중에 전략을 바꿀 때도 이 클래스 하나만
+    건드리면 됩니다.
+  </p>
+  <pre><code>class RIOCompletionQueueManager {
+private:
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+    RIO_CQ completion_queue_ = RIO_INVALID_CQ;
+    DWORD queue_size_ = 0;
+
+    HANDLE notification_event_ = NULL;
+    bool using_event_notification_ = false;
+
+public:
+    RIOCompletionQueueManager(const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, DWORD queue_size,
+                             bool use_event_notification = false)
+        : rio_fn_table_(rio_fn_table), queue_size_(queue_size),
+          using_event_notification_(use_event_notification) {
+        if (queue_size_ == 0 || queue_size_ &gt; RIO_MAX_CQ_SIZE) {
+            throw std::invalid_argument("RIO 완료 큐 크기가 허용 범위를 벗어납니다.");
+        }
+        InitializeCompletionQueue();
+    }
+
+    ~RIOCompletionQueueManager() { CloseCompletionQueue(); }
+    RIOCompletionQueueManager(const RIOCompletionQueueManager&amp;) = delete;
+    RIOCompletionQueueManager&amp; operator=(const RIOCompletionQueueManager&amp;) = delete;
+
+private:
+    void InitializeCompletionQueue() {
+        if (using_event_notification_) {
+            notification_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
+            if (notification_event_ == NULL) {
+                throw std::runtime_error("알림 이벤트 생성 실패: 오류 코드 " + std::to_string(GetLastError()));
+            }
+
+            RIO_NOTIFICATION_COMPLETION notification_completion{};
+            notification_completion.Type = RIO_EVENT_COMPLETION;
+            notification_completion.Event.EventHandle = notification_event_;
+            notification_completion.Event.NotifyReset = TRUE;
+
+            completion_queue_ = rio_fn_table_.RIOCreateCompletionQueue(queue_size_, &amp;notification_completion);
+        } else {
+            // 폴링 방식은 NULL을 넘겨 "통지 방식 없음"으로 큐를 만듭니다
+            completion_queue_ = rio_fn_table_.RIOCreateCompletionQueue(queue_size_, NULL);
+        }
+
+        if (completion_queue_ == RIO_INVALID_CQ) {
+            int error = WSAGetLastError();
+            if (notification_event_ != NULL) {
+                CloseHandle(notification_event_);
+                notification_event_ = NULL;
+            }
+            throw std::runtime_error("완료 큐 생성 실패: 오류 코드 " + std::to_string(error));
+        }
+
+        std::cout &lt;&lt; "RIO 완료 큐 생성 성공 - 크기: " &lt;&lt; queue_size_
+                  &lt;&lt; ", 알림 방식: " &lt;&lt; (using_event_notification_ ? "이벤트" : "폴링") &lt;&lt; std::endl;
+    }
+
+public:
+    void CloseCompletionQueue() {
+        // 이 완료 큐에 연결된 모든 소켓을 먼저 닫고, 완료를 모두 dequeue한 뒤에만 호출합니다.
+        if (completion_queue_ != RIO_INVALID_CQ) {
+            rio_fn_table_.RIOCloseCompletionQueue(completion_queue_);
+            completion_queue_ = RIO_INVALID_CQ;
+        }
+        if (notification_event_ != NULL) {
+            CloseHandle(notification_event_);
+            notification_event_ = NULL;
+        }
+    }
+
+    RIO_CQ GetCompletionQueue() const { return completion_queue_; }
+    HANDLE GetNotificationEvent() const { return notification_event_; }
+    bool IsUsingEventNotification() const { return using_event_notification_; }
+
+    // 이벤트 기반일 때만 의미 있음 — "다음 완료가 생기면 알려달라"고 예약
+    bool RequestNotification() {
+        if (!using_event_notification_ || completion_queue_ == RIO_INVALID_CQ) {
+            return false;
+        }
+        return rio_fn_table_.RIONotify(completion_queue_) == ERROR_SUCCESS;
+    }
+};</code></pre>
+
+  <h3>다중 완료 큐 관리</h3>
+  <p>
+    <code>RIOMultiCompletionQueueManager</code>는 지정한 개수만큼 완료 큐를 한 번에 만들어주는
+    묶음 클래스입니다. 5.4절의 스레드 풀에서 "스레드마다 완료 큐 하나씩"을 만들 때 이 클래스를
+    사용합니다.
+  </p>
+  <pre><code>class RIOMultiCompletionQueueManager {
+private:
+    std::vector&lt;std::unique_ptr&lt;RIOCompletionQueueManager&gt;&gt; completion_queue_managers_;
+
+public:
+    RIOMultiCompletionQueueManager(const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                                 DWORD queue_size, size_t queue_count, bool use_event_notification = false) {
+        completion_queue_managers_.reserve(queue_count);
+        for (size_t i = 0; i &lt; queue_count; ++i) {
+            completion_queue_managers_.push_back(
+                std::make_unique&lt;RIOCompletionQueueManager&gt;(rio_fn_table, queue_size, use_event_notification));
+        }
+        std::cout &lt;&lt; "다중 완료 큐 관리자 초기화 완료 - 큐 개수: " &lt;&lt; completion_queue_managers_.size() &lt;&lt; std::endl;
+    }
+
+    std::vector&lt;RIO_CQ&gt; GetCompletionQueues() const {
+        std::vector&lt;RIO_CQ&gt; queues;
+        queues.reserve(completion_queue_managers_.size());
+        for (const auto&amp; manager : completion_queue_managers_) {
+            queues.push_back(manager-&gt;GetCompletionQueue());
+        }
+        return queues;
+    }
+
+    void RequestAllNotifications() {
+        for (auto&amp; manager : completion_queue_managers_) {
+            if (manager-&gt;IsUsingEventNotification()) manager-&gt;RequestNotification();
+        }
+    }
+
+    RIOCompletionQueueManager* GetManagerByIndex(size_t index) {
+        if (index &lt; completion_queue_managers_.size()) return completion_queue_managers_[index].get();
+        return nullptr;
+    }
+
+    size_t GetQueueCount() const { return completion_queue_managers_.size(); }
+};</code></pre>
+</section>
+
+<section class="sec" id="event-vs-polling">
+  <h2><span class="num">5.3</span> 이벤트 기반 vs 폴링 기반 I/O</h2>
+  <p class="sec-sub">완료를 "알려줄 때까지 잠들어 있을지" 아니면 "계속 눈을 뜨고 확인할지"의 차이입니다.</p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 260" role="img" aria-labelledby="ep-title ep-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="ep-title">이벤트 기반과 폴링 기반 워커 스레드의 활동 패턴 비교</title>
+      <desc id="ep-desc">이벤트 기반 스레드는 대부분의 시간 동안 잠들어 있다가 완료 시점에만 짧게 깨어나 처리하는 반면, 폴링 기반 스레드는 짧은 간격으로 계속 확인을 반복하며 CPU를 지속적으로 사용함을 보여주는 두 줄짜리 타임라인.</desc>
+      <defs>
+        <marker id="ep-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#877d70"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <text x="16" y="88" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">이벤트 기반</text>
+      <rect x="140" y="64" width="300" height="40" rx="4" fill="rgba(32,29,26,0.02)" stroke="rgba(32,29,26,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="290" y="88" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">WaitForSingleObject — 잠듦(CPU 0%)</text>
+      <rect x="440" y="64" width="80" height="40" rx="4" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="480" y="88" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist','Pretendard Variable',sans-serif">일괄 처리</text>
+
+      <text x="16" y="176" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">폴링 기반</text>
+      <rect x="140" y="152" width="10" height="40" fill="rgba(135,125,112,0.35)"/>
+      <rect x="154" y="152" width="10" height="40" fill="rgba(135,125,112,0.35)"/>
+      <rect x="168" y="152" width="10" height="40" fill="rgba(135,125,112,0.35)"/>
+      <rect x="182" y="152" width="10" height="40" fill="rgba(135,125,112,0.35)"/>
+      <rect x="196" y="152" width="10" height="40" fill="rgba(135,125,112,0.35)"/>
+      <text x="240" y="176" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">RIODequeueCompletion 반복 확인</text>
+      <rect x="440" y="152" width="80" height="40" rx="4" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="480" y="176" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist','Pretendard Variable',sans-serif">즉시 처리</text>
+
+      <line x1="140" y1="216" x2="600" y2="216" stroke="#6b6259" stroke-width="1" marker-end="url(#ep-arrow)"/>
+      <text x="608" y="220" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">시간</text>
+
+      <line x1="40" y1="236" x2="640" y2="236" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+    </svg>
+    <p class="dcap">그림 5-1. 이벤트 기반은 CPU를 아끼는 대신 깨어나는 지연이, 폴링 기반은 즉시 반응하는 대신 계속 CPU를 쓰는 대가가 있습니다</p>
+  </div>
+
+  <h3>이벤트 기반 I/O</h3>
+  <p>
+    <code>RIOEventBasedProcessor</code>는 완료를 콜백 함수로 전달합니다. 콜백의 타입을
+    <code>std::function&lt;void(RIORESULT*, DWORD)&gt;</code>로 선언해두면, 람다든 함수 포인터든
+    멤버 함수 바인딩이든 어떤 형태의 호출 가능한 객체도 담을 수 있습니다 — "결과가 나오면 이걸
+    실행해줘"라는 약속을 함수가 아니라 값으로 주고받는 방식입니다.
+  </p>
+  <pre><code>class RIOEventBasedProcessor {
+private:
+    RIOCompletionQueueManager&amp; cq_manager_;
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+    std::atomic&lt;bool&gt; running_{false};
+    std::jthread worker_thread_;
+
+    using CompletionCallback = std::function&lt;void(RIORESULT*, DWORD)&gt;;
+    CompletionCallback completion_callback_;
+
+public:
+    RIOEventBasedProcessor(RIOCompletionQueueManager&amp; cq_manager,
+                          const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                          CompletionCallback callback)
+        : cq_manager_(cq_manager), rio_fn_table_(rio_fn_table), completion_callback_(std::move(callback)) {
+        if (!cq_manager_.IsUsingEventNotification()) {
+            throw std::runtime_error("이벤트 기반 처리기는 이벤트 알림을 사용하는 완료 큐가 필요합니다.");
+        }
+    }
+
+    void Start() {
+        if (running_.exchange(true)) return;
+        worker_thread_ = std::jthread([this](std::stop_token stop_token) { this-&gt;ProcessEvents(stop_token); });
+        std::cout &lt;&lt; "이벤트 기반 RIO 처리기 시작됨" &lt;&lt; std::endl;
+    }
+
+    void Stop() {
+        if (!running_.exchange(false)) return;
+        worker_thread_.request_stop();
+        // WaitForSingleObject에 멈춰 있는 스레드를 깨우기 위해 이벤트를 직접 신호
+        if (cq_manager_.GetNotificationEvent() != NULL) {
+            SetEvent(cq_manager_.GetNotificationEvent());
+        }
+        if (worker_thread_.joinable()) worker_thread_.join();
+        std::cout &lt;&lt; "이벤트 기반 RIO 처리기 중지됨" &lt;&lt; std::endl;
+    }
+
+private:
+    void ProcessEvents(std::stop_token stop_token) {
+        constexpr DWORD max_results = 32;
+        std::vector&lt;RIORESULT&gt; results(max_results);
+
+        while (!stop_token.stop_requested() &amp;&amp; running_) {
+            if (!cq_manager_.RequestNotification()) {
+                std::cerr &lt;&lt; "알림 요청 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+                break;
+            }
+
+            DWORD wait_result = WaitForSingleObject(cq_manager_.GetNotificationEvent(), INFINITE);
+            if (stop_token.stop_requested() || !running_) break;
+            if (wait_result != WAIT_OBJECT_0) {
+                std::cerr &lt;&lt; "이벤트 대기 실패: " &lt;&lt; GetLastError() &lt;&lt; std::endl;
+                continue;
+            }
+
+            ULONG num_results;
+            do {
+                num_results = rio_fn_table_.RIODequeueCompletion(
+                    cq_manager_.GetCompletionQueue(), results.data(), static_cast&lt;ULONG&gt;(results.size()));
+                if (num_results == RIO_CORRUPT_CQ) {
+                    std::cerr &lt;&lt; "완료 큐가 손상되었습니다." &lt;&lt; std::endl;
+                    return;
+                }
+                if (num_results &gt; 0 &amp;&amp; completion_callback_) {
+                    completion_callback_(results.data(), num_results);
+                }
+            } while (num_results &gt; 0 &amp;&amp; !stop_token.stop_requested() &amp;&amp; running_);
+        }
+    }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">깨어난 뒤에는 왜 while로 반복해서 꺼낼까</p>
+    <p>
+      이벤트가 신호된 시점에는 완료가 <strong>여러 건</strong> 동시에 쌓여있을 수 있습니다. 한 번의
+      <code>RIODequeueCompletion()</code> 호출은 최대 <code>max_results</code>(32)건까지만
+      가져오므로, <code>num_results &gt; 0</code>인 동안 계속 반복 호출해 큐가 완전히 빌 때까지
+      비워내야 밀린 요청 없이 처리할 수 있습니다.
+    </p>
+  </div>
+
+  <div class="callout info">
+    <p class="ctitle">콜백의 results 포인터는 호출 중에만 유효합니다</p>
+    <p>
+      <code>results</code> 배열은 처리기 스레드의 지역 벡터입니다. 콜백은 결과를 즉시 처리하고,
+      나중에 쓸 값은 복사해야 합니다. 반면 <code>RIORESULT::RequestContext</code>가 가리키는 세션·송신
+      작업 객체는 완료를 dequeue할 때까지 주소와 수명을 유지해야 합니다.
+    </p>
+  </div>
+
+  <h3>폴링 기반 I/O</h3>
+  <p>
+    <code>RIOPollingBasedProcessor</code>는 이벤트를 기다리지 않고, 정해진 간격(<code>polling_interval_</code>)마다
+    계속 <code>RIODequeueCompletion()</code>을 호출합니다. 이벤트 기반과 달리 완료가 없으면 짧게
+    잠들었다가 다시 확인합니다.
+  </p>
+  <pre><code>class RIOPollingBasedProcessor {
+private:
+    RIOCompletionQueueManager&amp; cq_manager_;
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+    std::atomic&lt;bool&gt; running_{false};
+    std::jthread worker_thread_;
+
+    using CompletionCallback = std::function&lt;void(RIORESULT*, DWORD)&gt;;
+    CompletionCallback completion_callback_;
+    std::chrono::microseconds polling_interval_{1};
+    std::mutex interval_mutex_;
+
+public:
+    RIOPollingBasedProcessor(RIOCompletionQueueManager&amp; cq_manager,
+                            const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                            CompletionCallback callback,
+                            std::chrono::microseconds polling_interval = std::chrono::microseconds(1))
+        : cq_manager_(cq_manager), rio_fn_table_(rio_fn_table),
+          completion_callback_(std::move(callback)), polling_interval_(polling_interval) {
+        if (polling_interval_ &lt;= std::chrono::microseconds::zero()) {
+            throw std::invalid_argument("폴링 간격은 0보다 커야 합니다.");
+        }
+    }
+
+    void Start() {
+        if (running_.exchange(true)) return;
+        worker_thread_ = std::jthread([this](std::stop_token stop_token) { this-&gt;PollCompletions(stop_token); });
+        std::cout &lt;&lt; "폴링 기반 RIO 처리기 시작됨 - 폴링 간격: " &lt;&lt; polling_interval_.count() &lt;&lt; "μs" &lt;&lt; std::endl;
+    }
+
+    void Stop() {
+        if (!running_.exchange(false)) return;
+        worker_thread_.request_stop();
+        if (worker_thread_.joinable()) worker_thread_.join();
+        std::cout &lt;&lt; "폴링 기반 RIO 처리기 중지됨" &lt;&lt; std::endl;
+    }
+
+    void SetPollingInterval(std::chrono::microseconds interval) {
+        if (interval &lt;= std::chrono::microseconds::zero()) {
+            throw std::invalid_argument("폴링 간격은 0보다 커야 합니다.");
+        }
+        std::lock_guard&lt;std::mutex&gt; lock(interval_mutex_);
+        polling_interval_ = interval;
+    }
+
+private:
+    void PollCompletions(std::stop_token stop_token) {
+        constexpr DWORD max_results = 32;
+        std::vector&lt;RIORESULT&gt; results(max_results);
+
+        while (!stop_token.stop_requested() &amp;&amp; running_) {
+            ULONG num_results = rio_fn_table_.RIODequeueCompletion(
+                cq_manager_.GetCompletionQueue(), results.data(), static_cast&lt;ULONG&gt;(results.size()));
+
+            if (num_results == RIO_CORRUPT_CQ) {
+                std::cerr &lt;&lt; "완료 큐가 손상되었습니다." &lt;&lt; std::endl;
+                break;
+            } else if (num_results &gt; 0 &amp;&amp; completion_callback_) {
+                completion_callback_(results.data(), num_results);
+            } else if (num_results == 0) {
+                std::chrono::microseconds interval;
+                {
+                    std::lock_guard&lt;std::mutex&gt; lock(interval_mutex_);
+                    interval = polling_interval_;
+                }
+                std::this_thread::sleep_for(interval);   // 처리할 완료가 없으면 잠시 대기
+            }
+        }
+    }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">완료 큐 손상 판정 방식을 3장·4장과 통일했습니다</p>
+    <p>
+      <code>RIODequeueCompletion()</code>이 오류를 나타내는 유일한 특수값은
+      <code>RIO_CORRUPT_CQ</code>이며, 이는 2장부터 계속 써온 검사 방식입니다. 원문 코드 일부는
+      이 대신 <code>WSAGetLastError() != WSA_IO_PENDING</code>으로 우회 검사했는데, 이는 이 함수의
+      정식 오류 판정 방식이 아니라 혼동을 줄 수 있어 <code>num_results == RIO_CORRUPT_CQ</code>
+      비교로 통일했습니다.
+    </p>
+  </div>
+
+  <h3>두 방식의 비교</h3>
+  <table class="cmp">
+    <thead><tr><th>특성</th><th>이벤트 기반</th><th>폴링 기반</th></tr></thead>
+    <tbody>
+      <tr><td>CPU 사용량</td><td class="hl">낮음 (유휴 시 대기)</td><td>간격에 비례해 증가</td></tr>
+      <tr><td>지연 시간</td><td>대기 해제·스케줄링 영향</td><td class="hl">간격을 짧게 하면 낮아질 수 있음</td></tr>
+      <tr><td>확장성</td><td>대기 스레드가 많은 경우 유리</td><td>전용 코어를 확보할 때 예측 가능</td></tr>
+      <tr><td>구현 복잡성</td><td>중간</td><td class="hl">낮음</td></tr>
+      <tr><td>적합한 경우</td><td>다양한 유형의 I/O가 섞인 일반 서버</td><td>초저지연이 핵심인 실시간 게임 서버</td></tr>
+    </tbody>
+  </table>
+  <p>
+    온라인 게임 서버에서 저지연이 중요하더라도 폴링이 항상 유리한 것은 아닙니다. 짧은 폴링 간격은
+    CPU 시간을 더 쓰고, <code>sleep_for(1μs)</code>도 운영체제 스케줄러 때문에 정확히 1μs에 깨어난다고
+    보장되지 않습니다. 실전에서는 전용 코어·실제 부하·p99 지연을 측정해 이벤트, 짧은 폴링, 하이브리드
+    방식을 선택합니다.
+  </p>
+</section>
+
+<section class="sec" id="thread-pool">
+  <h2><span class="num">5.4</span> 비동기 I/O 처리 전략</h2>
+
+  <h3>I/O 스레드 풀 구현</h3>
+  <p>
+    3장의 서버는 워커 스레드 여러 개가 <strong>완료 큐 하나</strong>를 함께 지켜봤습니다. 완료
+    큐 관련 함수는 스레드 안전하지만, 스레드 수가 많아질수록 하나의 큐를 두고 벌어지는 경합
+    자체는 늘어납니다. <code>RIOThreadPool</code>은 이를 개선해 <strong>스레드마다 자신만의
+    완료 큐</strong>를 갖게 합니다. 새 클라이언트가 들어오면 완료 큐를 라운드 로빈으로 하나 고른 뒤,
+    <strong>그 클라이언트 소켓으로 요청 큐 하나를 새로 만듭니다.</strong> 요청 큐는 다른 세션과
+    공유하거나 재사용하지 않습니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 320" role="img" aria-labelledby="tp-title tp-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="tp-title">스레드별 전용 완료 큐와 클라이언트 요청 큐의 라운드 로빈 배정</title>
+      <desc id="tp-desc">세 개의 워커 스레드가 각각 전용 완료 큐를 소유하고, 네 개의 클라이언트 요청 큐가 라운드 로빈 방식으로 세 스레드 중 하나에 순서대로 배정되어 마지막 클라이언트는 다시 첫 스레드로 돌아가는 것을 보여주는 다이어그램.</desc>
+      <defs>
+        <marker id="tp-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <rect x="38" y="32" width="180" height="56" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="128" y="55" text-anchor="middle" fill="#8f5f1e" font-size="11" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">워커 스레드 0</text>
+      <text x="128" y="71" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">전용 완료 큐 (CQ0)</text>
+
+      <rect x="250" y="32" width="180" height="56" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="340" y="55" text-anchor="middle" fill="#8f5f1e" font-size="11" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">워커 스레드 1</text>
+      <text x="340" y="71" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">전용 완료 큐 (CQ1)</text>
+
+      <rect x="462" y="32" width="180" height="56" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="552" y="55" text-anchor="middle" fill="#8f5f1e" font-size="11" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">워커 스레드 2</text>
+      <text x="552" y="71" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">전용 완료 큐 (CQ2)</text>
+
+      <rect x="24" y="232" width="140" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="94" y="252" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트 A</text>
+      <text x="94" y="266" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">요청 큐 (RQ)</text>
+
+      <rect x="188" y="232" width="140" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="258" y="252" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트 B</text>
+      <text x="258" y="266" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">요청 큐 (RQ)</text>
+
+      <rect x="352" y="232" width="140" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="422" y="252" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트 C</text>
+      <text x="422" y="266" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">요청 큐 (RQ)</text>
+
+      <rect x="516" y="232" width="140" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="586" y="252" text-anchor="middle" fill="#201d1a" font-size="10.5" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트 D</text>
+      <text x="586" y="266" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">요청 큐 (RQ)</text>
+
+      <path d="M 94 232 L 94 160 L 108 160 L 108 88" fill="none" stroke="#6b6259" stroke-width="1.1" marker-end="url(#tp-arrow)"/>
+      <path d="M 258 232 L 258 180 L 340 180 L 340 88" fill="none" stroke="#6b6259" stroke-width="1.1" marker-end="url(#tp-arrow)"/>
+      <path d="M 422 232 L 422 200 L 552 200 L 552 88" fill="none" stroke="#6b6259" stroke-width="1.1" marker-end="url(#tp-arrow)"/>
+      <path d="M 586 232 L 586 140 L 148 140 L 148 88" fill="none" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#tp-arrow)"/>
+
+      <line x1="24" y1="296" x2="656" y2="296" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="24" y="314" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <line x1="200" y1="311" x2="224" y2="311" stroke="#6b6259" stroke-width="1.1" stroke-dasharray="5,4" marker-end="url(#tp-arrow)"/>
+      <text x="232" y="314" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">D는 다시 스레드 0으로 순환 배정 (라운드 로빈)</text>
+    </svg>
+    <p class="dcap">그림 5-2. 클라이언트 D는 (3개 스레드 중) 다시 스레드 0에 배정됩니다 — index % thread_count</p>
+  </div>
+
+  <pre><code>class RIOThreadPool {
+private:
+    struct ThreadContext {
+        size_t thread_id;
+        std::unique_ptr&lt;RIOCompletionQueueManager&gt; cq_manager;
+        std::unique_ptr&lt;RIOPollingBasedProcessor&gt; processor;
+    };
+
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+    std::vector&lt;ThreadContext&gt; thread_contexts_;
+    size_t thread_count_;
+    std::atomic&lt;size_t&gt; next_thread_index_{0};
+
+    using CompletionCallback = std::function&lt;void(RIORESULT*, DWORD, size_t)&gt;;
+    CompletionCallback completion_callback_;
+
+public:
+    RIOThreadPool(const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                 size_t thread_count, DWORD queue_size,
+                 CompletionCallback callback)
+        : rio_fn_table_(rio_fn_table), thread_count_(thread_count),
+          completion_callback_(std::move(callback)) {
+        if (thread_count_ == 0) {
+            thread_count_ = std::thread::hardware_concurrency();   // 코어 수에 맞춰 자동 결정
+        }
+        if (thread_count_ == 0) {
+            throw std::invalid_argument("스레드 수는 0보다 커야 합니다.");
+        }
+        InitializeThreadPool(queue_size);
+    }
+
+    void InitializeThreadPool(DWORD queue_size) {
+        thread_contexts_.resize(thread_count_);
+
+        for (size_t i = 0; i &lt; thread_count_; ++i) {
+            ThreadContext&amp; context = thread_contexts_[i];
+            context.thread_id = i;
+
+            context.cq_manager = std::make_unique&lt;RIOCompletionQueueManager&gt;(
+                rio_fn_table_, queue_size, false);
+
+            context.processor = std::make_unique&lt;RIOPollingBasedProcessor&gt;(
+                *context.cq_manager, rio_fn_table_,
+                [this, i](RIORESULT* results, DWORD num_results) {
+                    this-&gt;completion_callback_(results, num_results, i);
+                });
+        }
+        std::cout &lt;&lt; "RIO 스레드 풀 초기화 완료 - 스레드 수: " &lt;&lt; thread_count_ &lt;&lt; std::endl;
+    }
+
+    void Start() { for (auto&amp; context : thread_contexts_) context.processor-&gt;Start(); }
+    void Stop() { for (auto&amp; context : thread_contexts_) context.processor-&gt;Stop(); }
+
+    ~RIOThreadPool() { Stop(); }
+
+    RIO_CQ GetCompletionQueueForThread(size_t thread_id) const {
+        if (thread_id &lt; thread_contexts_.size()) return thread_contexts_[thread_id].cq_manager-&gt;GetCompletionQueue();
+        return RIO_INVALID_CQ;
+    }
+
+    RIO_CQ GetNextCompletionQueue() {
+        if (thread_contexts_.empty()) return RIO_INVALID_CQ;
+        size_t index = next_thread_index_.fetch_add(1, std::memory_order_relaxed) % thread_contexts_.size();
+        return thread_contexts_[index].cq_manager-&gt;GetCompletionQueue();
+    }
+
+    size_t GetThreadCount() const { return thread_contexts_.size(); }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">완료 큐는 풀링하고, 요청 큐는 세션에 귀속합니다</p>
+    <p>
+      <code>RIOThreadPool</code>은 소켓이나 요청 큐를 소유하지 않고 완료 큐와 그 처리 스레드만
+      소유합니다. 새 세션은 <code>GetNextCompletionQueue()</code>로 완료 큐를 받은 뒤, 자신의
+      소켓과 그 완료 큐로 <code>RIOQueueManager</code>를 만듭니다. 완료 큐 크기는 연결될 모든
+      세션의 최대 동시 완료 수를 합친 값 이상이어야 하며, 이 계산 없이 큐 하나에 세션을 계속
+      붙이면 <code>RIOCreateRequestQueue()</code>가 실패할 수 있습니다.
+    </p>
+  </div>
+
+  <h3>효율적인 I/O 처리 흐름</h3>
+  <p>
+    <code>RIOServer</code>는 지금까지의 조각들 — 버퍼 매니저(4장), 스레드 풀(방금 만든 것) — 을
+    하나의 서버로 엮습니다. <code>ServerConfig</code>로 포트·스레드 수·큐 크기·버퍼 크기를 한
+    곳에 모아두어, 서버를 만들 때 값 하나만 바꿔 넘기면 되도록 했습니다.
+  </p>
+  <pre><code>class RIOServer {
+private:
+    std::atomic&lt;bool&gt; running_{false};
+    bool winsock_started_ = false;
+    SOCKET listen_socket_ = INVALID_SOCKET;
+    std::thread accept_thread_;
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+
+    std::unique_ptr&lt;RIOBufferManager&gt; buffer_manager_;
+    std::unique_ptr&lt;RIOThreadPool&gt; thread_pool_;
+
+    struct ServerConfig {
+        USHORT port = 9000;
+        size_t thread_count = 0;              // 0이면 하드웨어 코어 수 자동 사용
+        DWORD queue_size = 1024;
+        DWORD max_outstanding_ops = 1024;
+        size_t buffer_size = 1024 * 1024 * 64; // 64MB
+        size_t chunk_size = 4096;
+    } config_;
+
+public:
+    RIOServer(ServerConfig config = ServerConfig()) : config_(config) {}
+
+    bool Initialize() {
+        WSADATA wsa_data;
+        if (WSAStartup(MAKEWORD(2, 2), &amp;wsa_data) != 0) {
+            std::cerr &lt;&lt; "WSAStartup 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            return false;
+        }
+
+        winsock_started_ = true;
+        listen_socket_ = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_REGISTERED_IO);
+        if (listen_socket_ == INVALID_SOCKET) {
+            std::cerr &lt;&lt; "소켓 생성 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            CleanupWinsock();
+            return false;
+        }
+
+        GUID rio_guid = WSAID_MULTIPLE_RIO;
+        DWORD bytes = 0;
+        if (WSAIoctl(listen_socket_, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+                    &amp;rio_guid, sizeof(rio_guid), &amp;rio_fn_table_, sizeof(rio_fn_table_),
+                    &amp;bytes, NULL, NULL) == SOCKET_ERROR) {
+            std::cerr &lt;&lt; "RIO 함수 테이블 초기화 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(listen_socket_);
+            CleanupWinsock();
+            return false;
+        }
+
+        sockaddr_in server_addr;
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_addr.s_addr = INADDR_ANY;
+        server_addr.sin_port = htons(config_.port);
+
+        if (bind(listen_socket_, (SOCKADDR*)&amp;server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+            std::cerr &lt;&lt; "소켓 바인딩 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(listen_socket_);
+            CleanupWinsock();
+            return false;
+        }
+
+        if (listen(listen_socket_, SOMAXCONN) == SOCKET_ERROR) {
+            std::cerr &lt;&lt; "리스닝 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            closesocket(listen_socket_);
+            CleanupWinsock();
+            return false;
+        }
+
+        try {
+            buffer_manager_ = std::make_unique&lt;RIOBufferManager&gt;(rio_fn_table_, config_.buffer_size, config_.chunk_size);
+        } catch (const std::exception&amp; e) {
+            std::cerr &lt;&lt; "버퍼 매니저 초기화 실패: " &lt;&lt; e.what() &lt;&lt; std::endl;
+            closesocket(listen_socket_);
+            CleanupWinsock();
+            return false;
+        }
+
+        try {
+            thread_pool_ = std::make_unique&lt;RIOThreadPool&gt;(
+                rio_fn_table_, config_.thread_count, config_.queue_size,
+                [this](RIORESULT* results, DWORD num_results, size_t thread_id) {
+                    this-&gt;ProcessCompletions(results, num_results, thread_id);
+                });
+        } catch (const std::exception&amp; e) {
+            std::cerr &lt;&lt; "RIO 스레드 풀 초기화 실패: " &lt;&lt; e.what() &lt;&lt; std::endl;
+            buffer_manager_.reset();
+            closesocket(listen_socket_);
+            listen_socket_ = INVALID_SOCKET;
+            CleanupWinsock();
+            return false;
+        }
+
+        std::cout &lt;&lt; "RIO 서버 초기화 완료 - 포트: " &lt;&lt; config_.port &lt;&lt; std::endl;
+        return true;
+    }
+
+    void Start() {
+        if (!thread_pool_ || listen_socket_ == INVALID_SOCKET) {
+            throw std::logic_error("Initialize() 성공 후에만 Start()를 호출할 수 있습니다.");
+        }
+        if (running_.exchange(true)) return;
+        thread_pool_-&gt;Start();
+
+        accept_thread_ = std::thread([this]() { this-&gt;AcceptConnections(); });
+
+        std::cout &lt;&lt; "RIO 서버 시작됨 - 포트: " &lt;&lt; config_.port &lt;&lt; std::endl;
+    }
+
+    void Stop() {
+        const bool was_running = running_.exchange(false);
+        // 먼저 accept()를 깨우고 스레드를 join해 this를 더 이상 참조하지 않게 합니다.
+        if (listen_socket_ != INVALID_SOCKET) {
+            closesocket(listen_socket_);
+            listen_socket_ = INVALID_SOCKET;
+        }
+        if (accept_thread_.joinable()) accept_thread_.join();
+        if (thread_pool_) thread_pool_-&gt;Stop();
+        CleanupWinsock();
+        if (was_running) std::cout &lt;&lt; "RIO 서버 중지됨" &lt;&lt; std::endl;
+    }
+
+    ~RIOServer() { Stop(); }
+
+private:
+    void CleanupWinsock() {
+        if (winsock_started_) {
+            WSACleanup();
+            winsock_started_ = false;
+        }
+    }
+
+    void AcceptConnections() {
+        while (running_) {
+            sockaddr_in client_addr;
+            int client_addr_len = sizeof(client_addr);
+
+            SOCKET client_socket = accept(listen_socket_, (SOCKADDR*)&amp;client_addr, &amp;client_addr_len);
+            if (client_socket == INVALID_SOCKET) {
+                if (running_) std::cerr &lt;&lt; "연결 수락 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+                continue;
+            }
+            HandleNewConnection(client_socket, client_addr);
+        }
+    }
+
+    void HandleNewConnection(SOCKET client_socket, const sockaddr_in&amp; client_addr) {
+        char client_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &amp;client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
+        std::cout &lt;&lt; "새 클라이언트 연결됨: " &lt;&lt; client_ip &lt;&lt; ":" &lt;&lt; ntohs(client_addr.sin_port) &lt;&lt; std::endl;
+
+        // RIOReceive에는 SOCKET이 아니라 RIOCreateRequestQueue가 반환한 RIO_RQ를 넘겨야 합니다.
+        // 세션 소유 객체가 client_socket과 RIOQueueManager를 함께 보관한 뒤, 아래처럼 호출해야 합니다.
+        // PostReceive(session-&gt;request_queue-&gt;GetRequestQueue());
+        // 이 장은 완료 큐 구조에 집중하므로 세션 저장소와 실제 수신 등록은 다음 실전 예제로 미룹니다.
+        closesocket(client_socket);  // 저장소를 구현하지 않은 골격에서는 소켓을 누수하지 않고 닫습니다.
+    }
+
+    void PostReceive(RIO_RQ request_queue) {
+        // 여기서 RIOReceive(request_queue, ...)를 등록합니다.
+    }
+
+    void ProcessCompletions(RIORESULT* results, DWORD num_results, size_t thread_id) {
+        for (DWORD i = 0; i &lt; num_results; ++i) {
+            RIORESULT&amp; result = results[i];
+            void* context = reinterpret_cast&lt;void*&gt;(result.RequestContext);
+            DWORD bytes_transferred = result.BytesTransferred;
+            // 컨텍스트(세션 포인터)를 이용해 3장 HandleCompletion()과 같은 방식으로 처리
+        }
+    }
+};</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">이 코드는 실행 가능한 서버 완성본이 아닙니다</p>
+    <p>
+      이 절의 목적은 완료 큐와 처리 스레드의 조립 순서를 보여주는 것입니다. 실제 서버에서는
+      클라이언트 소켓을 세션 객체가 소유하고, 그 세션이 <code>RIOQueueManager</code>·송수신 버퍼·요청
+      컨텍스트를 완료 처리까지 함께 보존해야 합니다. 이 저장소가 없는 현재 골격은 연결을 받은 뒤
+      닫도록 했으며, 여기에 3장의 <code>PostReceive()</code>만 그대로 붙이면 안 됩니다. 종료 시에도
+      새 요청을 막고 소켓을 닫은 뒤 완료를 모두 dequeue한 다음 완료 큐와 등록 버퍼를 해제해야 합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="advanced-strategies">
+  <h3>비동기 I/O의 추가 최적화 전략</h3>
+
+  <h4>1. I/O 배치 처리</h4>
+  <p>
+    <code>RIOSend()</code>의 <code>DataBufferCount</code>는 여러 독립 메시지를 배치하는 기능이
+    아니라, <strong>하나의 송신 요청을 여러 버퍼 조각으로 표현하는 scatter/gather 기능</strong>입니다.
+    완료도 한 건만 발생하고 컨텍스트도 하나만 전달됩니다. 여러 메시지를 배치하려면 각각 별도 요청으로
+    넣거나, 애플리케이션 프로토콜에서 하나의 프레임으로 합쳐야 합니다.
+  </p>
+  <pre><code>// 하나의 메시지를 여러 등록 버퍼 조각으로 보내는 scatter/gather 송신
+bool SendGather(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, RIO_RQ request_queue,
+               std::span&lt;RIO_BUF&gt; buffers, void* context) {
+    if (buffers.empty() || buffers.size() &gt; (std::numeric_limits&lt;ULONG&gt;::max)()) {
+        return false;
+    }
+    // RIOCreateRequestQueue의 MaxSendDataBuffers는 buffers.size() 이상이어야 합니다.
+    BOOL result = rio_fn_table.RIOSend(
+        request_queue, buffers.data(), static_cast&lt;ULONG&gt;(buffers.size()), 0, context
+    );
+    if (!result) {
+        std::cerr &lt;&lt; "RIOSend(scatter/gather) 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+        return false;
+    }
+    return true;
+}</code></pre>
+  <div class="callout info">
+    <p class="ctitle">scatter/gather와 메시지 배치를 구분합니다</p>
+    <p>
+      <code>RIOSendEx</code>는 주소 정보를 추가로 다루는 확장 함수이지, 여러 메시지를 배치하는 함수가
+      아닙니다. TCP 게임 서버에서 조각난 한 메시지를 보낼 때는 <code>RIOSend()</code>로 충분합니다.
+      단, 요청 큐를 만들 때 <code>MaxSendDataBuffers</code>를 허용할 조각 수 이상으로 잡아야 합니다.
+      이 장 앞부분의 기본 예제는 호환성을 위해 1로 설정했으므로, 그대로라면 한 조각만 보낼 수 있습니다.
+    </p>
+  </div>
+
+  <h4>2. I/O 우선순위 관리</h4>
+  <p>
+    게임 데이터는 종류마다 중요도가 다릅니다. <code>PriorityBasedIOManager</code>는 전송을 세
+    등급으로 나눠 큐에 쌓아두고, 처리할 때 <strong>높은 우선순위를 항상 먼저, 전부</strong>
+    처리한 뒤, 보통·낮은 우선순위는 <strong>제한된 개수만</strong> 처리합니다 — 우선순위가 낮은
+    메시지가 몰려도 높은 우선순위 처리가 밀리지 않도록 하는 장치입니다.
+  </p>
+  <pre><code>enum class MessagePriority {
+    High,   // 게임 입력, 충돌 처리 등
+    Normal, // 일반 게임 데이터
+    Low     // 채팅, 로그 등
+};
+
+class PriorityBasedIOManager {
+private:
+    struct PendingIO {
+        RIO_BUF buffer;
+        MessagePriority priority;
+        void* context;
+    };
+
+    RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table_;   // RIOSend() 호출에 필요
+    RIO_RQ request_queue_;
+    std::mutex mutex_;
+    std::vector&lt;PendingIO&gt; high_priority_queue_;
+    std::vector&lt;PendingIO&gt; normal_priority_queue_;
+    std::vector&lt;PendingIO&gt; low_priority_queue_;
+
+public:
+    PriorityBasedIOManager(RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table, RIO_RQ request_queue)
+        : rio_fn_table_(rio_fn_table), request_queue_(request_queue) {}
+
+    void QueueSend(RIO_BUF buffer, MessagePriority priority, void* context) {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+        PendingIO io{buffer, priority, context};
+
+        switch (priority) {
+            case MessagePriority::High:   high_priority_queue_.push_back(io); break;
+            case MessagePriority::Normal: normal_priority_queue_.push_back(io); break;
+            case MessagePriority::Low:    low_priority_queue_.push_back(io); break;
+        }
+    }
+
+    void ProcessPendingIO() {
+        std::lock_guard&lt;std::mutex&gt; lock(mutex_);
+
+        ProcessQueue(high_priority_queue_);   // 높은 우선순위는 전부
+
+        size_t normal_count = std::min(normal_priority_queue_.size(), size_t(10));
+        if (normal_count &gt; 0) ProcessQueuePartial(normal_priority_queue_, normal_count);
+
+        size_t low_count = std::min(low_priority_queue_.size(), size_t(5));
+        if (low_count &gt; 0) ProcessQueuePartial(low_priority_queue_, low_count);
+    }
+
+private:
+    bool Submit(const PendingIO&amp; io) {
+        BOOL result = rio_fn_table_.RIOSend(request_queue_, &amp;io.buffer, 1, 0, io.context);
+        if (!result) {
+            std::cerr &lt;&lt; "RIOSend 실패: " &lt;&lt; WSAGetLastError() &lt;&lt; std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    void ProcessQueue(std::vector&lt;PendingIO&gt;&amp; queue) {
+        auto it = queue.begin();
+        while (it != queue.end()) {
+            if (!Submit(*it)) break;  // 큐 등록에 실패한 항목은 보존해 재시도 또는 폐기 정책을 적용합니다.
+            it = queue.erase(it);
+        }
+    }
+
+    void ProcessQueuePartial(std::vector&lt;PendingIO&gt;&amp; queue, size_t count) {
+        if (queue.empty() || count == 0) return;
+        const size_t limit = std::min(count, queue.size());
+        size_t submitted = 0;
+        while (submitted &lt; limit &amp;&amp; Submit(queue[submitted])) ++submitted;
+        queue.erase(queue.begin(), queue.begin() + submitted);  // 실제로 큐 등록된 항목만 제거
+    }
+};</code></pre>
+
+  <h4>3. 적응형 폴링 전략</h4>
+  <p>
+    <code>AdaptivePollingProcessor</code>는 5.3절의 폴링 기반 처리기를 발전시켜, 트래픽이 많을
+    때는 폴링 간격을 줄이고(더 자주 확인) 트래픽이 적을 때는 간격을 늘려(CPU를 아낌) 두 전략의
+    장점을 절충합니다.
+  </p>
+  <pre><code>class AdaptivePollingProcessor {
+private:
+    RIOCompletionQueueManager&amp; cq_manager_;
+    RIO_EXTENSION_FUNCTION_TABLE rio_fn_table_;
+    std::jthread worker_thread_;
+    std::atomic&lt;bool&gt; running_{false};
+
+    std::chrono::microseconds min_polling_interval_{1};
+    std::chrono::microseconds max_polling_interval_{1000};
+    std::chrono::microseconds current_interval_{1};
+
+    int consecutive_empty_polls_ = 0;
+    int consecutive_full_batches_ = 0;
+    constexpr static int ADJUST_THRESHOLD = 5;
+
+    using CompletionCallback = std::function&lt;void(RIORESULT*, DWORD)&gt;;
+    CompletionCallback completion_callback_;
+
+public:
+    AdaptivePollingProcessor(RIOCompletionQueueManager&amp; cq_manager,
+                           const RIO_EXTENSION_FUNCTION_TABLE&amp; rio_fn_table,
+                           CompletionCallback callback)
+        : cq_manager_(cq_manager), rio_fn_table_(rio_fn_table), completion_callback_(std::move(callback)) {}
+
+    void Start() {
+        if (running_.exchange(true)) return;
+        worker_thread_ = std::jthread([this](std::stop_token stop_token) { this-&gt;AdaptivePolling(stop_token); });
+    }
+
+    void Stop() {
+        running_.store(false);
+        if (worker_thread_.joinable()) {
+            worker_thread_.request_stop();
+            worker_thread_.join();
+        }
+    }
+
+private:
+    void AdaptivePolling(std::stop_token stop_token) {
+        constexpr DWORD max_results = 32;
+        std::vector&lt;RIORESULT&gt; results(max_results);
+
+        while (!stop_token.stop_requested() &amp;&amp; running_) {
+            ULONG num_results = rio_fn_table_.RIODequeueCompletion(cq_manager_.GetCompletionQueue(), results.data(), max_results);
+
+            if (num_results == RIO_CORRUPT_CQ) {
+                std::cerr &lt;&lt; "RIODequeueCompletion 실패: 완료 큐 손상" &lt;&lt; std::endl;
+                break;
+            } else if (num_results &gt; 0) {
+                completion_callback_(results.data(), num_results);
+
+                if (num_results == max_results) {   // 큐가 꽉 찰 정도로 바쁨 → 더 자주 확인
+                    consecutive_full_batches_++;
+                    consecutive_empty_polls_ = 0;
+                    if (consecutive_full_batches_ &gt;= ADJUST_THRESHOLD) {
+                        DecreasePollingInterval();
+                        consecutive_full_batches_ = 0;
+                    }
+                } else {
+                    consecutive_full_batches_ = 0;
+                }
+            } else if (num_results == 0) {   // 할 일이 없음 → 점점 뜸하게 확인
+                consecutive_empty_polls_++;
+                consecutive_full_batches_ = 0;
+                if (consecutive_empty_polls_ &gt;= ADJUST_THRESHOLD) {
+                    IncreasePollingInterval();
+                    consecutive_empty_polls_ = 0;
+                }
+                std::this_thread::sleep_for(current_interval_);
+            }
+        }
+    }
+
+    void IncreasePollingInterval() { current_interval_ = std::min(current_interval_ * 2, max_polling_interval_); }
+    void DecreasePollingInterval() { current_interval_ = std::max(current_interval_ / 2, min_polling_interval_); }
+};</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">임계값(ADJUST_THRESHOLD)의 역할</p>
+    <p>
+      단 한 번 큐가 비었다고 곧바로 간격을 늘리면, 트래픽이 순간적으로 들쭉날쭉할 때 간격이
+      계속 오르락내리락하며 오히려 불안정해집니다. <code>ADJUST_THRESHOLD</code>(5회)는
+      "연속으로 5번 같은 경향이 관찰되어야 간격을 조정한다"는 일종의 완충장치로, 짧은 순간의
+      트래픽 튐에 과민하게 반응하지 않도록 합니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">5.5</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>큐 관리 클래스화</strong> — <code>RIOQueueManager</code>·<code>RIOCompletionQueueManager</code>로
+        요청 큐·완료 큐 생성 로직을 재사용 가능하게 캡슐화했습니다.</li>
+      <li><strong>큐 분산</strong> — <code>RIOMultiQueueManager</code>·<code>RIOMultiCompletionQueueManager</code>로
+        세션별 요청 큐를 완료 큐에 연결하고, 새 세션을 완료 큐에 분산해 경합을 줄입니다.</li>
+      <li><strong>이벤트 vs 폴링</strong> — 이벤트 기반은 CPU를 아끼는 대신 지연이 있고, 폴링
+        기반은 즉시 반응하는 대신 CPU를 계속 씁니다. 게임 서버는 대체로 폴링에 가깝게 기울지만,
+        정답은 트래픽 패턴에 달려 있습니다.</li>
+      <li><strong>스레드별 전용 완료 큐</strong> — 3장의 "공유 완료 큐" 모델을 "스레드마다 전용
+        완료 큐" 모델로 발전시켜 확장성을 높였습니다.</li>
+      <li><strong>scatter/gather·우선순위·적응형 전략</strong> — 한 메시지의 여러 버퍼 조각을 보내고,
+        중요한 데이터를 먼저 처리하고, 트래픽에 따라 폴링 간격을 조정하는 기법을 익혔습니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>6장. 모던 C++을 활용한 RIO 래퍼 클래스</h4>
+    <p>
+      1~5장에서 반복해서 손으로 작성했던 초기화·오류 처리·RAII 패턴을, 이번에는 템플릿과
+      <code>std::span</code>, <code>std::expected</code>를 활용한 재사용 가능한 래퍼 클래스로
+      한 번에 정리합니다.
+      <a href="ch06.html">6장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="ch04.html">← 4장. RIO 버퍼 관리</a>
+  <span class="kicker-num">5 / 9</span>
+  <a href="ch06.html">6장. 모던 C++ RIO 래퍼 클래스 →</a>
+</footer>
+
+</div>
+</body>
+</html>

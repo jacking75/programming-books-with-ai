@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1장. 네트워크 프로그래밍 기초 — RIO를 이용한 고성능 게임 서버 개발</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root{
+  --paper:#f8f6f1;
+  --paper-2:#efebe3;
+  --ink:#201d1a;
+  --muted:#6b6259;
+  --soft:#877d70;
+  --rule:rgba(32,29,26,0.12);
+  --rule-solid:#ddd5c8;
+  --accent:#c8862e;
+  --accent-tint:rgba(200,134,46,0.10);
+  --accent-ink:#8f5f1e;
+  --link:#3f6b8a;
+  --link-tint:rgba(63,107,138,0.10);
+  --good:#3f6b8a;
+  --font-serif:'Noto Serif KR','Instrument Serif',serif;
+  --font-sans:'Pretendard Variable','Pretendard','Geist',-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-mono:'Geist Mono','D2Coding',Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-sans);
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 24px;
+  background:rgba(248,246,241,0.92);
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--rule);
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:0.02em;
+  color:var(--muted);
+}
+.topbar a{color:var(--muted); text-decoration:none; padding:4px 8px; border-radius:4px;}
+.topbar a:hover{color:var(--ink); background:var(--paper-2);}
+.topbar .nav-group{display:flex; gap:4px; align-items:center;}
+.topbar .brand{color:var(--accent-ink); font-weight:600;}
+
+.wrap{max-width:820px; margin:0 auto; padding:0 24px 120px;}
+
+.hero{padding:64px 0 40px; border-bottom:1px solid var(--rule);}
+.eyebrow{
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:0.22em; text-transform:uppercase; color:var(--accent-ink);
+  display:flex; align-items:center; gap:10px; margin-bottom:18px;
+}
+.eyebrow::before{content:""; width:24px; height:1px; background:var(--accent);}
+h1{
+  font-family:var(--font-serif); font-weight:700; font-size:2.6rem;
+  line-height:1.3; margin:0 0 20px; color:var(--ink); letter-spacing:-0.01em;
+}
+.hero-lead{font-size:1.08rem; color:var(--muted); max-width:640px; margin:0 0 28px;}
+.hero-goals{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  padding:20px 24px; max-width:640px;
+}
+.hero-goals p.label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; color:var(--soft); text-transform:uppercase; margin:0 0 10px;}
+.hero-goals ul{margin:0; padding-left:0; list-style:none;}
+.hero-goals li{position:relative; padding-left:22px; margin:7px 0; color:var(--ink); font-size:0.96rem;}
+.hero-goals li::before{content:"—"; position:absolute; left:0; color:var(--accent);}
+
+section.sec{padding:56px 0 8px;}
+h2{
+  font-family:var(--font-sans); font-weight:800; font-size:1.65rem;
+  margin:0 0 6px; color:var(--ink); letter-spacing:-0.01em;
+  display:flex; align-items:baseline; gap:12px;
+}
+h2 .num{font-family:var(--font-mono); font-size:0.95rem; font-weight:600; color:var(--accent-ink);}
+h2 + .sec-sub{color:var(--muted); font-size:0.98rem; margin:0 0 28px;}
+h3{
+  font-family:var(--font-sans); font-weight:700; font-size:1.22rem;
+  margin:36px 0 14px; color:var(--ink);
+  padding-top:4px;
+}
+h4{
+  font-family:var(--font-sans); font-weight:700; font-size:1.02rem;
+  margin:26px 0 10px; color:var(--ink);
+}
+p{margin:0 0 16px; color:#3a352f;}
+strong{color:var(--ink); font-weight:700;}
+ul,ol{margin:0 0 18px; padding-left:22px;}
+li{margin:6px 0; color:#3a352f;}
+a{color:var(--link);}
+
+.callout{
+  border-left:3px solid var(--accent); background:var(--accent-tint);
+  border-radius:0 8px 8px 0; padding:16px 20px; margin:20px 0;
+}
+.callout.info{border-left-color:var(--link); background:var(--link-tint);}
+.callout p:last-child{margin-bottom:0;}
+.callout .ctitle{font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:8px; font-weight:600;}
+.callout.info .ctitle{color:var(--link);}
+
+.api-card{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:8px;
+  margin:22px 0; overflow:hidden;
+}
+.api-card .api-head{
+  background:var(--paper-2); padding:10px 18px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--rule-solid);
+}
+.api-card .api-tag{
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; color:#fff;
+  background:var(--accent); padding:3px 8px; border-radius:3px; font-weight:600;
+}
+.api-card .api-name{font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--ink);}
+.api-card .api-body{padding:16px 18px;}
+.api-card table{width:100%; border-collapse:collapse; font-size:0.92rem; margin-top:8px;}
+.api-card table th, .api-card table td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule);}
+.api-card table th{color:var(--soft); font-weight:600; font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; text-transform:uppercase;}
+.api-card table td code{background:none; padding:0;}
+.api-card .api-body p{margin:0 0 10px;}
+
+pre{
+  background:#211e1a; color:#f0ece3; border-radius:8px; padding:18px 20px;
+  overflow-x:auto; font-family:var(--font-mono); font-size:13.2px; line-height:1.65;
+  margin:16px 0 24px; border:1px solid #35302a;
+}
+pre code{background:none; padding:0; color:inherit; font-family:var(--font-mono);}
+code{
+  background:var(--paper-2); padding:2px 6px; border-radius:4px;
+  font-family:var(--font-mono); font-size:0.86em; color:var(--accent-ink);
+}
+.code-label{
+  font-family:var(--font-mono); font-size:11px; color:var(--soft);
+  letter-spacing:0.08em; margin:0 0 -8px; display:flex; align-items:center; gap:8px;
+}
+.code-label::before{content:"▸"; color:var(--accent);}
+
+table.cmp{width:100%; border-collapse:collapse; margin:20px 0 28px; font-size:0.95rem;}
+table.cmp th, table.cmp td{border:1px solid var(--rule-solid); padding:10px 14px; text-align:left;}
+table.cmp th{background:var(--paper-2); font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);}
+table.cmp td.hl{color:var(--accent-ink); font-weight:600;}
+
+.diagram-block{margin:32px 0 36px;}
+.diagram-block .dcap{
+  font-family:var(--font-mono); font-size:11.5px; color:var(--soft);
+  text-align:center; margin-top:10px; letter-spacing:0.02em;
+}
+.diagram-block svg{width:100%; height:auto; display:block;}
+
+.summary-box{
+  background:#fff; border:1px solid var(--rule-solid); border-radius:10px;
+  padding:28px 30px; margin:24px 0;
+}
+.summary-box ol{padding-left:20px;}
+.summary-box li{margin:10px 0;}
+
+.next-chapter{
+  margin-top:60px; padding:26px 28px; border-radius:10px;
+  background:var(--ink); color:var(--paper);
+}
+.next-chapter .label{font-family:var(--font-mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#c9bfae; margin-bottom:8px;}
+.next-chapter h4{color:#fff; margin:0 0 8px; font-size:1.2rem;}
+.next-chapter p{color:#cfc7bb; margin:0;}
+.next-chapter a{color:var(--accent); font-weight:600; text-decoration:none;}
+
+footer.pagefoot{
+  border-top:1px solid var(--rule); margin-top:40px; padding-top:20px;
+  display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:12px; color:var(--soft);
+}
+footer.pagefoot a{color:var(--muted); text-decoration:none;}
+footer.pagefoot a:hover{color:var(--accent-ink);}
+
+.kicker-num{color:var(--soft); font-weight:500;}
+::selection{background:var(--accent-tint); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="nav-group"><span class="brand">RIO 고성능 게임 서버</span></div>
+  <div class="nav-group">
+    <a href="index.html">목차</a>
+    <a href="ch02.html">다음 장 →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">CHAPTER 01</div>
+  <h1>네트워크 프로그래밍 기초</h1>
+  <p class="hero-lead">
+    RIO(Registered I/O)는 결국 "소켓으로 데이터를 더 빠르게 주고받는 방법"입니다.
+    그 최적화의 의미를 제대로 이해하려면 먼저 일반적인 소켓 프로그래밍이 어떻게 동작하고,
+    무엇이 느린지를 알아야 합니다. 이번 장에서는 TCP/UDP의 차이, Winsock 소켓 API의
+    기본 사용법, 블로킹·논블로킹 I/O의 차이를 실제로 동작하는 에코 서버를 만들어보며 익힙니다.
+  </p>
+  <div class="hero-goals">
+    <p class="label">이 장에서 배우는 것</p>
+    <ul>
+      <li>TCP와 UDP의 차이, 그리고 게임 서버에서 무엇을 언제 쓸지 판단하는 기준</li>
+      <li>Winsock 소켓 생성부터 연결, 송수신까지 API 하나하나의 역할과 파라미터</li>
+      <li>블로킹 I/O가 왜 대규모 동시접속에서 한계에 부딪히는지, 논블로킹은 무엇을 바꾸는지</li>
+      <li>Windows가 제공하는 5가지 비동기 I/O 모델의 큰 그림과 RIO가 그중 어디에 있는지</li>
+      <li>C++23의 std::expected·std::span·std::jthread로 네트워크 코드를 더 안전하게 쓰는 법</li>
+      <li>블로킹 소켓 기반의 멀티스레드 에코 서버를 직접 빌드하고 실행해보기</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec" id="tcp-udp">
+  <h2><span class="num">1.1</span> TCP/IP와 UDP 프로토콜 이해</h2>
+  <p class="sec-sub">게임 서버가 데이터를 "어떻게" 보낼지 결정하는 가장 근본적인 선택입니다.</p>
+
+  <p>
+    온라인 게임 서버는 성격이 전혀 다른 두 종류의 데이터를 동시에 다룹니다.
+    "캐릭터가 아이템을 구매했다"는 정보는 단 한 바이트도 유실되면 안 되고, 순서가 뒤바뀌어도 안 됩니다.
+    반면 "캐릭터가 지금 이 좌표에 있다"는 정보는 0.1초 뒤에 더 최신 값이 도착할 예정이라면,
+    지금 값 하나쯤 유실돼도 크게 문제가 되지 않습니다. 이 둘을 같은 방식으로 전송하면 둘 중 하나는
+    반드시 손해를 봅니다. TCP와 UDP는 바로 이 두 가지 요구사항에 각각 최적화된 전송 계층(Transport Layer)
+    프로토콜입니다.
+  </p>
+
+  <h3>TCP (Transmission Control Protocol)</h3>
+  <p>
+    TCP는 <strong>연결 지향적(connection-oriented)</strong> 프로토콜입니다. 데이터를 보내기 전에
+    먼저 상대방과 "이제부터 통신을 시작하자"는 합의 과정을 거치고, 그렇게 만들어진 가상의 통로(연결)를
+    통해 데이터를 순서대로, 빠짐없이 전달하는 것을 스스로 보장합니다. 이 보장을 프로그래머가 직접
+    구현할 필요가 없다는 것이 TCP의 가장 큰 가치입니다.
+  </p>
+
+  <h4>3-way 핸드셰이크: 연결은 어떻게 시작되는가</h4>
+  <p>
+    TCP 연결은 클라이언트와 서버가 총 3번 메시지를 주고받으며 시작됩니다. 이렇게 3번을 주고받는 이유는
+    "나도 준비됐고, 너도 준비된 걸 확인했다"는 사실을 양쪽 모두가 알아야 하기 때문입니다. 2번만 주고받으면
+    서버는 클라이언트가 자신의 응답(SYN-ACK)을 실제로 받았는지 알 방법이 없습니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 340" role="img" aria-labelledby="tcp-handshake-title tcp-handshake-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="tcp-handshake-title">TCP 3-way 핸드셰이크</title>
+      <desc id="tcp-handshake-desc">클라이언트와 서버가 SYN, SYN-ACK, ACK 세 메시지를 순서대로 주고받아 TCP 연결을 수립하는 과정을 보여주는 시퀀스 다이어그램.</desc>
+      <defs>
+        <marker id="tcp-hs-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+        <marker id="tcp-hs-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#c8862e"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <!-- actor boxes -->
+      <rect x="40" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="110" y="44" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">클라이언트</text>
+      <text x="110" y="58" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">connect()</text>
+
+      <rect x="500" y="20" width="140" height="44" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="570" y="44" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">서버</text>
+      <text x="570" y="58" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">listen() / accept()</text>
+
+      <!-- lifelines -->
+      <line x1="110" y1="64" x2="110" y2="234" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="570" y1="64" x2="570" y2="234" stroke="rgba(32,29,26,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- activation bar on server while handshake is in flight -->
+      <rect x="566" y="96" width="8" height="124" fill="rgba(32,29,26,0.06)" stroke="#6b6259" stroke-width="0.8"/>
+
+      <!-- arrow 1: SYN -->
+      <line x1="110" y1="100" x2="562" y2="100" stroke="#6b6259" stroke-width="1.2" marker-end="url(#tcp-hs-arrow)"/>
+      <rect x="304" y="80" width="72" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="340" y="89" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.06em">SYN</text>
+
+      <!-- arrow 2: SYN-ACK -->
+      <line x1="570" y1="156" x2="118" y2="156" stroke="#6b6259" stroke-width="1.2" marker-end="url(#tcp-hs-arrow)"/>
+      <rect x="292" y="136" width="96" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="340" y="145" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.06em">SYN-ACK</text>
+
+      <!-- arrow 3: ACK (headline) -->
+      <line x1="110" y1="212" x2="562" y2="212" stroke="#c8862e" stroke-width="1.4" marker-end="url(#tcp-hs-arrow-accent)"/>
+      <rect x="304" y="192" width="72" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="340" y="201" text-anchor="middle" fill="#8f5f1e" font-size="8" font-weight="600" font-family="'Geist Mono',monospace" letter-spacing="0.06em">ACK</text>
+
+      <!-- completion note -->
+      <rect x="40" y="248" width="600" height="40" rx="6" fill="rgba(200,134,46,0.10)" stroke="rgba(200,134,46,0.45)" stroke-width="1"/>
+      <text x="340" y="272" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">연결 수립 완료 — 이제 양방향으로 데이터를 주고받을 수 있습니다</text>
+
+      <!-- legend -->
+      <line x1="40" y1="300" x2="640" y2="300" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="318" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <line x1="140" y1="315" x2="164" y2="315" stroke="#6b6259" stroke-width="1.2" marker-end="url(#tcp-hs-arrow)"/>
+      <text x="172" y="318" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">SYN / SYN-ACK</text>
+      <line x1="340" y1="315" x2="364" y2="315" stroke="#c8862e" stroke-width="1.4" marker-end="url(#tcp-hs-arrow-accent)"/>
+      <text x="372" y="318" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">ACK (핸드셰이크 완료)</text>
+    </svg>
+    <p class="dcap">그림 1-1. TCP 3-way 핸드셰이크 — SYN → SYN-ACK → ACK 순서로 연결이 수립됩니다</p>
+  </div>
+
+  <p>
+    이 과정은 애플리케이션 코드가 직접 다루지 않습니다. 뒤에서 살펴볼 <code>connect()</code>와
+    <code>accept()</code> 호출 뒤에서 운영체제(정확히는 TCP/IP 스택)가 대신 처리해 줍니다.
+    다만 이 과정을 알고 있어야 "왜 <code>connect()</code>가 즉시 반환되지 않고 잠깐 대기하는가",
+    "왜 방화벽에서 SYN 패킷이 막히면 연결이 타임아웃으로 실패하는가" 같은 실전 문제를 진단할 수 있습니다.
+  </p>
+
+  <div class="callout info">
+    <p class="ctitle">참고 · 연결을 끝낼 때도 순서가 있다</p>
+    <p>
+      연결을 맺을 때 3-way 핸드셰이크가 있듯, 끊을 때도 양쪽이 각자 <code>FIN</code> 패킷을 보내고
+      상대의 <code>ACK</code>를 받는 절차(보통 4-way)가 있습니다. 서버를 종료하는 코드를 작성할 때
+      소켓을 그냥 닫아버리면(강제 종료, RST) 상대방에게 아직 전송 중이던 데이터가 유실될 수 있습니다.
+      7장에서 안전한 종료 처리를 다룰 때 이 내용을 다시 짚습니다.
+    </p>
+  </div>
+
+  <h4>TCP의 나머지 특징: 신뢰성 · 순서 보장 · 흐름/혼잡 제어</h4>
+  <ul>
+    <li><strong>신뢰성(Reliability)</strong> — 보낸 패킷마다 확인응답(ACK)을 받고, 일정 시간 안에 ACK가 오지 않으면
+      자동으로 재전송합니다. 프로그래머는 "패킷이 도착했는지" 걱정하지 않고 <code>send()</code>만 호출하면 됩니다.</li>
+    <li><strong>순서 보장(Ordering)</strong> — 인터넷은 패킷마다 다른 경로로 전달될 수 있어 보낸 순서와
+      도착 순서가 다를 수 있습니다. TCP는 각 패킷에 순번(sequence number)을 매겨, 수신 측에서 순서가
+      어긋난 패킷은 버퍼에 잠시 보관했다가 올바른 순서로 애플리케이션에 전달합니다.</li>
+    <li><strong>흐름 제어(Flow Control)</strong> — 수신 측 버퍼가 가득 찼는데 송신 측이 계속 보내면
+      데이터가 버려집니다. TCP는 수신 윈도우 크기를 상대에게 알려주어, 받을 수 있는 만큼만 보내도록 조절합니다.</li>
+    <li><strong>혼잡 제어(Congestion Control)</strong> — 네트워크 경로 어딘가가 막히기 시작하면
+      전송 속도를 스스로 줄였다가, 여유가 생기면 다시 늘립니다. 회선 하나를 여러 연결이 나눠 쓸 때
+      특정 연결이 대역폭을 독점하지 않게 하는 효과도 있습니다.</li>
+  </ul>
+
+  <div class="callout">
+    <p class="ctitle">게임 서버 활용</p>
+    <p>계정 인증, 인벤토리/재화 변경, 거래, 길드 관리, 채팅 등 <strong>"틀리면 안 되는" 데이터</strong>는 TCP로 처리합니다.</p>
+  </div>
+
+  <h3>UDP (User Datagram Protocol)</h3>
+  <p>
+    UDP는 TCP와 정반대의 철학을 가진 <strong>비연결 지향적(connectionless)</strong> 프로토콜입니다.
+    핸드셰이크도 없고, 재전송도 없고, 순서 보장도 없습니다. 소켓 하나로 그냥 상대 주소를 지정해서
+    데이터그램(datagram)을 던지듯 보낼 뿐입니다. 우편에 비유하면 TCP가 반드시 받는 사람 서명을 받는
+    등기우편이라면, UDP는 우체통에 넣기만 하고 끝인 일반 엽서에 가깝습니다.
+  </p>
+  <ul>
+    <li><strong>비연결성</strong> — 연결 설정 과정 자체가 없어 <code>connect()</code> 없이도(또는 형식적으로만)
+      바로 <code>sendto()</code>로 데이터를 보낼 수 있습니다.</li>
+    <li><strong>낮은 오버헤드, 빠른 전송</strong> — 헤더가 TCP(20바이트+)보다 훨씬 작고(8바이트),
+      ACK·재전송·혼잡제어 로직이 없어 지연 시간이 짧습니다.</li>
+    <li><strong>비신뢰성</strong> — 패킷이 유실돼도 UDP 계층은 알려주지 않습니다. 신뢰성이 필요하면
+      애플리케이션이 직접 구현해야 합니다.</li>
+    <li><strong>순서 보장 없음</strong> — 늦게 보낸 패킷이 먼저 도착할 수 있습니다. 캐릭터 이동 패킷처럼
+      "가장 최신 값만 의미 있는" 데이터에는 오히려 문제가 되지 않습니다.</li>
+  </ul>
+
+  <div class="callout">
+    <p class="ctitle">게임 서버 활용</p>
+    <p>
+      실시간 위치 동기화, FPS의 조준/이동 입력, 음성 채팅처럼 <strong>"늦게 정확한 것보다 지금 대략 맞는 게 나은" 데이터</strong>는
+      UDP로 처리합니다. 다만 완전히 날것으로 쓰기보다, 시퀀스 번호를 붙여 오래된 패킷을 걸러내거나
+      중요한 패킷만 선택적으로 재전송하는 자체 신뢰성 계층을 얹는 경우가 많습니다.
+    </p>
+  </div>
+
+  <h3>프로토콜 선택 기준</h3>
+  <p>실무에서는 "TCP냐 UDP냐"를 이분법으로 정하기보다, 데이터 종류별로 나누어 선택합니다.</p>
+
+  <table class="cmp">
+    <thead>
+      <tr><th>특성</th><th>TCP</th><th>UDP</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>신뢰성</td><td class="hl">높음 (자동 재전송)</td><td>보장 없음</td></tr>
+      <tr><td>순서 보장</td><td class="hl">보장됨</td><td>보장 없음</td></tr>
+      <tr><td>지연 시간</td><td>상대적으로 큼</td><td class="hl">최소화됨</td></tr>
+      <tr><td>헤더 오버헤드</td><td>20바이트 이상</td><td class="hl">8바이트</td></tr>
+      <tr><td>구현 복잡도</td><td class="hl">낮음 (OS가 보장)</td><td>높음 (신뢰성 필요 시 직접 구현)</td></tr>
+      <tr><td>대표 용도</td><td>로그인, 거래, 채팅, 길드</td><td>이동 좌표, 조준, 음성</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    많은 상용 게임 서버가 두 프로토콜을 함께 씁니다. 예를 들어 로그인·매칭·아이템 거래는 TCP 채널로,
+    실시간 전투의 위치·애니메이션 동기화는 별도의 UDP 채널로 분리해서 처리하는 식입니다.
+    이 책은 RIO가 TCP 소켓을 대상으로 하는 최적화 기법이므로, 이후 장에서는 주로 TCP를 기준으로 설명합니다.
+  </p>
+</section>
+
+<section class="sec" id="socket-basics">
+  <h2><span class="num">1.2</span> 소켓 프로그래밍 기본 개념</h2>
+  <p class="sec-sub">소켓은 "네트워크 통신을 위한 파일 핸들"입니다 — 전화를 걸기 전에 수화기를 드는 것과 같습니다.</p>
+
+  <p>
+    <strong>소켓(socket)</strong>은 애플리케이션이 네트워크로 데이터를 주고받기 위해 운영체제로부터
+    받는 통신 끝점(endpoint)입니다. 파일을 다루기 전에 <code>fopen()</code>으로 파일 핸들을 얻는 것처럼,
+    네트워크 통신을 하기 전에는 항상 소켓이라는 핸들을 먼저 만들어야 합니다. Windows에서 소켓 API의
+    모음을 <strong>Winsock</strong>이라고 부르며, 이 책 전체에서 사용할 모든 네트워크 함수는 Winsock이 제공합니다.
+  </p>
+
+  <h3>1) Winsock 초기화와 소켓 생성</h3>
+  <p>
+    Windows에서 소켓 함수를 하나라도 호출하기 전에, 반드시 Winsock 라이브러리를 초기화해야 합니다.
+    이 초기화를 건너뛰면 이후의 모든 소켓 함수 호출이 실패합니다.
+  </p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">WSAStartup()</span></div>
+    <div class="api-body">
+      <p>프로세스에서 Winsock을 사용하겠다고 운영체제에 등록하고, 요청한 버전의 Winsock DLL을 로드합니다.
+      프로그램당 한 번, <code>main()</code> 맨 앞에서 호출하는 것이 일반적입니다.</p>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>wVersionRequested</code></td><td>요청할 Winsock 버전. <code>MAKEWORD(2, 2)</code>는 2.2 버전을 뜻하며, 사실상 모든 최신 코드가 이 값을 씁니다.</td></tr>
+        <tr><td><code>lpWSAData</code></td><td>실제 로드된 버전 정보를 돌려받을 <code>WSADATA</code> 구조체 포인터.</td></tr>
+      </table>
+      <p style="margin-top:10px;">반환값이 <code>0</code>이 아니면 초기화에 실패한 것이며, 이 경우 이후의 모든 소켓 함수를 호출해서는 안 됩니다.</p>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">WSASocketW()</span></div>
+    <div class="api-body">
+      <p>소켓을 생성합니다. 표준 C의 <code>socket()</code> 함수와 같은 역할을 하지만, 확장 플래그를
+      지정할 수 있어 이 책에서는 대부분 이 함수를 사용합니다. 특히 <strong>마지막 플래그에
+      <code>WSA_FLAG_REGISTERED_IO</code>를 주면 이 소켓을 RIO API와 함께 쓸 수 있게 됩니다</strong> —
+      2장부터 사용할 핵심 플래그이니 지금부터 눈에 익혀두면 좋습니다.</p>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>af</code></td><td>주소 체계. IPv4는 <code>AF_INET</code>.</td></tr>
+        <tr><td><code>type</code></td><td>소켓 종류. TCP는 <code>SOCK_STREAM</code>, UDP는 <code>SOCK_DGRAM</code>.</td></tr>
+        <tr><td><code>protocol</code></td><td>구체적 프로토콜. TCP는 <code>IPPROTO_TCP</code>, UDP는 <code>IPPROTO_UDP</code>.</td></tr>
+        <tr><td><code>lpProtocolInfo</code></td><td>보통 <code>nullptr</code>.</td></tr>
+        <tr><td><code>g</code></td><td>소켓 그룹 ID. 보통 <code>0</code>.</td></tr>
+        <tr><td><code>dwFlags</code></td><td><code>WSA_FLAG_OVERLAPPED</code>(비동기 I/O 허용), <code>WSA_FLAG_REGISTERED_IO</code>(RIO 사용) 등을 비트 OR로 조합.</td></tr>
+      </table>
+      <p style="margin-top:10px;">실패하면 <code>INVALID_SOCKET</code>을 반환하며, 자세한 원인은 <code>WSAGetLastError()</code>로 확인합니다.</p>
+    </div>
+  </div>
+
+  <p class="code-label">코드 조각 1 — Winsock 초기화</p>
+  <pre><code>WSADATA wsaData;
+int result = WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+if (result != 0) {
+    std::cerr &lt;&lt; std::format("WSAStartup 실패: {}\n", result);
+    return 1;
+}</code></pre>
+
+  <p class="code-label">코드 조각 2 — TCP/UDP 소켓 생성</p>
+  <pre><code>SOCKET tcpSocket = WSASocketW(
+    AF_INET, SOCK_STREAM, IPPROTO_TCP,
+    nullptr, 0, WSA_FLAG_REGISTERED_IO   // RIO 사용 플래그
+);
+if (tcpSocket == INVALID_SOCKET) {
+    std::cerr &lt;&lt; std::format("소켓 생성 실패: {}\n", WSAGetLastError());
+    WSACleanup();
+    return 1;
+}
+
+SOCKET udpSocket = WSASocketW(
+    AF_INET, SOCK_DGRAM, IPPROTO_UDP,
+    nullptr, 0, WSA_FLAG_REGISTERED_IO
+);
+// udpSocket도 동일하게 실패를 검사합니다 (아래 전체 코드 참고)</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">왜 매 호출마다 오류를 검사하는가</p>
+    <p>
+      네트워크 API는 로컬 함수와 달리 운영체제·드라이버·방화벽 등 통제할 수 없는 요소에 의해 실패할
+      가능성이 항상 있습니다. 게임 서버는 한 번 크래시하면 수천 명의 접속이 동시에 끊기므로,
+      "실패할 수 있다"고 가정하고 모든 반환값을 검사하는 습관이 처음부터 몸에 배어야 합니다.
+    </p>
+  </div>
+
+  <h3>2) 소켓 주소 구조체 — 어디로 보낼지 지정하기</h3>
+  <p>
+    소켓을 만들었다고 바로 통신할 수 있는 것은 아닙니다. "어느 IP, 어느 포트와 통신할 것인가"를
+    별도의 구조체에 담아 전달해야 합니다. IPv4에서는 <code>sockaddr_in</code>을 사용합니다.
+  </p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">STRUCT</span><span class="api-name">sockaddr_in</span></div>
+    <div class="api-body">
+      <table>
+        <tr><th>필드</th><th>의미</th></tr>
+        <tr><td><code>sin_family</code></td><td>주소 체계. 항상 <code>AF_INET</code>.</td></tr>
+        <tr><td><code>sin_port</code></td><td>포트 번호. <strong>반드시 <code>htons()</code>로 변환</strong>해서 대입해야 합니다.</td></tr>
+        <tr><td><code>sin_addr</code></td><td>IP 주소(<code>in_addr</code> 구조체). <code>inet_pton()</code>으로 문자열 IP를 바이너리로 변환해 채웁니다.</td></tr>
+      </table>
+      <p style="margin-top:10px;">
+        <code>htons()</code>(host to network short)가 필요한 이유: CPU마다 정수를 메모리에 저장하는
+        바이트 순서(엔디언)가 다를 수 있는데, 네트워크 프로토콜은 항상 "빅 엔디언(네트워크 바이트 순서)"을
+        기준으로 통일합니다. <code>htons()</code>는 현재 CPU의 순서를 네트워크 순서로 맞춰주는
+        변환 함수입니다. 포트·주소 값을 다룰 때마다 습관적으로 붙여야 하는 이유가 여기에 있습니다.
+      </p>
+    </div>
+  </div>
+
+  <p class="code-label">코드 조각 3 — 서버 주소 채우기</p>
+  <pre><code>sockaddr_in serverAddr{};
+serverAddr.sin_family = AF_INET;
+serverAddr.sin_port = htons(27015);                      // 호스트 바이트 순서 → 네트워크 바이트 순서
+inet_pton(AF_INET, "127.0.0.1", &amp;serverAddr.sin_addr);   // 문자열 IP → 바이너리 IP</code></pre>
+
+  <h3>3) 서버 소켓 설정 3단계 — bind, listen, accept</h3>
+  <p>서버는 클라이언트의 연결을 받아들이기 전에 세 단계를 거칩니다.</p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 400" role="img" aria-labelledby="sock-flow-title sock-flow-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="sock-flow-title">서버·클라이언트 소켓 API 호출 순서</title>
+      <desc id="sock-flow-desc">서버는 socket, bind, listen, accept 순서로, 클라이언트는 socket, connect 순서로 호출하며, accept와 connect 사이에서 TCP 핸드셰이크가 일어나는 것을 보여주는 두 열짜리 흐름도.</desc>
+      <defs>
+        <marker id="sf-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+        <marker id="sf-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#3f6b8a"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <text x="144" y="16" text-anchor="middle" fill="#877d70" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.18em">SERVER</text>
+      <text x="536" y="16" text-anchor="middle" fill="#877d70" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.18em">CLIENT</text>
+
+      <!-- server chain -->
+      <rect x="56" y="32" width="176" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="144" y="52" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">소켓 생성</text>
+      <text x="144" y="68" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">WSASocketW()</text>
+
+      <line x1="144" y1="80" x2="144" y2="112" stroke="#6b6259" stroke-width="1.2" marker-end="url(#sf-arrow)"/>
+
+      <rect x="56" y="112" width="176" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="144" y="132" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">주소 바인딩</text>
+      <text x="144" y="148" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">bind()</text>
+
+      <line x1="144" y1="160" x2="144" y2="192" stroke="#6b6259" stroke-width="1.2" marker-end="url(#sf-arrow)"/>
+
+      <rect x="56" y="192" width="176" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="144" y="212" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">연결 대기 시작</text>
+      <text x="144" y="228" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">listen()</text>
+
+      <line x1="144" y1="240" x2="144" y2="272" stroke="#6b6259" stroke-width="1.2" marker-end="url(#sf-arrow)"/>
+
+      <rect x="56" y="272" width="176" height="48" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="144" y="292" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">연결 수락</text>
+      <text x="144" y="308" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">accept()</text>
+
+      <!-- client chain -->
+      <rect x="448" y="32" width="176" height="48" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="536" y="52" text-anchor="middle" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">소켓 생성</text>
+      <text x="536" y="68" text-anchor="middle" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">socket()</text>
+
+      <line x1="536" y1="80" x2="536" y2="272" stroke="#6b6259" stroke-width="1.2" marker-end="url(#sf-arrow)"/>
+      <rect x="548" y="164" width="120" height="26" rx="2" fill="#f8f6f1"/>
+      <text x="552" y="174" fill="#877d70" font-size="8" font-family="'Geist Mono',monospace">bind() 생략 시</text>
+      <text x="552" y="186" fill="#877d70" font-size="8" font-family="'Geist Mono',monospace">임시 포트 자동 할당</text>
+
+      <rect x="448" y="272" width="176" height="48" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="536" y="292" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">서버에 연결</text>
+      <text x="536" y="308" text-anchor="middle" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">connect()</text>
+
+      <!-- cross arrow: connect -> accept -->
+      <line x1="448" y1="296" x2="236" y2="296" stroke="#3f6b8a" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#sf-arrow-link)"/>
+      <rect x="290" y="276" width="104" height="12" rx="2" fill="#f8f6f1"/>
+      <text x="342" y="285" text-anchor="middle" fill="#3f6b8a" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.04em">TCP 핸드셰이크</text>
+
+      <!-- legend -->
+      <line x1="40" y1="352" x2="640" y2="352" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="370" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="160" y="362" width="14" height="14" rx="2" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="182" y="373" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">설정 단계 호출</text>
+      <rect x="340" y="362" width="14" height="14" rx="2" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="362" y="373" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">연결이 실제로 맺어지는 지점</text>
+    </svg>
+    <p class="dcap">그림 1-2. 서버는 socket→bind→listen→accept, 클라이언트는 socket→connect 순서로 호출하며, 두 accept()·connect()가 만나는 순간이 곧 그림 1-1의 핸드셰이크입니다</p>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">bind()</span></div>
+    <div class="api-body">
+      <p>생성한 소켓을 특정 IP·포트에 결합합니다. 서버는 클라이언트가 "이 포트로 오면 된다"는 걸 알 수 있도록
+      반드시 알려진 포트에 바인딩해야 합니다. (클라이언트는 보통 생략하며, 이 경우 OS가 임시 포트를 자동으로 골라줍니다.)</p>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>s</code></td><td>바인딩할 소켓.</td></tr>
+        <tr><td><code>name</code></td><td><code>sockaddr*</code>로 캐스팅한 <code>sockaddr_in</code> 주소.</td></tr>
+        <tr><td><code>namelen</code></td><td>주소 구조체 크기, 보통 <code>sizeof(serverAddr)</code>.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">listen()</span></div>
+    <div class="api-body">
+      <p>소켓을 "연결을 받아들이는 모드"로 전환합니다. 이 호출 이후부터 이 소켓으로 <code>connect()</code> 요청이 들어올 수 있습니다.</p>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>s</code></td><td>리스닝할 소켓.</td></tr>
+        <tr><td><code>backlog</code></td><td><code>accept()</code>가 아직 처리하지 못한, 대기 중인 연결을 몇 개까지 큐에 쌓아둘지. <code>SOMAXCONN</code>을 주면 OS가 적절한 최댓값을 사용합니다.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">accept()</span></div>
+    <div class="api-body">
+      <p>대기 큐에 쌓인 연결 요청을 하나 꺼내, <strong>그 클라이언트 전용의 새 소켓</strong>을 만들어 반환합니다.
+      리스닝 소켓 자체는 이후에도 계속 다른 연결을 받기 위해 살아있고, 실제 데이터 송수신은 이 새 소켓으로 합니다.
+      이 함수는 대기 중인 연결이 없으면 하나가 들어올 때까지 <strong>블로킹</strong>됩니다 — 이 "블로킹"이 무엇을
+      뜻하는지는 바로 다음 절에서 다룹니다.</p>
+    </div>
+  </div>
+
+  <h3>4) 클라이언트 연결 — connect()</h3>
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">connect()</span></div>
+    <div class="api-body">
+      <p>클라이언트 소켓에서 서버로 연결을 시도합니다. 내부적으로 그림 1-1의 3-way 핸드셰이크를 수행하며,
+      성공적으로 완료되어야 함수가 반환됩니다.</p>
+    </div>
+  </div>
+
+  <p class="code-label">코드 조각 4 — 서버 설정과 클라이언트 연결</p>
+  <pre><code>// [서버] 바인딩 → 리스닝 → 수락
+bind(serverSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr));
+listen(serverSocket, SOMAXCONN);
+
+sockaddr_in clientAddr{};
+int clientAddrSize = sizeof(clientAddr);
+SOCKET clientSocket = accept(serverSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;clientAddrSize);
+
+// [클라이언트] 연결 시도
+connect(clientSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr));</code></pre>
+
+  <h3>5) 데이터 송수신 — send(), recv()</h3>
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">send() / recv()</span></div>
+    <div class="api-body">
+      <p>연결이 맺어진 소켓으로 바이트 스트림을 주고받는 가장 기본적인 함수입니다.
+      <code>send()</code>는 실제로 전송한 바이트 수를 반환하는데, <strong>요청한 크기 전체가 한 번에 전송된다는
+      보장이 없습니다</strong> — 반환값이 요청 크기보다 작을 수 있어, 실전 코드에서는 남은 만큼 반복 전송하는
+      로직이 필요합니다(6~7장에서 다룹니다). <code>recv()</code>는 데이터를 받으면 받은 바이트 수를,
+      상대가 정상적으로 연결을 종료하면 <code>0</code>을, 오류가 나면 <code>SOCKET_ERROR</code>를 반환합니다.</p>
+    </div>
+  </div>
+
+  <p class="code-label">코드 조각 5 — 송수신</p>
+  <pre><code>const char* message = "Hello, Game Server!";
+int bytesSent = send(clientSocket, message, static_cast&lt;int&gt;(strlen(message)), 0);
+
+char buffer[1024];
+int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+if (bytesReceived > 0) {
+    buffer[bytesReceived] = '\0';
+    std::cout &lt;&lt; std::format("수신된 데이터: {}\n", buffer);
+} else if (bytesReceived == 0) {
+    std::cout &lt;&lt; "연결이 종료되었습니다.\n";
+} else {
+    std::cerr &lt;&lt; std::format("수신 실패: {}\n", WSAGetLastError());
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">recv()의 세 가지 반환값을 반드시 구분하라</p>
+    <p>
+      <code>recv()</code>는 <strong>양수(받은 바이트 수)</strong>, <strong>0(정상 종료)</strong>,
+      <strong>음수/SOCKET_ERROR(오류)</strong> 세 가지를 완전히 다르게 처리해야 합니다. 이 셋을 구분하지 않고
+      "0 이하면 실패"로 뭉뚱그리면, 클라이언트가 정상적으로 연결을 끊은 상황과 네트워크 오류를 같은 코드로
+      처리하게 되어 원인 파악이 어려워집니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="blocking">
+  <h2><span class="num">1.3</span> 블로킹 vs 논블로킹 I/O</h2>
+  <p class="sec-sub">동시접속자 100명과 100만 명의 서버를 가르는 가장 근본적인 설계 선택입니다.</p>
+
+  <p>
+    앞 절의 <code>accept()</code>와 <code>recv()</code>는 사실 조용히 한 가지를 가정하고 있었습니다.
+    "데이터가 올 때까지 함수가 기다려준다"는 가정입니다. 이런 방식을 <strong>블로킹(blocking) I/O</strong>라고
+    부릅니다. 사람 한 명이 손님 한 명을 상대로 응대가 끝날 때까지 다른 손님을 받지 않는 창구와 같습니다.
+    손님이 한두 명일 땐 문제없지만, 수천 명이 동시에 줄을 서면 창구(스레드) 수만큼만 동시에 처리할 수
+    있다는 한계가 바로 드러납니다.
+  </p>
+
+  <h3>블로킹 I/O</h3>
+  <p>
+    <code>recv()</code>를 블로킹 소켓에서 호출하면, 데이터가 도착하거나 오류가 발생할 때까지 그 스레드는
+    다른 어떤 일도 하지 못한 채 멈춰 있습니다. 구현은 매우 직관적이지만("코드가 위에서 아래로 순서대로
+    실행된다"는 상식이 그대로 통합니다), 문제는 <strong>동시접속자 수만큼 스레드가 필요하다</strong>는
+    점입니다. 앞서 만든 에코 서버가 클라이언트마다 <code>std::jthread</code>를 하나씩 띄운 것도 이 때문입니다.
+    스레드는 공짜가 아닙니다 — 스레드 하나마다 스택 메모리(기본 1MB)를 차지하고, 스레드 간 컨텍스트 스위칭
+    비용도 발생합니다. 접속자가 수만 명 단위로 늘어나면 이 비용이 서버 전체를 잠식합니다.
+  </p>
+
+  <pre><code>// 블로킹 소켓에서의 데이터 수신
+char buffer[1024];
+int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+// recv()는 데이터가 도착하거나 오류가 발생할 때까지 반환되지 않습니다</code></pre>
+
+  <h3>논블로킹 I/O</h3>
+  <p>
+    논블로킹(non-blocking) I/O는 데이터가 아직 없어도 함수가 <strong>즉시</strong> 반환되도록 소켓의
+    동작 방식 자체를 바꿉니다. 스레드는 "지금 데이터 없음"이라는 답을 받고 즉시 다른 일을 할 수 있습니다.
+    대신 "데이터가 준비됐는지"를 스스로 계속 확인(polling)해야 하므로 구현이 복잡해집니다.
+  </p>
+
+  <div class="api-card">
+    <div class="api-head"><span class="api-tag">API</span><span class="api-name">ioctlsocket()</span></div>
+    <div class="api-body">
+      <p>소켓의 동작 모드를 제어하는 범용 함수입니다. <code>FIONBIO</code> 명령과 함께 쓰면 소켓을
+      블로킹/논블로킹 모드로 전환할 수 있습니다.</p>
+      <table>
+        <tr><th>매개변수</th><th>의미</th></tr>
+        <tr><td><code>s</code></td><td>대상 소켓.</td></tr>
+        <tr><td><code>cmd</code></td><td><code>FIONBIO</code> — 블로킹 모드 설정 명령.</td></tr>
+        <tr><td><code>argp</code></td><td><code>u_long*</code>. 가리키는 값이 0이면 블로킹, 0이 아니면(보통 1) 논블로킹.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <p class="code-label">코드 조각 6 — 논블로킹 모드 전환과 사용</p>
+  <pre><code>u_long mode = 1;  // 1: 논블로킹, 0: 블로킹
+ioctlsocket(clientSocket, FIONBIO, &amp;mode);
+
+// 논블로킹 소켓에서의 수신 — 반환값을 반드시 3갈래로 분기
+char buffer[1024];
+int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+if (bytesReceived > 0) {
+    // 데이터 처리
+} else if (bytesReceived == SOCKET_ERROR) {
+    int error = WSAGetLastError();
+    if (error == WSAEWOULDBLOCK) {
+        // 아직 데이터 없음 — 정상 상황, 다른 작업 수행 가능
+    } else {
+        // 진짜 오류
+    }
+}</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">WSAEWOULDBLOCK은 오류가 아니다</p>
+    <p>
+      논블로킹 소켓에서 <code>recv()</code>가 <code>SOCKET_ERROR</code>를 반환했다고 바로 실패로 취급하면 안 됩니다.
+      <code>WSAGetLastError()</code>가 <code>WSAEWOULDBLOCK</code>이면 "지금 당장 처리할 데이터가 없다"는
+      정상적인 신호일 뿐입니다. 이 구분을 놓치는 것은 논블로킹 코드를 처음 작성할 때 가장 흔한 실수입니다.
+    </p>
+  </div>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 300" role="img" aria-labelledby="bnb-title bnb-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="bnb-title">블로킹과 논블로킹 스레드의 시간 활용 비교</title>
+      <desc id="bnb-desc">같은 대기 시간 동안 블로킹 스레드는 아무 일도 하지 못하는 반면, 논블로킹 스레드는 폴링 사이사이 다른 작업을 수행할 수 있음을 보여주는 두 줄짜리 타임라인.</desc>
+      <defs>
+        <marker id="bnb-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#877d70"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <text x="16" y="88" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">블로킹</text>
+      <text x="16" y="176" fill="#201d1a" font-size="12" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">논블로킹</text>
+
+      <!-- Row 1: blocking -->
+      <rect x="140" y="64" width="340" height="40" rx="4" fill="rgba(32,29,26,0.02)" stroke="rgba(32,29,26,0.30)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="310" y="88" text-anchor="middle" fill="#6b6259" font-size="10" font-family="'Geist Mono',monospace">recv() 대기 중 — 다른 일 불가</text>
+      <rect x="480" y="64" width="100" height="40" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="530" y="88" text-anchor="middle" fill="#201d1a" font-size="10" font-family="'Geist','Pretendard Variable',sans-serif">데이터 처리</text>
+
+      <!-- Row 2: non-blocking -->
+      <rect x="140" y="152" width="16" height="40" rx="3" fill="rgba(135,125,112,0.30)" stroke="#877d70" stroke-width="0.8"/>
+      <rect x="172" y="152" width="220" height="40" rx="4" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="282" y="176" text-anchor="middle" fill="#201d1a" font-size="10" font-family="'Geist','Pretendard Variable',sans-serif">다른 클라이언트 작업 처리</text>
+      <rect x="408" y="152" width="16" height="40" rx="3" fill="#c8862e"/>
+      <rect x="440" y="152" width="120" height="40" rx="4" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1"/>
+      <text x="500" y="176" text-anchor="middle" fill="#8f5f1e" font-size="10" font-family="'Geist','Pretendard Variable',sans-serif">데이터 처리</text>
+
+      <!-- time axis -->
+      <line x1="140" y1="220" x2="600" y2="220" stroke="#6b6259" stroke-width="1" marker-end="url(#bnb-arrow)"/>
+      <text x="608" y="224" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">시간</text>
+
+      <!-- legend -->
+      <line x1="40" y1="248" x2="640" y2="248" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="266" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="140" y="258" width="14" height="14" rx="2" fill="rgba(32,29,26,0.02)" stroke="rgba(32,29,26,0.30)" stroke-width="1" stroke-dasharray="3,2"/>
+      <text x="162" y="269" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">블로킹 대기(생산성 없음)</text>
+      <rect x="360" y="258" width="14" height="14" rx="2" fill="rgba(135,125,112,0.30)" stroke="#877d70" stroke-width="0.8"/>
+      <text x="382" y="269" fill="#6b6259" font-size="9" font-family="'Geist Mono',monospace">poll 시도(WSAEWOULDBLOCK)</text>
+    </svg>
+    <p class="dcap">그림 1-3. 같은 대기 시간이라도 논블로킹 스레드는 폴링 사이사이 다른 클라이언트의 작업을 처리할 수 있습니다</p>
+  </div>
+
+  <p>
+    다만 그림의 논블로킹 쪽을 "무한 반복문으로 계속 <code>recv()</code>를 찔러본다"는 식으로 구현하면
+    CPU를 100% 낭비하는 바쁜 대기(busy waiting)가 되어 버립니다. 실전에서는 "지금 어떤 소켓에 데이터가
+    준비됐는지"를 운영체제에게 물어보고, 준비된 소켓만 골라서 처리하는 방식을 씁니다. 이게 바로 다음에
+    설명할 비동기 I/O 모델들의 역할입니다.
+  </p>
+
+  <h3>Windows 비동기 I/O 모델의 계보</h3>
+  <p>
+    Windows는 "논블로킹 + 폴링"의 비효율을 해결하기 위해 지난 수십 년간 여러 세대의 비동기 I/O API를
+    내놓았습니다. 각 세대는 이전 세대의 한계(대부분 "동시접속자가 늘어날수록 성능이 어떻게 저하되는가")를
+    해결하는 방향으로 발전했습니다. RIO는 이 계보의 가장 최신 지점에 있습니다.
+  </p>
+
+  <div class="diagram-block">
+    <svg viewBox="0 0 680 220" role="img" aria-labelledby="evo-title evo-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="evo-title">Windows 비동기 I/O 모델의 발전 계보</title>
+      <desc id="evo-desc">블로킹 I/O에서 논블로킹 폴링, 이벤트 기반, Overlapped I/O와 IOCP를 거쳐 RIO에 이르는 다섯 단계의 발전 흐름을 보여주는 순서도. 오른쪽으로 갈수록 처리 가능한 동시 연결 수가 늘어난다.</desc>
+      <defs>
+        <marker id="evo-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#6b6259"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f8f6f1"/>
+
+      <!-- 5 stage boxes -->
+      <rect x="28" y="60" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="84" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">블로킹</text>
+      <text x="84" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">recv() 대기</text>
+
+      <line x1="140" y1="92" x2="156" y2="92" stroke="#6b6259" stroke-width="1.2" marker-end="url(#evo-arrow)"/>
+
+      <rect x="156" y="60" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="212" y="82" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">논블로킹</text>
+      <text x="212" y="96" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">폴링</text>
+      <text x="212" y="112" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">ioctlsocket()</text>
+
+      <line x1="268" y1="92" x2="284" y2="92" stroke="#6b6259" stroke-width="1.2" marker-end="url(#evo-arrow)"/>
+
+      <rect x="284" y="60" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="340" y="86" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">이벤트 기반</text>
+      <text x="340" y="102" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">WSAEventSelect</text>
+
+      <line x1="396" y1="92" x2="412" y2="92" stroke="#6b6259" stroke-width="1.2" marker-end="url(#evo-arrow)"/>
+
+      <rect x="412" y="60" width="112" height="64" rx="6" fill="#ffffff" stroke="#201d1a" stroke-width="1"/>
+      <text x="468" y="82" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">Overlapped</text>
+      <text x="468" y="96" text-anchor="middle" fill="#201d1a" font-size="11" font-weight="600" font-family="'Geist','Pretendard Variable',sans-serif">I/O + IOCP</text>
+      <text x="468" y="112" text-anchor="middle" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace">CreateIoCompletionPort</text>
+
+      <line x1="524" y1="92" x2="540" y2="92" stroke="#6b6259" stroke-width="1.2" marker-end="url(#evo-arrow)"/>
+
+      <rect x="540" y="60" width="112" height="64" rx="6" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="596" y="88" text-anchor="middle" fill="#8f5f1e" font-size="12" font-weight="700" font-family="'Geist','Pretendard Variable',sans-serif">RIO</text>
+      <text x="596" y="104" text-anchor="middle" fill="#8f5f1e" font-size="8" font-family="'Geist Mono',monospace">RIO_CQ / RIO_RQ</text>
+
+      <text x="340" y="150" text-anchor="middle" fill="#877d70" font-size="9" font-family="'Geist Mono',monospace" letter-spacing="0.04em">구현 복잡도 · 처리 가능한 동시 연결 수 증가 방향 →</text>
+
+      <line x1="40" y1="176" x2="640" y2="176" stroke="rgba(32,29,26,0.10)" stroke-width="0.8"/>
+      <text x="40" y="194" fill="#6b6259" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">LEGEND</text>
+      <rect x="140" y="186" width="14" height="14" rx="2" fill="rgba(200,134,46,0.10)" stroke="#c8862e" stroke-width="1.2"/>
+      <text x="162" y="197" fill="#8f5f1e" font-size="9" font-family="'Geist Mono',monospace">이 책에서 다루는 목표 지점 (2장~)</text>
+    </svg>
+    <p class="dcap">그림 1-4. 블로킹 I/O에서 RIO까지 — 오른쪽으로 갈수록 커널 모드 전환과 메모리 복사가 줄어들고, 더 많은 동시 연결을 적은 스레드로 처리할 수 있습니다</p>
+  </div>
+
+  <ol>
+    <li><strong>이벤트 기반</strong> — <code>WSAEventSelect()</code>로 소켓에 이벤트 객체를 연결하고,
+      <code>WSAWaitForMultipleEvents()</code>로 여러 소켓의 상태 변화를 한 번에 기다립니다.</li>
+    <li><strong>콜백 기반</strong> — <code>WSAAsyncSelect()</code>로 소켓 이벤트를 윈도우 메시지로 받습니다.
+      GUI 애플리케이션과는 잘 맞지만 서버에는 잘 쓰이지 않습니다.</li>
+    <li><strong>중첩 I/O(Overlapped I/O)</strong> — <code>WSASend()</code>/<code>WSARecv()</code>에
+      <code>OVERLAPPED</code> 구조체를 넘겨, 작업을 커널에 등록만 해두고 완료되면 통보받는 방식입니다.</li>
+    <li><strong>완료 포트(IOCP)</strong> — <code>CreateIoCompletionPort()</code>로 여러 개의 중첩 I/O 완료
+      통지를 소수의 워커 스레드가 몰아서 처리하도록 묶는 구조입니다. 오랫동안 Windows 고성능 서버의
+      표준으로 쓰였습니다.</li>
+    <li><strong>등록된 I/O(RIO)</strong> — IOCP보다 한 단계 더 나아가, 버퍼를 미리 커널에 등록해두고
+      요청·완료를 배치(batch) 단위로 처리함으로써 시스템 콜 횟수와 메모리 복사를 더욱 줄인 최신 API입니다.</li>
+  </ol>
+
+  <div class="callout">
+    <p class="ctitle">RIO가 잘하는 것</p>
+    <ul style="margin:6px 0 0;">
+      <li>메모리 복사를 최소화하는 <strong>제로 카피(zero-copy)</strong> 전송에 가까운 처리</li>
+      <li>유저 모드 ↔ 커널 모드 전환(모드 스위칭) 횟수 감소</li>
+      <li>미리 등록한 버퍼를 재사용하는 최적화된 버퍼 관리</li>
+      <li>초당 수만~수십만 건의 소규모 패킷을 처리해야 하는 게임 서버에 특히 효율적</li>
+    </ul>
+  </div>
+
+  <p>
+    이 다섯 모델의 자세한 동작 방식, 특히 IOCP와 RIO의 구체적인 차이는 2장에서 본격적으로 다룹니다.
+    지금은 "RIO는 갑자기 등장한 특수한 기술이 아니라, 블로킹 I/O의 한계를 하나씩 극복해 온 자연스러운
+    다음 단계"라는 큰 그림만 기억하면 충분합니다.
+  </p>
+</section>
+
+<section class="sec" id="cpp23">
+  <h2><span class="num">1.4</span> C++23 네트워킹 관련 기능</h2>
+  <p class="sec-sub">C++23에는 아직 표준 네트워킹 라이브러리가 없지만, 네트워크 코드를 훨씬 안전하게 만들어주는 언어 기능들이 생겼습니다.</p>
+
+  <p>
+    C++ 표준 위원회의 Networking TS(Technical Specification)는 아직 정식 표준에 포함되지 않았습니다.
+    그래서 이 책에서도 Winsock API를 직접 호출합니다. 다만 C++23의 세 가지 기능 — <code>std::expected</code>,
+    <code>std::span</code>, <code>std::jthread</code> — 을 활용하면 그 위에 훨씬 안전한 래퍼를 씌울 수
+    있습니다. 이 세 가지는 이후 6장의 "모던 C++ RIO 래퍼 클래스"에서 본격적으로 사용하므로, 지금 기본
+    사용법을 익혀두면 뒤에서 훨씬 수월합니다.
+  </p>
+
+  <h3>std::expected — "실패할 수 있는 함수"를 타입으로 표현하기</h3>
+  <p>
+    지금까지의 예제 코드는 실패를 <code>INVALID_SOCKET</code>이나 <code>SOCKET_ERROR</code> 같은
+    "특별한 값"으로 표현했습니다. 이 방식의 문제는, 함수 시그니처만 봐서는 그 함수가 실패할 수 있다는
+    사실 자체를 알 수 없다는 점입니다. <code>std::expected&lt;T, E&gt;</code>는 "성공하면 <code>T</code>,
+    실패하면 <code>E</code>(보통 오류 메시지나 오류 코드)"라는 두 가지 결과를 타입 시스템 차원에서
+    명시적으로 표현합니다. 호출하는 쪽은 반환값을 <code>if (result)</code>로 검사하지 않으면 컴파일러
+    경고 없이도 실수하기 쉽지만, <code>*result</code>로 값을 꺼내려면 먼저 성공 여부를 인지하고 있어야
+    한다는 점에서 예외(exception)보다 흐름이 명확하고, 예외 처리 비용도 없습니다.
+  </p>
+
+  <pre><code>std::expected&lt;int, std::string&gt; sendMessage(SOCKET socket, const std::string&amp; message) {
+    int result = send(socket, message.c_str(), static_cast&lt;int&gt;(message.length()), 0);
+    if (result == SOCKET_ERROR) {
+        return std::unexpected(std::format("전송 오류: {}", WSAGetLastError()));
+    }
+    return result;   // 성공 시 전송한 바이트 수를 담아 반환
+}
+
+void useExpected(SOCKET socket) {
+    auto result = sendMessage(socket, "Hello");
+    if (result) {
+        std::cout &lt;&lt; std::format("전송된 바이트: {}\n", *result);
+    } else {
+        std::cerr &lt;&lt; result.error() &lt;&lt; '\n';   // 실패 이유가 문자열로 담겨 있음
+    }
+}</code></pre>
+
+  <h3>std::span — 소유하지 않고 "바라보는" 버퍼 뷰</h3>
+  <p>
+    네트워크 코드는 버퍼를 함수 간에 계속 넘겨야 합니다. 이때 <code>std::vector&lt;std::byte&gt;</code>를
+    통째로 복사해서 넘기면 성능이 낭비되고, <code>(포인터, 길이)</code> 두 개를 따로 넘기면 둘이
+    어긋날 위험이 있습니다. <code>std::span</code>은 "이미 존재하는 메모리를 소유권 없이 가리키는 뷰"로,
+    포인터와 길이를 하나로 묶어 안전하게 전달합니다. 특히 "수신 버퍼는 1024바이트지만 실제로 받은 건
+    512바이트뿐"인 상황에서, 실제로 유효한 범위만 골라 넘길 때 유용합니다.
+  </p>
+
+  <pre><code>void processPacket(std::span&lt;const std::byte&gt; buffer) {
+    // 패킷 데이터 처리 — buffer.size()만큼만 유효
+}
+
+void handleNetworkData() {
+    std::vector&lt;std::byte&gt; receivedData(1024);   // 수신 버퍼(용량 1024)
+    size_t bytesReceived = 512;                   // 실제로 recv()가 받은 바이트 수
+
+    // 실제 수신된 데이터만큼만 잘라서 전달 — 복사 없음
+    processPacket(std::span(receivedData.begin(), bytesReceived));
+}</code></pre>
+
+  <h3>std::jthread — 스스로 정리되는 스레드</h3>
+  <p>
+    기존 <code>std::thread</code>는 소멸되기 전에 반드시 <code>join()</code>이나 <code>detach()</code>를
+    직접 호출해줘야 하며, 이를 잊으면 프로그램이 즉시 <code>std::terminate()</code>로 종료됩니다.
+    서버처럼 스레드를 계속 생성·소멸하는 코드에서는 이 실수가 치명적입니다. <code>std::jthread</code>는
+    소멸자에서 자동으로 <code>join()</code>을 호출하고, <code>std::stop_token</code>을 통해 "이제 그만
+    멈춰라"는 신호를 스레드 내부로 깔끔하게 전달할 수 있습니다.
+  </p>
+
+  <pre><code>class NetworkHandler {
+public:
+    void start() {
+        _worker = std::jthread([this](std::stop_token stoken) {
+            while (!stoken.stop_requested()) {
+                processNetworkEvents();
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            cleanup();
+        });
+    }
+    // 소멸자를 따로 작성하지 않아도 _worker가 소멸되며 자동으로 join() 수행
+private:
+    std::jthread _worker;
+    void processNetworkEvents() { /* ... */ }
+    void cleanup() { /* ... */ }
+};</code></pre>
+
+  <h3>세 기능을 조합한 RAII 래퍼 클래스</h3>
+  <p>
+    이제 위 세 기능을 조합해 RIO 소켓을 감싸는 작은 래퍼 클래스 <code>RioSocket</code>을 만들어봅니다.
+    <strong>RAII(Resource Acquisition Is Initialization)</strong> 패턴 — 생성자에서 자원을 얻고
+    소멸자에서 반드시 해제하는 원칙 — 을 적용해, 소켓을 <code>close()</code>하는 걸 깜빡해서 발생하는
+    리소스 누수를 원천적으로 막습니다. (6장에서 이 클래스를 훨씬 더 완성된 형태로 확장합니다.)
+  </p>
+
+  <p class="code-label">코드 조각 7 — 정적 초기화/정리 함수</p>
+  <pre><code>class RioSocket {
+public:
+    static std::expected&lt;void, std::string&gt; initialize() {
+        WSADATA wsaData;
+        int result = WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+        if (result != 0) {
+            return std::unexpected(std::format("WSAStartup 실패: {}", result));
+        }
+        return {};
+    }
+    static void cleanup() { WSACleanup(); }
+    // ...
+};</code></pre>
+
+  <p class="code-label">코드 조각 8 — 소켓 생성과 RIO 함수 테이블 조회</p>
+  <pre><code>std::expected&lt;void, std::string&gt; create(int type = SOCK_STREAM, int protocol = IPPROTO_TCP) {
+    _socket = WSASocketW(AF_INET, type, protocol, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+    if (_socket == INVALID_SOCKET) {
+        return std::unexpected(std::format("소켓 생성 실패: {}", WSAGetLastError()));
+    }
+
+    // RIO 함수들은 일반 함수가 아니라, 소켓마다 WSAIoctl()로 "함수 포인터 테이블"을
+    // 가져와야 호출할 수 있습니다 — 자세한 이유는 2장에서 다룹니다.
+    GUID functionTableId = WSAID_MULTIPLE_RIO;
+    DWORD dwBytes = 0;
+    int result = WSAIoctl(_socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+                           &amp;functionTableId, sizeof(GUID),
+                           &amp;_rioFunctions, sizeof(_rioFunctions),
+                           &amp;dwBytes, NULL, NULL);
+    if (result == SOCKET_ERROR) {
+        close();
+        return std::unexpected(std::format("RIO 함수 테이블 초기화 실패: {}", WSAGetLastError()));
+    }
+    return {};
+}</code></pre>
+
+  <p class="code-label">코드 조각 9 — RAII 소멸자</p>
+  <pre><code>void close() {
+    if (_socket != INVALID_SOCKET) {
+        closesocket(_socket);
+        _socket = INVALID_SOCKET;
+    }
+}
+~RioSocket() { close(); }   // 예외가 나든, 함수를 일찍 return하든 항상 호출됨</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">전체 코드 — RioSocket 클래스</p>
+    <p>세 코드 조각을 하나로 합친 전체 클래스입니다.</p>
+  </div>
+
+  <pre><code>#include &lt;winsock2.h&gt;
+#include &lt;mswsock.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;iostream&gt;
+#include &lt;format&gt;
+#include &lt;expected&gt;
+#include &lt;span&gt;
+#include &lt;vector&gt;
+#include &lt;memory&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+
+class RioSocket {
+public:
+    static std::expected&lt;void, std::string&gt; initialize() {
+        WSADATA wsaData;
+        int result = WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+        if (result != 0) {
+            return std::unexpected(std::format("WSAStartup 실패: {}", result));
+        }
+        return {};
+    }
+
+    static void cleanup() { WSACleanup(); }
+
+    RioSocket() = default;
+
+    std::expected&lt;void, std::string&gt; create(int type = SOCK_STREAM, int protocol = IPPROTO_TCP) {
+        _socket = WSASocketW(AF_INET, type, protocol, nullptr, 0, WSA_FLAG_REGISTERED_IO);
+        if (_socket == INVALID_SOCKET) {
+            return std::unexpected(std::format("소켓 생성 실패: {}", WSAGetLastError()));
+        }
+
+        GUID functionTableId = WSAID_MULTIPLE_RIO;
+        DWORD dwBytes = 0;
+        int result = WSAIoctl(_socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
+                               &amp;functionTableId, sizeof(GUID),
+                               &amp;_rioFunctions, sizeof(_rioFunctions),
+                               &amp;dwBytes, NULL, NULL);
+        if (result == SOCKET_ERROR) {
+            close();
+            return std::unexpected(std::format("RIO 함수 테이블 초기화 실패: {}", WSAGetLastError()));
+        }
+        return {};
+    }
+
+    void close() {
+        if (_socket != INVALID_SOCKET) {
+            closesocket(_socket);
+            _socket = INVALID_SOCKET;
+        }
+    }
+
+    ~RioSocket() { close(); }
+
+    RIO_EXTENSION_FUNCTION_TABLE* getFunctions() { return _rioFunctions; }
+    SOCKET getHandle() const { return _socket; }
+
+private:
+    SOCKET _socket = INVALID_SOCKET;
+    RIO_EXTENSION_FUNCTION_TABLE* _rioFunctions = nullptr;
+};</code></pre>
+</section>
+
+<section class="sec" id="echo-server">
+  <h2><span class="num">1.5</span> 실전 연습 — 간단한 에코 서버</h2>
+  <p class="sec-sub">지금까지 배운 API를 모두 모아, 블로킹 소켓 기반의 멀티스레드 에코 서버를 직접 완성합니다.</p>
+
+  <p>
+    "에코(echo) 서버"는 클라이언트가 보낸 데이터를 그대로 되돌려주는 가장 단순한 서버입니다.
+    기능은 사소하지만, 소켓 생성부터 연결 수락, 멀티스레드 처리, 정리까지 <strong>서버 프로그램의 뼈대</strong>가
+    모두 들어있어 네트워크 프로그래밍의 "Hello, World"로 자주 쓰입니다. 이번 절에서 만드는 이 서버는
+    3장부터 RIO 버전으로 다시 만들 것이므로, 지금 구조를 잘 익혀두면 뒤에서 "무엇이 RIO로 바뀌었는지"를
+    비교하며 이해하기 훨씬 쉬워집니다.
+  </p>
+
+  <h3>1) 클라이언트 하나를 전담하는 함수</h3>
+  <p>
+    연결마다 스레드 하나를 붙이는 가장 단순한 동시성 모델입니다. 클라이언트가 데이터를 보내면 받은
+    그대로 돌려보내고, 연결이 끊기거나 오류가 나면 소켓을 닫고 스레드를 종료합니다.
+  </p>
+  <pre><code>void handleClient(SOCKET clientSocket) {
+    char buffer[1024];
+    int bytesReceived;
+
+    while (true) {
+        bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived <= 0) {
+            if (bytesReceived == 0) {
+                std::cout &lt;&lt; "클라이언트가 연결을 종료했습니다.\n";
+            } else {
+                std::cerr &lt;&lt; std::format("recv 실패: {}\n", WSAGetLastError());
+            }
+            break;
+        }
+
+        buffer[bytesReceived] = '\0';
+        std::cout &lt;&lt; std::format("수신: {}\n", buffer);
+
+        int bytesSent = send(clientSocket, buffer, bytesReceived, 0);
+        if (bytesSent == SOCKET_ERROR) {
+            std::cerr &lt;&lt; std::format("send 실패: {}\n", WSAGetLastError());
+            break;
+        }
+    }
+    closesocket(clientSocket);
+}</code></pre>
+
+  <h3>2) 리스닝 소켓 준비</h3>
+  <p>
+    <code>main()</code>은 Winsock을 초기화하고, 앞서 배운 <code>bind()</code>·<code>listen()</code>으로
+    27015번 포트에서 연결을 기다릴 준비를 합니다.
+  </p>
+  <pre><code>WSADATA wsaData;
+WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+
+SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+sockaddr_in serverAddr{};
+serverAddr.sin_family = AF_INET;
+serverAddr.sin_port = htons(27015);
+serverAddr.sin_addr.s_addr = INADDR_ANY;   // 모든 네트워크 인터페이스에서 연결 수락
+
+bind(listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr));
+listen(listenSocket, SOMAXCONN);</code></pre>
+
+  <div class="callout info">
+    <p class="ctitle">INADDR_ANY의 의미</p>
+    <p>
+      서버 PC에 네트워크 인터페이스가 여러 개(예: 유선 랜, 무선 랜, 가상 어댑터) 있을 수 있습니다.
+      <code>INADDR_ANY</code>는 특정 IP 하나로 제한하지 않고, <strong>이 PC로 들어오는 모든 IP 주소의
+      연결 요청</strong>을 받겠다는 뜻입니다. 서버는 거의 항상 이 값을 사용합니다.
+    </p>
+  </div>
+
+  <h3>3) 연결 수락 루프 — 클라이언트마다 스레드 생성</h3>
+  <p>
+    <code>accept()</code>가 반환하는 즉시 새 스레드를 띄워 그 클라이언트를 전담시키고, 메인 스레드는
+    바로 다음 <code>accept()</code>로 돌아가 또 다른 클라이언트를 기다립니다. 이렇게 해야 한 클라이언트를
+    처리하는 동안 다른 클라이언트의 연결 요청이 밀리지 않습니다.
+  </p>
+  <pre><code>std::vector&lt;std::jthread&gt; clientThreads;
+
+while (true) {
+    sockaddr_in clientAddr{};
+    int clientAddrSize = sizeof(clientAddr);
+    SOCKET clientSocket = accept(listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;clientAddrSize);
+    if (clientSocket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; std::format("연결 수락 실패: {}\n", WSAGetLastError());
+        continue;
+    }
+
+    char clientIP[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &amp;clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+    std::cout &lt;&lt; std::format("새 클라이언트 연결: {}\n", clientIP);
+
+    clientThreads.emplace_back(handleClient, clientSocket);   // 스레드마다 클라이언트 하나 전담
+}</code></pre>
+
+  <div class="callout">
+    <p class="ctitle">이 모델의 한계 — 그래서 RIO가 필요합니다</p>
+    <p>
+      "연결마다 스레드 하나"는 이해하기 쉽지만, 접속자가 수천 명만 되어도 스레드 수천 개가 대부분
+      <code>recv()</code>에서 블로킹된 채 잠들어 있는 상태가 됩니다. 각 스레드가 차지하는 스택 메모리와
+      OS 스케줄러의 컨텍스트 스위칭 비용이 접속자 수에 비례해 계속 늘어나므로, 이 구조로는 대규모
+      동시접속을 감당할 수 없습니다. 2장부터는 <strong>소수의 스레드로 수만 개의 연결을 처리</strong>하는
+      RIO 기반 구조로 바꿔 나갑니다.
+    </p>
+  </div>
+
+  <h3>전체 코드 — 블로킹 소켓 기반 에코 서버</h3>
+  <pre><code>#include &lt;winsock2.h&gt;
+#include &lt;ws2tcpip.h&gt;
+#include &lt;iostream&gt;
+#include &lt;format&gt;
+#include &lt;string&gt;
+#include &lt;thread&gt;
+#include &lt;vector&gt;
+
+#pragma comment(lib, "ws2_32.lib")
+
+void handleClient(SOCKET clientSocket) {
+    char buffer[1024];
+    int bytesReceived;
+
+    while (true) {
+        bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived <= 0) {
+            if (bytesReceived == 0) {
+                std::cout &lt;&lt; "클라이언트가 연결을 종료했습니다.\n";
+            } else {
+                std::cerr &lt;&lt; std::format("recv 실패: {}\n", WSAGetLastError());
+            }
+            break;
+        }
+
+        buffer[bytesReceived] = '\0';
+        std::cout &lt;&lt; std::format("수신: {}\n", buffer);
+
+        int bytesSent = send(clientSocket, buffer, bytesReceived, 0);
+        if (bytesSent == SOCKET_ERROR) {
+            std::cerr &lt;&lt; std::format("send 실패: {}\n", WSAGetLastError());
+            break;
+        }
+    }
+
+    closesocket(clientSocket);
+}
+
+int main() {
+    WSADATA wsaData;
+    int result = WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+    if (result != 0) {
+        std::cerr &lt;&lt; std::format("WSAStartup 실패: {}\n", result);
+        return 1;
+    }
+
+    SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listenSocket == INVALID_SOCKET) {
+        std::cerr &lt;&lt; std::format("소켓 생성 실패: {}\n", WSAGetLastError());
+        WSACleanup();
+        return 1;
+    }
+
+    sockaddr_in serverAddr{};
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(27015);
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+
+    result = bind(listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;serverAddr), sizeof(serverAddr));
+    if (result == SOCKET_ERROR) {
+        std::cerr &lt;&lt; std::format("바인드 실패: {}\n", WSAGetLastError());
+        closesocket(listenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    result = listen(listenSocket, SOMAXCONN);
+    if (result == SOCKET_ERROR) {
+        std::cerr &lt;&lt; std::format("리슨 실패: {}\n", WSAGetLastError());
+        closesocket(listenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout &lt;&lt; "에코 서버가 시작되었습니다. 포트: 27015\n";
+
+    std::vector&lt;std::jthread&gt; clientThreads;
+
+    while (true) {
+        sockaddr_in clientAddr{};
+        int clientAddrSize = sizeof(clientAddr);
+
+        SOCKET clientSocket = accept(listenSocket, reinterpret_cast&lt;sockaddr*&gt;(&amp;clientAddr), &amp;clientAddrSize);
+        if (clientSocket == INVALID_SOCKET) {
+            std::cerr &lt;&lt; std::format("연결 수락 실패: {}\n", WSAGetLastError());
+            continue;
+        }
+
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &amp;clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+        std::cout &lt;&lt; std::format("새 클라이언트 연결: {}\n", clientIP);
+
+        clientThreads.emplace_back(handleClient, clientSocket);
+    }
+
+    closesocket(listenSocket);
+    WSACleanup();
+    return 0;
+}</code></pre>
+
+  <h3>빌드하고 직접 실행해보기</h3>
+  <p>
+    Visual Studio에서 새 "콘솔 앱" 프로젝트(C++, x64)를 만들고 위 코드를 <code>main.cpp</code>에
+    붙여넣은 뒤 빌드하면 됩니다. <code>#pragma comment(lib, "ws2_32.lib")</code> 줄이 있으므로
+    프로젝트 설정에서 링커 옵션을 따로 건드릴 필요는 없습니다.
+  </p>
+  <ol>
+    <li>빌드 후 실행하면 콘솔에 <code>에코 서버가 시작되었습니다. 포트: 27015</code>가 출력됩니다.</li>
+    <li>Windows에 <strong>텔넷 클라이언트</strong> 기능이 꺼져 있다면, "Windows 기능 켜기/끄기"에서
+      "텔넷 클라이언트"를 체크해 설치합니다.</li>
+    <li>새 명령 프롬프트를 열고 <code>telnet 127.0.0.1 27015</code>로 접속한 뒤 아무 문자열이나
+      입력하면, 서버가 그대로 되돌려주는 것을 확인할 수 있습니다.</li>
+    <li>명령 프롬프트를 여러 개 더 열어 동시에 접속해보면, 서버 콘솔에 클라이언트마다 별도의
+      "새 클라이언트 연결" 로그가 찍히는 것을 볼 수 있습니다 — 클라이언트마다 스레드가 하나씩
+      만들어지고 있다는 증거입니다.</li>
+  </ol>
+
+  <div class="callout info">
+    <p class="ctitle">telnet이 번거롭다면</p>
+    <p>
+      PowerShell에서 <code>Test-NetConnection 127.0.0.1 -Port 27015</code>로 포트가 열려 있는지만
+      간단히 확인할 수도 있습니다. 실제 데이터를 주고받아 보려면 텔넷이나, 파이썬이 설치되어 있다면
+      <code>python -c "import socket; s=socket.create_connection(('127.0.0.1',27015)); s.send(b'hi'); print(s.recv(1024))"</code>
+      한 줄로도 테스트할 수 있습니다.
+    </p>
+  </div>
+</section>
+
+<section class="sec" id="summary">
+  <h2><span class="num">1.6</span> 요약</h2>
+  <div class="summary-box">
+    <ol>
+      <li><strong>TCP와 UDP</strong> — TCP는 3-way 핸드셰이크로 신뢰성 있는 연결을 제공하고, UDP는
+        연결 없이 빠르게 보냅니다. 게임 서버는 데이터의 성격(정확성 vs 실시간성)에 따라 둘을 함께 씁니다.</li>
+      <li><strong>소켓 프로그래밍의 기본 흐름</strong> — 서버는 소켓 생성 → <code>bind()</code> →
+        <code>listen()</code> → <code>accept()</code>, 클라이언트는 소켓 생성 → <code>connect()</code>
+        순서로 호출하며, 이후 <code>send()</code>/<code>recv()</code>로 데이터를 주고받습니다.</li>
+      <li><strong>블로킹 vs 논블로킹</strong> — 블로킹은 구현이 쉽지만 접속자 수만큼 스레드가 필요해
+        확장성이 떨어지고, 논블로킹은 스레드를 아끼는 대신 폴링 로직이 필요합니다. Windows는 이벤트 기반,
+        Overlapped I/O + IOCP, 그리고 RIO까지 이어지는 비동기 I/O 모델을 세대별로 발전시켜 왔습니다.</li>
+      <li><strong>C++23 기능</strong> — <code>std::expected</code>로 명시적인 오류 처리를,
+        <code>std::span</code>으로 안전한 버퍼 뷰를, <code>std::jthread</code>로 자동 정리되는 스레드를
+        사용해 더 안전한 네트워크 코드를 작성할 수 있습니다.</li>
+      <li><strong>직접 만든 에코 서버</strong> — 연결마다 스레드를 하나씩 붙이는 가장 단순한 동시성
+        모델을 직접 빌드하고 실행해봤습니다. 이 구조의 한계(스레드 수 = 접속자 수)가 바로 RIO가
+        해결하려는 문제입니다.</li>
+    </ol>
+  </div>
+
+  <div class="next-chapter">
+    <p class="label">다음 장 예고</p>
+    <h4>2장. Windows Registered I/O(RIO) 소개</h4>
+    <p>
+      이번 장에서 만든 "스레드 하나당 연결 하나" 구조를 걷어내고, RIO가 어떻게 적은 수의 스레드로
+      대규모 동시 연결을 처리하는지 — 등록된 버퍼, 완료 큐, 요청 큐 같은 핵심 개념을 통해 살펴봅니다.
+      <a href="ch02.html">2장으로 이동 →</a>
+    </p>
+  </div>
+</section>
+
+<footer class="pagefoot">
+  <a href="index.html">← 목차</a>
+  <span class="kicker-num">1 / 9</span>
+  <a href="ch02.html">2장. Windows RIO 소개 →</a>
+</footer>
+
+</div>
+</body>
+</html>
